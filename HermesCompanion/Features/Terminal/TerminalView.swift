@@ -2,66 +2,45 @@ import SwiftUI
 
 struct TerminalView: View {
     @EnvironmentObject private var store: AppStore
-    @Environment(\.dismiss) private var dismiss
     @State private var draftCommand = ""
 
     var body: some View {
-        NavigationStack {
+        HermesMobileScreen(title: "Terminal", subtitle: terminalSubtitle, icon: "terminal", showsDone: true) {
             VStack(spacing: 0) {
-                TerminalHeader()
                 ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 8) {
-                            ForEach(lines) { line in
-                                TerminalLineRow(line: line)
-                                    .id(line.id)
+                    ScrollView(showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: 18) {
+                            HermesMobileSection(title: "Remote log", icon: "waveform.path.ecg", accent: HermesTheme.green) {
+                                LazyVStack(alignment: .leading, spacing: 5) {
+                                    ForEach(lines) { line in
+                                        TerminalLineRow(line: line)
+                                            .id(line.id)
+                                    }
+                                }
+                                .padding(.vertical, 2)
+                            }
+
+                            HermesMobileSection(title: "Command bridge", icon: "lock", accent: HermesTheme.warm) {
+                                RemoteCommandBar(text: $draftCommand)
                             }
                         }
-                        .padding(14)
+                        .padding(.horizontal, 13)
+                        .padding(.top, 10)
+                        .padding(.bottom, 24)
                     }
-                    .background(Color.black.opacity(0.36))
                     .onChange(of: lines) { _, latest in
                         guard let last = latest.last else { return }
                         withAnimation(.snappy) { proxy.scrollTo(last.id, anchor: .bottom) }
                     }
                 }
-                RemoteCommandBar(text: $draftCommand)
-            }
-            .background(HermesTheme.background.ignoresSafeArea())
-            .navigationTitle("Terminal")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                }
             }
         }
     }
+
+    private var terminalSubtitle: String { "remote desktop · read-only" }
 
     private var lines: [TerminalLine] {
         store.terminalLines.isEmpty ? TerminalLine.placeholder : store.terminalLines
-    }
-}
-
-private struct TerminalHeader: View {
-    var body: some View {
-        HStack(spacing: 8) {
-            Circle().fill(HermesTheme.red).frame(width: 8, height: 8)
-            Circle().fill(HermesTheme.warm).frame(width: 8, height: 8)
-            Circle().fill(HermesTheme.green).frame(width: 8, height: 8)
-            Text("remote hermes desktop")
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .foregroundStyle(HermesTheme.mutedForeground)
-            Spacer()
-            Text("read-only")
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                .textCase(.uppercase)
-                .foregroundStyle(HermesTheme.primary)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(HermesTheme.card)
-        .overlay(Rectangle().frame(height: 1).foregroundStyle(HermesTheme.stroke), alignment: .bottom)
     }
 }
 
@@ -73,7 +52,7 @@ private struct TerminalLineRow: View {
             Text(prefix)
                 .font(.system(size: 12, weight: .bold, design: .monospaced))
                 .foregroundStyle(prefixColor)
-                .frame(width: 22, alignment: .trailing)
+                .frame(width: 18, alignment: .trailing)
             Text(line.text)
                 .font(.system(size: 12, weight: .regular, design: .monospaced))
                 .foregroundStyle(textColor)
@@ -81,7 +60,9 @@ private struct TerminalLineRow: View {
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 2)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(line.kind == .input ? HermesTheme.userBubble : Color.clear, in: RoundedRectangle(cornerRadius: 3, style: .continuous))
     }
 
     private var prefix: String {
@@ -119,7 +100,7 @@ private struct RemoteCommandBar: View {
             Text("$")
                 .font(.system(size: 13, weight: .bold, design: .monospaced))
                 .foregroundStyle(HermesTheme.green)
-            TextField("Remote command prompt coming with streaming bridge", text: $text)
+            TextField("Remote command bridge locked", text: $text)
                 .font(.system(size: 12, design: .monospaced))
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -128,10 +109,9 @@ private struct RemoteCommandBar: View {
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(HermesTheme.mutedForeground)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(HermesTheme.card)
-        .overlay(Rectangle().frame(height: 1).foregroundStyle(HermesTheme.stroke), alignment: .top)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
+        .background(HermesTheme.background.opacity(0.34), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 

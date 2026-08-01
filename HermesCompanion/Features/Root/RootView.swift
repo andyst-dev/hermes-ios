@@ -34,8 +34,9 @@ struct RootView: View {
             CommandPaletteView().environmentObject(store)
         }
         .sheet(isPresented: $showingInspector) {
-            NavigationStack { InspectorView().navigationTitle("Desktop State") }
-                .environmentObject(store)
+            HermesMobileScreen(title: "Inspector", subtitle: "desktop state · paired Mac", icon: "sidebar.right", showsDone: true) {
+                InspectorView().environmentObject(store)
+            }
         }
         .sheet(isPresented: $showingModels) {
             ModelPickerView().environmentObject(store)

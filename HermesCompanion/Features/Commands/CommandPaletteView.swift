@@ -12,39 +12,57 @@ struct CommandPaletteView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 12) {
-                HStack(spacing: 10) {
-                    Image(systemName: "command")
-                        .foregroundStyle(HermesTheme.ring)
-                    TextField("Search commands", text: $query)
-                        .textInputAutocapitalization(.never)
-                        .font(.system(.body, design: .monospaced))
-                }
-                .padding(14)
-                .background(HermesTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(HermesTheme.border, lineWidth: 1))
-                .padding(.horizontal)
+        HermesMobileScreen(title: "Commands", subtitle: "mobile actions · desktop controlled", icon: "command", showsDone: true) {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 18) {
+                    HermesMobileSearchField(placeholder: "Search commands…", text: $query)
 
-                List(commands) { command in
-                    Button {
-                        Task {
-                            await store.runCommand(command)
-                            dismiss()
+                    HermesMobileSection(title: "Actions", icon: "bolt", accent: HermesTheme.primary) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            ForEach(commands) { command in
+                                Button {
+                                    Task {
+                                        await store.runCommand(command)
+                                        dismiss()
+                                    }
+                                } label: {
+                                    HermesMobileRow(
+                                        title: command.title,
+                                        subtitle: commandSubtitle(command),
+                                        icon: command.icon,
+                                        accent: commandAccent(command),
+                                        selected: false
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
-                    } label: {
-                        Label(command.title, systemImage: command.icon)
-                            .foregroundStyle(HermesTheme.foreground)
-                            .font(.system(.body, design: .default).weight(.medium))
                     }
-                    .listRowBackground(HermesTheme.card)
                 }
-                .scrollContentBackground(.hidden)
+                .padding(.horizontal, 13)
+                .padding(.top, 10)
+                .padding(.bottom, 28)
             }
-            .background(HermesTheme.background)
-            .navigationTitle("Command Palette")
-            .toolbar { Button("Done") { dismiss() } }
         }
         .presentationDetents([.medium, .large])
+    }
+
+    private func commandSubtitle(_ command: MobileCommand) -> String {
+        switch command {
+        case .newChat: "Start a fresh desktop session"
+        case .stop: "Stop the running turn"
+        case .continueLast: "Send Continue into the selected chat"
+        case .togglePrivacy: store.privacyMode ? "Currently hiding private details" : "Raw local details visible"
+        case .refresh: "Reload sessions, models, and desktop state"
+        }
+    }
+
+    private func commandAccent(_ command: MobileCommand) -> Color {
+        switch command {
+        case .stop: HermesTheme.destructive
+        case .continueLast, .refresh: HermesTheme.primary
+        case .togglePrivacy: HermesTheme.warm
+        case .newChat: HermesTheme.green
+        }
     }
 }

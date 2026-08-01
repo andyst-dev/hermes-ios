@@ -4,49 +4,52 @@ struct InspectorView: View {
     @EnvironmentObject private var store: AppStore
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                InspectorSection(title: "Model", icon: "cpu") {
-                    Picker("Model", selection: Binding(get: { store.activeModelID ?? "" }, set: { store.activeModelID = $0 })) {
-                        ForEach(store.capabilities.models) { model in
-                            Text("\(model.displayName) · \(model.provider)").tag(model.id)
-                        }
-                    }
-                    .pickerStyle(.menu)
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 18) {
+                HermesMobileSection(title: "Model", icon: "cpu", accent: HermesTheme.primary) {
                     if let model = store.activeModel {
-                        CapabilityBadges(items: [model.supportsTools ? "tools" : "no tools", model.supportsVision ? "vision" : "text"])
+                        HermesMobileRow(
+                            title: model.displayName,
+                            subtitle: "\(model.providerName ?? model.provider) · \(model.supportsTools ? "tools" : "text") · \(model.supportsVision ? "vision" : "no vision")",
+                            icon: "cpu",
+                            accent: HermesTheme.primary,
+                            selected: true
+                        )
                     }
+                    CapabilityBadges(items: store.capabilities.models.prefix(5).map { $0.displayName })
                 }
 
-                InspectorSection(title: "Approvals", icon: "hand.raised.fill") {
+                HermesMobileSection(title: "Approvals", icon: "hand.raised.fill", accent: HermesTheme.warm) {
                     if store.capabilities.approvals.isEmpty {
                         EmptyLine("No pending approvals")
                     } else {
                         ForEach(store.capabilities.approvals) { approval in
-                            RowCard(title: approval.title, subtitle: approval.detail, accent: riskColor(approval.risk), icon: "exclamationmark.shield")
+                            HermesMobileRow(title: approval.title, subtitle: approval.detail, icon: "exclamationmark.shield", accent: riskColor(approval.risk))
                         }
                     }
                 }
 
-                InspectorSection(title: "Jobs", icon: "bolt.horizontal.circle") {
+                HermesMobileSection(title: "Jobs", icon: "bolt.horizontal.circle", accent: HermesTheme.primary) {
                     ForEach(store.capabilities.jobs) { job in
-                        RowCard(title: job.title, subtitle: job.detail, accent: statusColor(job.status), icon: jobIcon(job.status))
+                        HermesMobileRow(title: job.title, subtitle: job.detail, icon: jobIcon(job.status), accent: statusColor(job.status))
                     }
                 }
 
-                InspectorSection(title: "Files", icon: "folder") {
+                HermesMobileSection(title: "Files", icon: "folder", accent: HermesTheme.mutedForeground) {
                     ForEach(store.capabilities.files) { file in
-                        RowCard(title: file.label, subtitle: store.privacyMode ? redactedPath(file.path) : file.path, accent: HermesTheme.ring, icon: fileIcon(file.kind))
+                        HermesMobileRow(title: file.label, subtitle: store.privacyMode ? redactedPath(file.path) : file.path, icon: fileIcon(file.kind), accent: HermesTheme.primary)
                     }
                 }
 
-                InspectorSection(title: "Tools", icon: "wrench.and.screwdriver") {
+                HermesMobileSection(title: "Tools", icon: "wrench.and.screwdriver", accent: HermesTheme.mutedForeground) {
                     CapabilityBadges(items: store.capabilities.tools)
                 }
             }
-            .padding(14)
+            .padding(.horizontal, 13)
+            .padding(.top, 10)
+            .padding(.bottom, 28)
         }
-        .background(HermesTheme.sidebar)
+        .background(HermesTheme.sidebar.ignoresSafeArea())
     }
 
     private func riskColor(_ risk: HermesApproval.Risk) -> Color {
@@ -92,55 +95,6 @@ struct InspectorView: View {
     }
 }
 
-struct InspectorSection<Content: View>: View {
-    let title: String
-    let icon: String
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label(title, systemImage: icon)
-                .font(.system(.caption, design: .monospaced).weight(.bold))
-                .foregroundStyle(HermesTheme.ring)
-                .textCase(.uppercase)
-            content
-        }
-        .padding(12)
-        .desktopPanel(cornerRadius: 18)
-    }
-}
-
-struct RowCard: View {
-    let title: String
-    let subtitle: String
-    let accent: Color
-    let icon: String
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .font(.caption.weight(.bold))
-                .foregroundStyle(accent)
-                .frame(width: 26, height: 26)
-                .background(accent.opacity(0.14), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(HermesTheme.foreground)
-                    .lineLimit(1)
-                Text(subtitle)
-                    .font(.caption2)
-                    .foregroundStyle(HermesTheme.mutedForeground)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(9)
-        .background(HermesTheme.muted, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(HermesTheme.border, lineWidth: 1))
-    }
-}
-
 struct CapabilityBadges: View {
     let items: [String]
 
@@ -149,20 +103,20 @@ struct CapabilityBadges: View {
             ForEach(items, id: \.self) { item in
                 Text(item)
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(HermesTheme.foreground)
+                    .foregroundStyle(HermesTheme.foreground.opacity(0.84))
                     .padding(.horizontal, 9)
                     .padding(.vertical, 5)
-                    .background(HermesTheme.secondary, in: Capsule())
-                    .overlay(Capsule().stroke(HermesTheme.border, lineWidth: 1))
+                    .background(HermesTheme.background.opacity(0.34), in: Capsule())
             }
         }
+        .padding(.horizontal, 4)
     }
 }
 
 struct EmptyLine: View {
     let text: String
     init(_ text: String) { self.text = text }
-    var body: some View { Text(text).font(.caption).foregroundStyle(HermesTheme.mutedForeground) }
+    var body: some View { Text(text).font(.caption).foregroundStyle(HermesTheme.mutedForeground).padding(.horizontal, 10) }
 }
 
 struct FlowLayout: Layout {

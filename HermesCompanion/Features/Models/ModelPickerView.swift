@@ -17,50 +17,41 @@ struct ModelPickerView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 12) {
-                HStack(spacing: 10) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(HermesTheme.mutedForeground)
-                    TextField("Search models", text: $query)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                }
-                .padding(12)
-                .background(HermesTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(HermesTheme.stroke, lineWidth: 1))
-                .padding(.horizontal)
+        HermesMobileScreen(title: "Models", subtitle: activeSubtitle, icon: "cpu", showsDone: true) {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 18) {
+                    HermesMobileSearchField(placeholder: "Search models…", text: $query)
 
-                List {
                     ForEach(groupedProviderNames, id: \.self) { provider in
-                        Section(provider) {
-                            ForEach(filteredModels.filter { displayProvider($0) == provider }) { model in
-                                Button {
-                                    Task {
-                                        await store.selectModel(model)
-                                        dismiss()
+                        HermesMobileSection(title: provider, icon: "server.rack", accent: HermesTheme.primary) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                ForEach(filteredModels.filter { displayProvider($0) == provider }) { model in
+                                    let active = model.id == store.activeModelID && model.provider == store.activeProviderID
+                                    Button {
+                                        Task {
+                                            await store.selectModel(model)
+                                            dismiss()
+                                        }
+                                    } label: {
+                                        ModelRow(model: model, active: active)
                                     }
-                                } label: {
-                                    ModelRow(model: model, active: model.id == store.activeModelID && model.provider == store.activeProviderID)
+                                    .buttonStyle(.plain)
                                 }
-                                .buttonStyle(.plain)
-                                .listRowBackground(Color.clear)
                             }
                         }
                     }
                 }
-                .scrollContentBackground(.hidden)
+                .padding(.horizontal, 13)
+                .padding(.top, 10)
+                .padding(.bottom, 28)
             }
-            .background(HermesTheme.background.ignoresSafeArea())
-            .navigationTitle("Change model")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                }
-            }
-            .task { try? await store.refreshCapabilities() }
         }
+        .task { try? await store.refreshCapabilities() }
+    }
+
+    private var activeSubtitle: String {
+        if let active = store.activeModel { return "active · \(active.displayName)" }
+        return "choose desktop model"
     }
 
     private var groupedProviderNames: [String] {
@@ -77,30 +68,34 @@ private struct ModelRow: View {
     let active: Bool
 
     var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(spacing: 10) {
+            Circle()
+                .fill(active ? HermesTheme.primary : HermesTheme.mutedForeground.opacity(0.55))
+                .frame(width: 4.5, height: 4.5)
+            VStack(alignment: .leading, spacing: 2) {
                 Text(model.displayName)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(HermesTheme.ink)
+                    .font(.system(size: 13.5, weight: active ? .semibold : .regular))
+                    .foregroundStyle(active ? HermesTheme.ink : HermesTheme.ink.opacity(0.78))
                     .lineLimit(1)
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     Text(model.providerName ?? model.provider)
-                    if model.supportsVision { Label("Vision", systemImage: "eye") }
-                    if model.supportsTools { Label("Tools", systemImage: "wrench.and.screwdriver") }
+                    if model.supportsVision { Text("vision") }
+                    if model.supportsTools { Text("tools") }
                 }
-                .font(.caption2)
-                .foregroundStyle(HermesTheme.mutedForeground)
+                .font(.system(size: 10.5))
+                .foregroundStyle(HermesTheme.mutedForeground.opacity(0.78))
                 .lineLimit(1)
             }
             Spacer()
             if active {
-                Image(systemName: "checkmark.circle.fill")
+                Image(systemName: "checkmark")
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(HermesTheme.primary)
             }
         }
-        .padding(.vertical, 8)
         .padding(.horizontal, 10)
-        .background(active ? HermesTheme.elevated : HermesTheme.card.opacity(0.65), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(active ? HermesTheme.primary.opacity(0.55) : HermesTheme.stroke, lineWidth: 1))
+        .padding(.vertical, active ? 7 : 6)
+        .background(active ? HermesTheme.userBubble : Color.clear, in: RoundedRectangle(cornerRadius: 3, style: .continuous))
+        .contentShape(Rectangle())
     }
 }
