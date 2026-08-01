@@ -2,50 +2,65 @@ import SwiftUI
 
 struct ConnectView: View {
     @EnvironmentObject private var store: AppStore
-    @State private var host = UserDefaults.standard.string(forKey: "hermes.host") ?? "http://127.0.0.1:8765"
-    @State private var profile = UserDefaults.standard.string(forKey: "hermes.profile") ?? "default"
+    @State private var host = UserDefaults.standard.string(forKey: "hermes.host") ?? ProcessInfo.processInfo.environment["HERMES_MOBILE_BASE_URL"] ?? "http://127.0.0.1:8765"
+    @State private var profile = UserDefaults.standard.string(forKey: "hermes.profile") ?? ProcessInfo.processInfo.environment["HERMES_PROFILE"] ?? "default"
     @State private var token = ProcessInfo.processInfo.environment["HERMES_DASHBOARD_SESSION_TOKEN"] ?? KeychainStore.loadToken() ?? ""
+    @State private var showingAdvanced = false
     @State private var tokenSaveError: String?
 
     var body: some View {
-        HermesMobileScreen(title: "Connect", subtitle: "Hermes Desktop bridge", icon: "desktopcomputer") {
+        HermesMobileScreen(title: "Connect", subtitle: "Hermes Desktop", icon: "desktopcomputer") {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 14) {
                     HermesMark(size: 82)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    Text("Thin iOS client. Tools, files, models and execution stay on Desktop.")
+                    Text("Connect this iPhone UI to the Hermes running on your Mac.")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(HermesTheme.mutedForeground)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                HermesMobileSection(title: "Desktop") {
-                    connectionField(icon: "network", placeholder: "http://127.0.0.1:8765", text: $host, keyboard: .URL)
-                    connectionField(icon: "person.crop.circle", placeholder: "default", text: $profile)
-                    secureTokenField
+                HermesMobileSection(title: "This Mac") {
+                    HermesMobileRow(title: "Desktop bridge", subtitle: simplifiedHostLabel, icon: "network", accent: HermesTheme.primary)
+                    HermesMobileRow(title: "Profile", subtitle: profile.isEmpty ? "default" : profile, icon: "folder", accent: HermesTheme.mutedForeground)
                 }
 
                 Button(action: connect) {
                     HStack(spacing: 10) {
                         if case .connecting = store.connection { ProgressView().tint(HermesTheme.primaryForeground) }
-                        Text("Connect to Hermes Desktop")
-                            .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        Text("Connect")
+                            .font(.system(size: 14, weight: .bold, design: .monospaced))
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 13)
+                    .padding(.vertical, 14)
                     .background(HermesTheme.primary, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     .foregroundStyle(HermesTheme.primaryForeground)
                 }
                 .buttonStyle(.plain)
                 .disabled(isConnecting)
 
-                Button {} label: {
-                    Label("Pairing QR coming next", systemImage: "qrcode.viewfinder")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(HermesTheme.mutedForeground)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                Button {
+                    withAnimation(.snappy) { showingAdvanced.toggle() }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: showingAdvanced ? "chevron.down" : "chevron.right")
+                            .font(.system(size: 10, weight: .bold))
+                        Text("Advanced connection")
+                            .font(.system(size: 12, weight: .semibold))
+                        Spacer()
+                    }
+                    .foregroundStyle(HermesTheme.mutedForeground)
                 }
                 .buttonStyle(.plain)
+
+                if showingAdvanced {
+                    HermesMobileSection(title: "Manual") {
+                        connectionField(icon: "network", placeholder: "http://127.0.0.1:8765", text: $host, keyboard: .URL)
+                        connectionField(icon: "person.crop.circle", placeholder: "default", text: $profile)
+                        secureTokenField
+                    }
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
 
                 if let tokenSaveError {
                     Text(tokenSaveError)
@@ -67,7 +82,7 @@ struct ConnectView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(HermesTheme.primary)
                 .frame(width: 18)
-            SecureField("Dashboard token optional", text: $token)
+            SecureField("Dashboard token", text: $token)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .font(.system(size: 13, weight: .medium, design: .monospaced))
@@ -96,6 +111,12 @@ struct ConnectView: View {
         .padding(.vertical, 10)
         .background(HermesTheme.card.opacity(0.5), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(HermesTheme.stroke, lineWidth: 1))
+    }
+
+    private var simplifiedHostLabel: String {
+        guard let url = URL(string: host), let hostName = url.host else { return host }
+        if hostName == "127.0.0.1" || hostName == "localhost" { return "Local simulator" }
+        return hostName
     }
 
     private var isConnecting: Bool {

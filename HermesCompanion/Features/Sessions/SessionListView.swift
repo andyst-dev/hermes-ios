@@ -47,7 +47,7 @@ struct SessionListView: View {
                 .padding(.top, 10)
                 .padding(.bottom, 96)
             }
-            SidebarFooter(showingSettings: $showingSettings)
+            SidebarFooter()
         }
         .background(HermesTheme.sidebar)
         .toolbar(.hidden, for: .navigationBar)
@@ -101,7 +101,6 @@ struct SessionListView: View {
 }
 
 private struct MobileSessionsHeader: View {
-    @EnvironmentObject private var store: AppStore
     @Binding var showingSettings: Bool
     let onNewSession: () -> Void
 
@@ -111,13 +110,6 @@ private struct MobileSessionsHeader: View {
                 Text("Chats")
                     .font(HermesTheme.brandTitle(size: 25))
                     .foregroundStyle(HermesTheme.ink)
-                HStack(spacing: 6) {
-                    StatusDot(color: HermesTheme.green)
-                    Text(connectionLabel)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(HermesTheme.mutedForeground)
-                        .lineLimit(1)
-                }
             }
             Spacer()
             Button(action: onNewSession) {
@@ -141,10 +133,6 @@ private struct MobileSessionsHeader: View {
         .padding(.bottom, 10)
     }
 
-    private var connectionLabel: String {
-        if case .connected(let host) = store.connection { return "\(host.profile) · gateway ready" }
-        return "offline"
-    }
 }
 
 private struct MobileQuickFilters: View {
@@ -329,12 +317,6 @@ private struct SidebarSection<Content: View>: View {
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .tracking(2.4)
                     .foregroundStyle(HermesTheme.ink.opacity(0.88))
-                Spacer()
-                if title.lowercased() == "sessions" {
-                    Image(systemName: "square.stack.3d.up")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(HermesTheme.mutedForeground.opacity(0.62))
-                }
             }
             .padding(.horizontal, 4)
             content
@@ -402,7 +384,6 @@ private struct SidebarSessionRow: View {
 
 private struct SidebarFooter: View {
     @EnvironmentObject private var store: AppStore
-    @Binding var showingSettings: Bool
 
     var body: some View {
         HStack(spacing: 8) {
@@ -412,14 +393,7 @@ private struct SidebarFooter: View {
                 .foregroundStyle(HermesTheme.mutedForeground.opacity(0.48))
             Image(systemName: "folder")
             Text(profileLabel)
-                Spacer()
-            Button { showingSettings = true } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(HermesTheme.mutedForeground)
-                    .frame(width: 28, height: 28)
-            }
-            .buttonStyle(.plain)
+            Spacer()
         }
         .font(.system(size: 11, weight: .medium))
         .foregroundStyle(HermesTheme.mutedForeground.opacity(0.82))

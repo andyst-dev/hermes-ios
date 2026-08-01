@@ -27,18 +27,33 @@ struct ChatView: View {
                                 }
                             }
                         }
+                        Color.clear
+                            .frame(height: 1)
+                            .id("chat-bottom")
                     }
                     .padding(.horizontal, 18)
                     .padding(.bottom, 18)
                 }
+                .onAppear {
+                    scrollToBottom(proxy)
+                }
+                .onChange(of: store.selectedSessionID) { _, _ in
+                    scrollToBottom(proxy)
+                }
                 .onChange(of: store.messages) { _, messages in
-                    guard let last = messages.last else { return }
-                    withAnimation(.snappy) { proxy.scrollTo(last.id, anchor: .bottom) }
+                    guard !messages.isEmpty else { return }
+                    scrollToBottom(proxy)
                 }
             }
             ComposerView()
         }
         .background(HermesTheme.background.opacity(0.72))
+    }
+
+    private func scrollToBottom(_ proxy: ScrollViewProxy) {
+        DispatchQueue.main.async {
+            withAnimation(.snappy) { proxy.scrollTo("chat-bottom", anchor: .bottom) }
+        }
     }
 }
 

@@ -10,9 +10,12 @@ struct HermesCompanionApp: App {
         let env = ProcessInfo.processInfo.environment
         let isDemo = env["HERMES_DEMO_CONNECTED"] == "1"
         demoMode = isDemo
-        let envHost = env["HERMES_MOBILE_BASE_URL"].flatMap(URL.init(string:)) ?? URL(string: "http://127.0.0.1:8765")
-        let envProfile = env["HERMES_PROFILE"] ?? "default"
-        autoConnectHost = env["HERMES_DASHBOARD_SESSION_TOKEN"] == nil ? nil : HermesHost(name: "Desktop Hermes", baseURL: envHost!, profile: envProfile)
+        let storedHost = UserDefaults.standard.string(forKey: "hermes.host")
+        let storedProfile = UserDefaults.standard.string(forKey: "hermes.profile")
+        let hostURL = (env["HERMES_MOBILE_BASE_URL"] ?? storedHost).flatMap(URL.init(string:)) ?? URL(string: "http://127.0.0.1:8765")!
+        let profile = env["HERMES_PROFILE"] ?? storedProfile ?? "default"
+        let hasToken = env["HERMES_DASHBOARD_SESSION_TOKEN"] != nil || KeychainStore.loadToken() != nil
+        autoConnectHost = hasToken ? HermesHost(name: "Desktop Hermes", baseURL: hostURL, profile: profile) : nil
         let transport: any HermesTransport = isDemo
             ? MockHermesTransport()
             : HTTPHermesTransport(tokenProvider: {
