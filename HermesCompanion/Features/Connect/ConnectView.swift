@@ -11,7 +11,8 @@ struct ConnectView: View {
     @State private var copiedPrompt = false
 
     var body: some View {
-        HermesMobileScreen(title: "Connect", subtitle: "Hermes Desktop", icon: "desktopcomputer") {
+        VStack(spacing: 0) {
+            ConnectOnboardingHeader()
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 18) {
                     onboardingHero
@@ -60,20 +61,6 @@ struct ConnectView: View {
                     }
                     .buttonStyle(.plain)
 
-                    Button(action: connect) {
-                        HStack(spacing: 10) {
-                            if case .connecting = store.connection { ProgressView().tint(HermesTheme.primaryForeground) }
-                            Text("Connect manually")
-                                .font(.system(size: 12, weight: .semibold))
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(HermesTheme.card.opacity(0.58), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .foregroundStyle(HermesTheme.mutedForeground)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isConnecting)
-
                     Button {
                         withAnimation(.snappy) { showingAdvanced.toggle() }
                     } label: {
@@ -95,6 +82,19 @@ struct ConnectView: View {
                             connectionField(icon: "network", placeholder: "http://127.0.0.1:8765", text: $host, keyboard: .URL)
                             connectionField(icon: "person.crop.circle", placeholder: "default", text: $profile)
                             secureTokenField
+                            Button(action: connect) {
+                                HStack(spacing: 10) {
+                                    if case .connecting = store.connection { ProgressView().tint(HermesTheme.primaryForeground) }
+                                    Text("Connect with these details")
+                                        .font(.system(size: 12, weight: .semibold))
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(HermesTheme.card.opacity(0.58), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                .foregroundStyle(HermesTheme.mutedForeground)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(isConnecting)
                         }
                         .transition(.opacity.combined(with: .move(edge: .top)))
                     }
@@ -116,6 +116,7 @@ struct ConnectView: View {
                 .padding(.bottom, 28)
             }
         }
+        .background(HermesTheme.sidebar.ignoresSafeArea())
         .sheet(isPresented: $showingScanner) {
             PairingQRCodeScanner { code in
                 showingScanner = false
@@ -273,6 +274,28 @@ struct ConnectView: View {
         } catch {
             tokenSaveError = error.localizedDescription
         }
+    }
+}
+
+private struct ConnectOnboardingHeader: View {
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: -2) {
+                Text("HERMES")
+                    .font(HermesTheme.brandTitle(size: 28))
+                    .tracking(0.8)
+                    .foregroundStyle(HermesTheme.ink)
+                Text("AGENT")
+                    .font(HermesTheme.brandTitle(size: 20))
+                    .tracking(1.2)
+                    .foregroundStyle(HermesTheme.ink.opacity(0.94))
+            }
+            .textCase(.uppercase)
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
+        .padding(.bottom, 10)
     }
 }
 
