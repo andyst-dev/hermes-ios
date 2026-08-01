@@ -45,4 +45,14 @@ final class HermesCompanionTests: XCTestCase {
         XCTAssertEqual(store.activeProviderID, target.provider)
         XCTAssertEqual(store.activeModel?.isActive, true)
     }
+
+    func testTranscriptVisibilityHidesInternalContext() {
+        let visible = HermesMessage(id: "1", role: .assistant, text: "Use `cb51d4e` in the PR note.", createdAt: .now, toolCalls: [])
+        let system = HermesMessage(id: "2", role: .system, text: "private prompt", createdAt: .now, toolCalls: [])
+        let compaction = HermesMessage(id: "3", role: .user, text: "[CONTEXT COMPACTION — REFERENCE ONLY] hidden", createdAt: .now, toolCalls: [])
+
+        XCTAssertTrue(visible.isTranscriptVisible)
+        XCTAssertFalse(system.isTranscriptVisible)
+        XCTAssertFalse(compaction.isTranscriptVisible)
+    }
 }

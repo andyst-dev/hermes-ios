@@ -137,11 +137,7 @@ private struct StickyUserPrompt: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text(message.text)
-                    .font(.system(size: 14, weight: .medium, design: .default))
-                    .foregroundStyle(HermesTheme.ink)
-                    .textSelection(.enabled)
-                    .lineLimit(4)
+                MarkdownMessageText(message.text, baseSize: 14, lineLimit: 4)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 14)
@@ -164,12 +160,7 @@ private struct ResponseBlock: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             if !message.text.isEmpty {
-                Text(message.text)
-                    .font(.system(size: 15, weight: .regular, design: .default))
-                    .lineSpacing(4)
-                    .foregroundStyle(textColor)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                MarkdownMessageText(message.text, baseSize: 15, textColor: textColor)
             }
             ForEach(message.toolCalls) { tool in
                 ToolCallCard(tool: tool)
@@ -180,6 +171,112 @@ private struct ResponseBlock: View {
 
     private var textColor: Color {
         message.role == .system ? HermesTheme.red : HermesTheme.ink
+    }
+}
+
+private struct MarkdownMessageText: View {
+    private let blocks: [MarkdownBlock]
+    private let baseSize: CGFloat
+    private let textColor: Color
+    private let lineLimit: Int?
+
+    init(_ text: String, baseSize: CGFloat, textColor: Color = HermesTheme.ink, lineLimit: Int? = nil) {
+        self.blocks = MarkdownBlock.parse(text)
+        self.baseSize = baseSize
+        self.textColor = textColor
+        self.lineLimit = lineLimit
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            ForEach(blocks) { block in
+                switch block.kind {
+                case .prose(let text):
+                    Text(markdown: text)
+                        .font(.system(size: baseSize, weight: .regular, design: .default))
+                        .lineSpacing(4)
+                        .foregroundStyle(textColor)
+                        .textSelection(.enabled)
+                        .lineLimit(lineLimit)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                case .code(let text):
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        Text(text)
+                            .font(.system(size: max(baseSize - 1, 12), weight: .regular, design: .monospaced))
+                            .foregroundStyle(HermesTheme.ink)
+                            .textSelection(.enabled)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 9)
+                    }
+                    .background(HermesTheme.card.opacity(0.78), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(HermesTheme.stroke, lineWidth: 1))
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct MarkdownBlock: Identifiable {
+    enum Kind {
+        case prose(String)
+        case code(String)
+    }
+
+    let id = UUID()
+    let kind: Kind
+
+    static func parse(_ raw: String) -> [MarkdownBlock] {
+        var blocks: [MarkdownBlock] = []
+        var prose: [String] = []
+        var code: [String] = []
+        var insideCode = false
+
+        func flushProse() {
+            let text = prose.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+            if !text.isEmpty { blocks.append(MarkdownBlock(kind: .prose(text))) }
+            prose.removeAll()
+        }
+
+        func flushCode() {
+            let text = code.joined(separator: "\n").trimmingCharacters(in: .newlines)
+            if !text.isEmpty { blocks.append(MarkdownBlock(kind: .code(text))) }
+            code.removeAll()
+        }
+
+        for line in raw.components(separatedBy: .newlines) {
+            if line.trimmingCharacters(in: .whitespaces).hasPrefix("```") {
+                if insideCode {
+                    flushCode()
+                    insideCode = false
+                } else {
+                    flushProse()
+                    insideCode = true
+                }
+            } else if insideCode {
+                code.append(line)
+            } else {
+                prose.append(line)
+            }
+        }
+
+        if insideCode { flushCode() }
+        flushProse()
+        if blocks.isEmpty { return [MarkdownBlock(kind: .prose(raw))] }
+        return blocks
+    }
+}
+
+private extension Text {
+    init(markdown raw: String) {
+        if let attributed = try? AttributedString(
+            markdown: raw,
+            options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        ) {
+            self.init(attributed)
+        } else {
+            self.init(raw)
+        }
     }
 }
 

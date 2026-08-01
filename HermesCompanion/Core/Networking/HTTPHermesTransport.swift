@@ -41,7 +41,7 @@ actor HTTPHermesTransport: HermesTransport {
 
     func fetchMessages(sessionID: String) async throws -> [HermesMessage] {
         let response: MobileMessagesResponse = try await get("api/mobile/sessions/\(sessionID)/messages")
-        return response.messages
+        return response.messages.filter(\.isTranscriptVisible)
     }
 
     func fetchCapabilities() async throws -> HermesCapabilitySnapshot {
@@ -60,7 +60,7 @@ actor HTTPHermesTransport: HermesTransport {
     func send(_ prompt: OutboundPrompt) async throws -> AsyncThrowingStream<HermesMessage, Error> {
         let response: MobileChatResponse = try await post("api/mobile/chat", body: prompt, timeout: 600)
         return AsyncThrowingStream { continuation in
-            for message in response.messages {
+            for message in response.messages.filter(\.isTranscriptVisible) {
                 continuation.yield(message)
             }
             continuation.finish()

@@ -46,6 +46,18 @@ struct HermesMessage: Codable, Equatable, Identifiable {
     }
 }
 
+extension HermesMessage {
+    var isTranscriptVisible: Bool {
+        guard role == .user || role == .assistant else { return false }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("[CONTEXT COMPACTION — REFERENCE ONLY]") { return false }
+        if trimmed.hasPrefix("[CONTEXT COMPACTION - REFERENCE ONLY]") { return false }
+        if trimmed.contains("--- END OF CONTEXT SUMMARY") { return false }
+        if trimmed.contains("## Historical Task Snapshot") { return false }
+        return true
+    }
+}
+
 struct HermesToolCall: Codable, Equatable, Identifiable {
     let id: String
     var name: String
