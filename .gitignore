@@ -1,0 +1,10 @@
+# Xcode
+DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# Local screenshots / demos
+hermes-ios-*.png
+
+# macOS
+.DS_Store

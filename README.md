@@ -12,6 +12,8 @@ Native SwiftUI companion app for Hermes Agent. The desktop/server instance keeps
 - iPad split layout inspired by Hermes Desktop
 - bundled Hermes desktop logo and Collapse display font for brand parity
 - session list, streaming chat, tool-call cards, composer, and settings
+- command palette plus a separate desktop-state inspector so advanced controls do not clutter chat
+- desktop parity targets: models, profiles, files/previews, tools, jobs, cron, approvals, and review/ship state
 - future QR pairing with a revocable token stored in Keychain
 - future HTTP/WebSocket transport to the Hermes dashboard/mobile API
 

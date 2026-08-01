@@ -44,6 +44,21 @@ Returns the session list sorted by most recent activity.
 
 Returns messages for one session, including compact tool cards.
 
+### `GET /api/mobile/capabilities`
+
+Returns desktop state for the mobile inspector without making the chat surface noisy.
+
+```json
+{
+  "models": [],
+  "profiles": [],
+  "files": [],
+  "jobs": [],
+  "approvals": [],
+  "tools": []
+}
+```
+
 ### `POST /api/mobile/chat`
 
 Starts or continues a turn.

@@ -14,6 +14,10 @@ struct MockHermesTransport: HermesTransport {
         PreviewData.messages
     }
 
+    func fetchCapabilities() async throws -> HermesCapabilitySnapshot {
+        PreviewData.capabilities
+    }
+
     func send(_ prompt: OutboundPrompt) async throws -> AsyncThrowingStream<HermesMessage, Error> {
         AsyncThrowingStream { continuation in
             Task {

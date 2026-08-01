@@ -30,6 +30,10 @@ struct HTTPHermesTransport: HermesTransport {
         throw HermesTransportError.server("Mobile message API is not wired yet.")
     }
 
+    func fetchCapabilities() async throws -> HermesCapabilitySnapshot {
+        throw HermesTransportError.server("Mobile capabilities API is not wired yet.")
+    }
+
     func send(_ prompt: OutboundPrompt) async throws -> AsyncThrowingStream<HermesMessage, Error> {
         throw HermesTransportError.server("Mobile streaming API is not wired yet.")
     }

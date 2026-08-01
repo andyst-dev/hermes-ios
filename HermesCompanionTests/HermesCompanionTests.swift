@@ -16,5 +16,14 @@ final class HermesCompanionTests: XCTestCase {
         await store.connect(host: host)
         XCTAssertNotNil(store.selectedSessionID)
         XCTAssertFalse(store.messages.isEmpty)
+        XCTAssertFalse(store.capabilities.models.isEmpty)
+        XCTAssertFalse(store.capabilities.tools.isEmpty)
+    }
+
+    func testCommandPalettePrivacyToggle() async throws {
+        let store = AppStore(client: HermesClient(transport: MockHermesTransport()))
+        XCTAssertTrue(store.privacyMode)
+        await store.runCommand(.togglePrivacy)
+        XCTAssertFalse(store.privacyMode)
     }
 }

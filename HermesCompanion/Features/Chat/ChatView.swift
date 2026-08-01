@@ -2,6 +2,8 @@ import SwiftUI
 
 struct ChatView: View {
     @EnvironmentObject private var store: AppStore
+    @Binding var showingCommands: Bool
+    @Binding var showingInspector: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -24,10 +26,16 @@ struct ChatView: View {
         }
         .background(HermesTheme.background.opacity(0.72))
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button { showingCommands = true } label: { Image(systemName: "command") }
+            }
             ToolbarItem(placement: .topBarTrailing) {
-                if store.isStreaming {
-                    Button(role: .destructive) { Task { await store.stop() } } label: {
-                        Label("Stop", systemImage: "stop.fill")
+                HStack(spacing: 12) {
+                    Button { showingInspector = true } label: { Image(systemName: "sidebar.right") }
+                    if store.isStreaming {
+                        Button(role: .destructive) { Task { await store.stop() } } label: {
+                            Label("Stop", systemImage: "stop.fill")
+                        }
                     }
                 }
             }

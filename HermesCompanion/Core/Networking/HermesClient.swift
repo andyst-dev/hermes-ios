@@ -20,6 +20,10 @@ final class HermesClient: ObservableObject {
         try await transport.fetchMessages(sessionID: sessionID)
     }
 
+    func capabilities() async throws -> HermesCapabilitySnapshot {
+        try await transport.fetchCapabilities()
+    }
+
     func send(_ prompt: OutboundPrompt) async throws -> AsyncThrowingStream<HermesMessage, Error> {
         try await transport.send(prompt)
     }

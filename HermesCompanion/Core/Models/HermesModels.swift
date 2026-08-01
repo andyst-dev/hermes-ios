@@ -72,3 +72,69 @@ struct OutboundPrompt: Codable, Equatable {
         var sizeBytes: Int
     }
 }
+
+struct HermesModel: Codable, Equatable, Identifiable {
+    let id: String
+    var displayName: String
+    var provider: String
+    var supportsVision: Bool
+    var supportsTools: Bool
+}
+
+struct HermesProfile: Codable, Equatable, Identifiable {
+    let id: String
+    var displayName: String
+    var isActive: Bool
+}
+
+struct HermesFileArtifact: Codable, Equatable, Identifiable {
+    let id: UUID
+    var label: String
+    var path: String
+    var kind: Kind
+
+    enum Kind: String, Codable {
+        case text
+        case image
+        case html
+        case pdf
+        case directory
+    }
+}
+
+struct HermesJob: Codable, Equatable, Identifiable {
+    let id: String
+    var title: String
+    var detail: String
+    var status: Status
+
+    enum Status: String, Codable {
+        case running
+        case waitingApproval
+        case completed
+        case failed
+        case scheduled
+    }
+}
+
+struct HermesApproval: Codable, Equatable, Identifiable {
+    let id: String
+    var title: String
+    var detail: String
+    var risk: Risk
+
+    enum Risk: String, Codable {
+        case low
+        case medium
+        case high
+    }
+}
+
+struct HermesCapabilitySnapshot: Codable, Equatable {
+    var models: [HermesModel]
+    var profiles: [HermesProfile]
+    var files: [HermesFileArtifact]
+    var jobs: [HermesJob]
+    var approvals: [HermesApproval]
+    var tools: [String]
+}

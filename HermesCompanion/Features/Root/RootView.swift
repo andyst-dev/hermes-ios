@@ -3,6 +3,8 @@ import SwiftUI
 struct RootView: View {
     @EnvironmentObject private var store: AppStore
     @State private var showingSettings = false
+    @State private var showingCommands = false
+    @State private var showingInspector = false
 
     var body: some View {
         ZStack {
@@ -10,15 +12,25 @@ struct RootView: View {
             Group {
                 switch store.connection {
                 case .connected:
-                    MainShellView(showingSettings: $showingSettings)
+                    MainShellView(
+                        showingSettings: $showingSettings,
+                        showingCommands: $showingCommands,
+                        showingInspector: $showingInspector
+                    )
                 default:
                     ConnectView()
                 }
             }
         }
-        .tint(HermesTheme.primary)
+        .tint(HermesTheme.ring)
         .sheet(isPresented: $showingSettings) {
-            SettingsView()
+            SettingsView().environmentObject(store)
+        }
+        .sheet(isPresented: $showingCommands) {
+            CommandPaletteView().environmentObject(store)
+        }
+        .sheet(isPresented: $showingInspector) {
+            NavigationStack { InspectorView().navigationTitle("Desktop State") }
                 .environmentObject(store)
         }
     }
@@ -27,15 +39,20 @@ struct RootView: View {
 private struct MainShellView: View {
     @EnvironmentObject private var store: AppStore
     @Binding var showingSettings: Bool
+    @Binding var showingCommands: Bool
+    @Binding var showingInspector: Bool
 
     var body: some View {
         NavigationSplitView {
             SessionListView(showingSettings: $showingSettings)
                 .navigationTitle("Hermes")
-        } detail: {
-            ChatView()
+        } content: {
+            ChatView(showingCommands: $showingCommands, showingInspector: $showingInspector)
                 .navigationTitle(store.selectedSession?.title ?? "New Session")
                 .navigationBarTitleDisplayMode(.inline)
+        } detail: {
+            InspectorView()
+                .navigationTitle("Desktop State")
         }
     }
 }
