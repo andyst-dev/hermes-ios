@@ -106,11 +106,17 @@ private struct MobileSessionsHeader: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Chats")
-                    .font(HermesTheme.brandTitle(size: 25))
+            VStack(alignment: .leading, spacing: -2) {
+                Text("HERMES")
+                    .font(HermesTheme.brandTitle(size: 28))
+                    .tracking(0.8)
                     .foregroundStyle(HermesTheme.ink)
+                Text("AGENT")
+                    .font(HermesTheme.brandTitle(size: 20))
+                    .tracking(1.2)
+                    .foregroundStyle(HermesTheme.ink.opacity(0.94))
             }
+            .textCase(.uppercase)
             Spacer()
             Button(action: onNewSession) {
                 Image(systemName: "plus")
