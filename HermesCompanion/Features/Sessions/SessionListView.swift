@@ -7,10 +7,10 @@ struct SessionListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            DesktopSidebarHeader()
+            MobileSessionsHeader(showingSettings: $showingSettings)
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 18) {
-                    SidebarQuickActions()
+                    MobileQuickFilters()
                     SidebarSearchField(text: $searchText)
                     PinnedSection()
                     SessionSourceSection(
@@ -49,60 +49,78 @@ struct SessionListView: View {
     }
 }
 
-private struct DesktopSidebarHeader: View {
+private struct MobileSessionsHeader: View {
+    @EnvironmentObject private var store: AppStore
+    @Binding var showingSettings: Bool
+
     var body: some View {
-        HStack(spacing: 9) {
-            Circle().fill(Color(red: 1.0, green: 0.31, blue: 0.32)).frame(width: 12, height: 12)
-            Circle().fill(Color(red: 1.0, green: 0.80, blue: 0.25)).frame(width: 12, height: 12)
-            Circle().fill(Color(red: 0.38, green: 0.82, blue: 0.40)).frame(width: 12, height: 12)
-            Image(systemName: "sidebar.left")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(HermesTheme.mutedForeground)
-                .padding(.leading, 4)
-            Image(systemName: "arrow.left.arrow.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(HermesTheme.mutedForeground)
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Chats")
+                    .font(HermesTheme.brandTitle(size: 25))
+                    .foregroundStyle(HermesTheme.ink)
+                HStack(spacing: 6) {
+                    StatusDot(color: HermesTheme.green)
+                    Text(connectionLabel)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(HermesTheme.mutedForeground)
+                        .lineLimit(1)
+                }
+            }
             Spacer()
+            Button {} label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(HermesTheme.primary)
+                    .frame(width: 32, height: 32)
+                    .background(HermesTheme.userBubble, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            Button { showingSettings = true } label: {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(HermesTheme.mutedForeground)
+                    .frame(width: 32, height: 32)
+            }
+            .buttonStyle(.plain)
         }
-        .padding(.horizontal, 18)
-        .padding(.top, 12)
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
         .padding(.bottom, 10)
+    }
+
+    private var connectionLabel: String {
+        if case .connected(let host) = store.connection { return "\(host.profile) · gateway ready" }
+        return "offline"
     }
 }
 
-private struct SidebarQuickActions: View {
-    private let actions: [(String, String, String?)] = [
-        ("New session", "cylinder.split.1x2", "⌘  N"),
-        ("Capabilities", "shippingbox", nil),
-        ("Messaging", "bubble.left", nil),
-        ("Artifacts", "doc", nil)
+private struct MobileQuickFilters: View {
+    private let actions: [(String, String)] = [
+        ("All", "bubble.left.and.bubble.right"),
+        ("Tools", "shippingbox"),
+        ("Files", "doc"),
+        ("Runs", "bolt")
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
             ForEach(actions, id: \.0) { action in
-                HStack(spacing: 11) {
+                    HStack(spacing: 6) {
                     Image(systemName: action.1)
-                        .font(.system(size: 14, weight: .medium))
-                        .frame(width: 18)
-                        .foregroundStyle(HermesTheme.mutedForeground)
+                            .font(.system(size: 11, weight: .semibold))
                     Text(action.0)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(HermesTheme.ink.opacity(0.82))
-                    Spacer()
-                    if let shortcut = action.2 {
-                        Text(shortcut)
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .foregroundStyle(HermesTheme.mutedForeground.opacity(0.7))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(HermesTheme.card, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                            .font(.system(size: 12, weight: .semibold))
                     }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                    .foregroundStyle(action.0 == "All" ? HermesTheme.primary : HermesTheme.mutedForeground)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(action.0 == "All" ? HermesTheme.userBubble : HermesTheme.card.opacity(0.42), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
+            }
+            .padding(.horizontal, 1)
         }
-        .padding(.horizontal, 4)
     }
 }
 
@@ -280,47 +298,31 @@ private struct SidebarFooter: View {
     @Binding var showingSettings: Bool
 
     var body: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 8) {
-                footerIcon("house", selected: true)
-                footerIcon("plus", selected: false)
+        HStack(spacing: 8) {
+            StatusDot(color: HermesTheme.green)
+            Text("Gateway ready")
+            Text("·")
+                .foregroundStyle(HermesTheme.mutedForeground.opacity(0.48))
+            Image(systemName: "folder")
+            Text(profileLabel)
                 Spacer()
-                Button { showingSettings = true } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(HermesTheme.mutedForeground)
-                        .frame(width: 28, height: 28)
-                }
-                .buttonStyle(.plain)
+            Button { showingSettings = true } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(HermesTheme.mutedForeground)
+                    .frame(width: 28, height: 28)
             }
-            HStack(spacing: 8) {
-                Image(systemName: "command")
-                Image(systemName: "waveform.path.ecg")
-                Text("Gateway ready")
-                Spacer()
-                Image(systemName: "folder")
-                Text(profileLabel)
-            }
-            .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(HermesTheme.mutedForeground.opacity(0.82))
+            .buttonStyle(.plain)
         }
+        .font(.system(size: 11, weight: .medium))
+        .foregroundStyle(HermesTheme.mutedForeground.opacity(0.82))
         .padding(.horizontal, 13)
-        .padding(.top, 8)
-        .padding(.bottom, 9)
+        .padding(.vertical, 9)
         .background(HermesTheme.sidebar.opacity(0.98))
     }
 
     private var profileLabel: String {
         if case .connected(let host) = store.connection { return host.profile }
         return "default"
-    }
-
-    private func footerIcon(_ systemName: String, selected: Bool) -> some View {
-        Image(systemName: systemName)
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(selected ? HermesTheme.primary : HermesTheme.mutedForeground)
-            .frame(width: 28, height: 28)
-            .background(selected ? HermesTheme.userBubble : Color.clear, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(selected ? HermesTheme.userBubbleBorder : Color.clear, lineWidth: 1))
     }
 }
