@@ -33,7 +33,8 @@ final class HermesCompanionTests: XCTestCase {
         await store.connect(host: host)
         XCTAssertTrue(store.availableSources.contains("telegram"))
         store.selectedSourceFilter = "telegram"
-        XCTAssertEqual(store.filteredSessions.compactMap(\.source), ["telegram"])
+        XCTAssertFalse(store.filteredSessions.isEmpty)
+        XCTAssertTrue(store.filteredSessions.allSatisfy { $0.source == "telegram" })
     }
 
     func testModelSelectionUpdatesActiveModel() async throws {

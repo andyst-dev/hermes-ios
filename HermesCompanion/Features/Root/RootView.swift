@@ -53,9 +53,10 @@ private struct MainShellView: View {
     @Binding var showingInspector: Bool
     @Binding var showingModels: Bool
     @Binding var showingTerminal: Bool
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             SessionListView(showingSettings: $showingSettings)
                 .navigationTitle("Hermes")
         } content: {

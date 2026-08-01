@@ -2,9 +2,17 @@ import Foundation
 
 enum PreviewData {
     static let sessions: [HermesSession] = [
-        HermesSession(id: "pr-clean", title: "PR Discord permissions", subtitle: "desktop · docs", updatedAt: .now, status: .completed, source: "desktop"),
-        HermesSession(id: "ios", title: "Hermes iOS Companion", subtitle: "telegram · running", updatedAt: .now, status: .running, source: "telegram"),
-        HermesSession(id: "approval", title: "Release review", subtitle: "desktop · waiting for approval", updatedAt: .now, status: .waitingApproval, source: "desktop")
+        HermesSession(id: "ios", title: "Hermes iOS Companion", subtitle: "desktop · running · mobile UI", updatedAt: .now, status: .running, source: "desktop"),
+        HermesSession(id: "cleaner", title: "Demande de nettoyage à finaliser", subtitle: "default · desktop · 14 messages", updatedAt: .now, status: .idle, source: "desktop"),
+        HermesSession(id: "pr-clean", title: "PR Discord permissions", subtitle: "desktop · docs · completed", updatedAt: .now, status: .completed, source: "desktop"),
+        HermesSession(id: "approval", title: "Release review", subtitle: "desktop · waiting for approval", updatedAt: .now, status: .waitingApproval, source: "desktop"),
+        HermesSession(id: "claude-model", title: "Ajout du modèle Claude", subtitle: "default · cli · yesterday", updatedAt: .now, status: .completed, source: "cli"),
+        HermesSession(id: "reply-only", title: "Réponds uniquement par patch", subtitle: "default · cli · earlier this week", updatedAt: .now, status: .idle, source: "cli"),
+        HermesSession(id: "image-generation", title: "Use the image generation tool", subtitle: "default · desktop · tool run", updatedAt: .now, status: .completed, source: "desktop"),
+        HermesSession(id: "github-account", title: "Accès à mon compte GitHub", subtitle: "default · desktop · last week", updatedAt: .now, status: .completed, source: "desktop"),
+        HermesSession(id: "telegram-cleaner", title: "Demande de nettoyage à distance", subtitle: "telegram · gateway · 9 messages", updatedAt: .now, status: .running, source: "telegram"),
+        HermesSession(id: "telegram-replies", title: "Nouvelles réponses aux PR", subtitle: "telegram · gateway · unread", updatedAt: .now, status: .idle, source: "telegram"),
+        HermesSession(id: "telegram-notes", title: "Validation finale Notes Cleaner", subtitle: "telegram · gateway · completed", updatedAt: .now, status: .completed, source: "telegram")
     ]
 
     static let messages: [HermesMessage] = [
