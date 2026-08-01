@@ -6,50 +6,68 @@ struct ConnectView: View {
     @State private var profile = "default"
 
     var body: some View {
-        VStack(spacing: 28) {
-            Spacer()
-            VStack(spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 30, style: .continuous)
-                        .fill(HermesTheme.elevated)
-                        .frame(width: 86, height: 86)
-                    Image(systemName: "sparkles.rectangle.stack.fill")
-                        .font(.system(size: 38, weight: .semibold))
-                        .foregroundStyle(HermesTheme.gold, HermesTheme.blue)
-                }
-                Text("Hermes Companion")
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
-                Text("Your desktop agent, in your pocket.")
-                    .font(.headline)
+        VStack(spacing: 26) {
+            Spacer(minLength: 24)
+
+            VStack(spacing: 16) {
+                HermesMark(size: 92)
+                HermesWordmark()
+                Text("Remote control for the agent that grows with you.")
+                    .font(.system(.subheadline, design: .default).weight(.medium))
                     .foregroundStyle(HermesTheme.muted)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 28)
             }
 
             VStack(spacing: 14) {
-                TextField("Hermes host", text: $host)
-                    .textInputAutocapitalization(.never)
-                    .keyboardType(.URL)
-                    .padding(16)
-                    .background(HermesTheme.panel, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                TextField("Profile", text: $profile)
-                    .textInputAutocapitalization(.never)
-                    .padding(16)
-                    .background(HermesTheme.panel, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                HStack(spacing: 10) {
+                    Image(systemName: "desktopcomputer")
+                        .foregroundStyle(HermesTheme.primary)
+                    TextField("Hermes host", text: $host)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.URL)
+                        .font(.system(.body, design: .monospaced))
+                }
+                .padding(15)
+                .background(HermesTheme.sidebar, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(HermesTheme.stroke, lineWidth: 1))
+
+                HStack(spacing: 10) {
+                    Image(systemName: "person.crop.circle")
+                        .foregroundStyle(HermesTheme.primary)
+                    TextField("Profile", text: $profile)
+                        .textInputAutocapitalization(.never)
+                        .font(.system(.body, design: .monospaced))
+                }
+                .padding(15)
+                .background(HermesTheme.sidebar, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(HermesTheme.stroke, lineWidth: 1))
+
                 Button(action: connect) {
-                    HStack {
-                        if case .connecting = store.connection { ProgressView().tint(.black) }
+                    HStack(spacing: 10) {
+                        if case .connecting = store.connection { ProgressView().tint(.white) }
                         Text("Connect to Hermes")
-                            .fontWeight(.semibold)
+                            .font(.system(.callout, design: .monospaced).weight(.bold))
+                            .tracking(0.4)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(16)
-                    .background(HermesTheme.gold, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    .foregroundStyle(.black)
+                    .padding(.vertical, 15)
+                    .background(HermesTheme.primary, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .foregroundStyle(.white)
                 }
                 .disabled(isConnecting)
+
+                Button {} label: {
+                    Label("Scan pairing QR", systemImage: "qrcode.viewfinder")
+                        .font(.system(.footnote, design: .monospaced).weight(.semibold))
+                        .foregroundStyle(HermesTheme.ink.opacity(0.72))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                }
             }
-            .padding(22)
-            .glassPanel()
-            .padding(.horizontal, 24)
+            .padding(18)
+            .desktopPanel(cornerRadius: 24)
+            .padding(.horizontal, 22)
 
             if case .failed(let message) = store.connection {
                 Text(message)
@@ -57,7 +75,8 @@ struct ConnectView: View {
                     .font(.footnote)
                     .padding(.horizontal, 30)
             }
-            Spacer()
+
+            Spacer(minLength: 28)
         }
     }
 

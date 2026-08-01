@@ -41,7 +41,7 @@ private struct ConnectionHeader: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Connected")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(HermesTheme.ink)
                 if case .connected(let host) = store.connection {
                     Text("\(host.name) · \(host.profile)")
                         .font(.caption)
@@ -67,7 +67,7 @@ private struct SessionRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(session.title)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(HermesTheme.ink)
                     .lineLimit(1)
                 Text(session.subtitle)
                     .font(.caption)
@@ -84,8 +84,8 @@ private struct SessionRow: View {
     private var statusColor: Color {
         switch session.status {
         case .idle: HermesTheme.muted
-        case .running: HermesTheme.blue
-        case .waitingApproval: HermesTheme.gold
+        case .running: HermesTheme.primary
+        case .waitingApproval: HermesTheme.warm
         case .failed: HermesTheme.red
         case .completed: HermesTheme.green
         }

@@ -16,6 +16,7 @@ struct RootView: View {
                 }
             }
         }
+        .tint(HermesTheme.primary)
         .sheet(isPresented: $showingSettings) {
             SettingsView()
                 .environmentObject(store)
@@ -41,19 +42,19 @@ private struct MainShellView: View {
 
 private struct BackgroundView: View {
     var body: some View {
-        LinearGradient(colors: [HermesTheme.background, Color(red: 0.055, green: 0.067, blue: 0.11)], startPoint: .topLeading, endPoint: .bottomTrailing)
+        LinearGradient(colors: [HermesTheme.chrome, HermesTheme.sidebar], startPoint: .topLeading, endPoint: .bottomTrailing)
             .overlay(alignment: .topTrailing) {
                 Circle()
-                    .fill(HermesTheme.blue.opacity(0.25))
+                    .fill(HermesTheme.primary.opacity(0.12))
                     .frame(width: 280, height: 280)
-                    .blur(radius: 80)
-                    .offset(x: 120, y: -120)
+                    .blur(radius: 70)
+                    .offset(x: 130, y: -140)
             }
             .overlay(alignment: .bottomLeading) {
                 Circle()
-                    .fill(HermesTheme.gold.opacity(0.16))
+                    .fill(HermesTheme.warm.opacity(0.14))
                     .frame(width: 320, height: 320)
-                    .blur(radius: 95)
+                    .blur(radius: 85)
                     .offset(x: -160, y: 140)
             }
             .ignoresSafeArea()
