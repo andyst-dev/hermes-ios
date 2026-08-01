@@ -8,85 +8,112 @@ struct ConnectView: View {
     @State private var showingAdvanced = false
     @State private var showingScanner = false
     @State private var tokenSaveError: String?
+    @State private var copiedPrompt = false
 
     var body: some View {
         HermesMobileScreen(title: "Connect", subtitle: "Hermes Desktop", icon: "desktopcomputer") {
-            VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 14) {
-                    HermesMark(size: 82)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Text("Connect this iPhone UI to the Hermes running on your Mac.")
-                        .font(.system(size: 13, weight: .medium))
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 18) {
+                    onboardingHero
+
+                    HermesMobileSection(title: "Ask Hermes", icon: "quote.bubble.fill", accent: HermesTheme.primary) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("On your Mac, open Hermes Desktop and say:")
+                                .font(.system(size: 12.5, weight: .medium))
+                                .foregroundStyle(HermesTheme.mutedForeground)
+                            promptCard
+                            Button(action: copyPrompt) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: copiedPrompt ? "check" : "doc.on.doc")
+                                        .font(.system(size: 12, weight: .bold))
+                                    Text(copiedPrompt ? "Copied" : "Copy prompt")
+                                        .font(.system(size: 12, weight: .semibold))
+                                }
+                                .foregroundStyle(copiedPrompt ? HermesTheme.green : HermesTheme.primary)
+                                .padding(.horizontal, 11)
+                                .padding(.vertical, 8)
+                                .background(HermesTheme.card.opacity(0.58), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                                .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(HermesTheme.stroke, lineWidth: 1))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    HermesMobileSection(title: "Then scan", icon: "qrcode.viewfinder", accent: HermesTheme.primary) {
+                        Text("Hermes will show a QR. Scan it here and this iPhone connects automatically.")
+                            .font(.system(size: 12.5, weight: .medium))
+                            .foregroundStyle(HermesTheme.mutedForeground)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Button { showingScanner = true } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "qrcode.viewfinder")
+                                .font(.system(size: 15, weight: .bold))
+                            Text("Scan QR")
+                                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(HermesTheme.primary, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .foregroundStyle(HermesTheme.primaryForeground)
+                    }
+                    .buttonStyle(.plain)
+
+                    Button(action: connect) {
+                        HStack(spacing: 10) {
+                            if case .connecting = store.connection { ProgressView().tint(HermesTheme.primaryForeground) }
+                            Text("Connect manually")
+                                .font(.system(size: 12, weight: .semibold))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(HermesTheme.card.opacity(0.58), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                         .foregroundStyle(HermesTheme.mutedForeground)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                HermesMobileSection(title: "Desktop") {
-                    HermesMobileRow(title: "Desktop bridge", subtitle: simplifiedHostLabel, icon: "network", accent: HermesTheme.primary)
-                    HermesMobileRow(title: "Profile", subtitle: profile.isEmpty ? "default" : profile, icon: "folder", accent: HermesTheme.mutedForeground)
-                }
-
-                Button { showingScanner = true } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "qrcode.viewfinder")
-                            .font(.system(size: 15, weight: .bold))
-                        Text("Scan Desktop QR")
-                            .font(.system(size: 14, weight: .bold, design: .monospaced))
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(HermesTheme.primary, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .foregroundStyle(HermesTheme.primaryForeground)
-                }
-                .buttonStyle(.plain)
+                    .buttonStyle(.plain)
+                    .disabled(isConnecting)
 
-                Button(action: connect) {
-                    HStack(spacing: 10) {
-                        if case .connecting = store.connection { ProgressView().tint(HermesTheme.primaryForeground) }
-                        Text("Connect manually")
-                            .font(.system(size: 12, weight: .semibold))
+                    Button {
+                        withAnimation(.snappy) { showingAdvanced.toggle() }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: showingAdvanced ? "chevron.down" : "chevron.right")
+                                .font(.system(size: 10, weight: .bold))
+                            Text("Advanced connection")
+                                .font(.system(size: 12, weight: .semibold))
+                            Spacer()
+                        }
+                        .foregroundStyle(HermesTheme.mutedForeground)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(HermesTheme.card.opacity(0.58), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .foregroundStyle(HermesTheme.mutedForeground)
-                }
-                .buttonStyle(.plain)
-                .disabled(isConnecting)
+                    .buttonStyle(.plain)
 
-                Button {
-                    withAnimation(.snappy) { showingAdvanced.toggle() }
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: showingAdvanced ? "chevron.down" : "chevron.right")
-                            .font(.system(size: 10, weight: .bold))
-                        Text("Advanced connection")
-                            .font(.system(size: 12, weight: .semibold))
-                        Spacer()
+                    if showingAdvanced {
+                        HermesMobileSection(title: "Manual") {
+                            HermesMobileRow(title: "Desktop bridge", subtitle: simplifiedHostLabel, icon: "network", accent: HermesTheme.primary)
+                            HermesMobileRow(title: "Profile", subtitle: profile.isEmpty ? "default" : profile, icon: "folder", accent: HermesTheme.mutedForeground)
+                            connectionField(icon: "network", placeholder: "http://127.0.0.1:8765", text: $host, keyboard: .URL)
+                            connectionField(icon: "person.crop.circle", placeholder: "default", text: $profile)
+                            secureTokenField
+                        }
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                     }
-                    .foregroundStyle(HermesTheme.mutedForeground)
-                }
-                .buttonStyle(.plain)
 
-                if showingAdvanced {
-                    HermesMobileSection(title: "Manual") {
-                        connectionField(icon: "network", placeholder: "http://127.0.0.1:8765", text: $host, keyboard: .URL)
-                        connectionField(icon: "person.crop.circle", placeholder: "default", text: $profile)
-                        secureTokenField
+                    if let tokenSaveError {
+                        Text(tokenSaveError)
+                            .font(.system(size: 11))
+                            .foregroundStyle(HermesTheme.red)
                     }
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    if case .failed(let message) = store.connection, shouldShowConnectionError(message) {
+                        Text(cleanConnectionError(message))
+                            .font(.system(size: 11.5, weight: .medium))
+                            .foregroundStyle(HermesTheme.mutedForeground)
+                            .padding(.top, 2)
+                    }
                 }
-
-                if let tokenSaveError {
-                    Text(tokenSaveError)
-                        .font(.system(size: 11))
-                        .foregroundStyle(HermesTheme.red)
-                }
-                if case .failed(let message) = store.connection {
-                    Text(message)
-                        .font(.system(size: 11))
-                        .foregroundStyle(HermesTheme.red)
-                }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 28)
             }
         }
         .sheet(isPresented: $showingScanner) {
@@ -99,6 +126,36 @@ struct ConnectView: View {
             }
             .ignoresSafeArea()
         }
+    }
+
+    private var onboardingHero: some View {
+        HStack(alignment: .center, spacing: 14) {
+            HermesMark(size: 70)
+            VStack(alignment: .leading, spacing: 5) {
+                Text("Connect your iPhone")
+                    .font(HermesTheme.brandTitle(size: 27))
+                    .foregroundStyle(HermesTheme.ink)
+                Text("No host. No token. Ask Hermes for a QR, then scan.")
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(HermesTheme.mutedForeground)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var promptCard: some View {
+        Text(pairingPrompt)
+            .font(.system(size: 15, weight: .semibold, design: .monospaced))
+            .foregroundStyle(HermesTheme.ink)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(HermesTheme.userBubble, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(HermesTheme.userBubbleBorder, lineWidth: 1))
+    }
+
+    private var pairingPrompt: String {
+        "Connecte mon iPhone à Hermes Companion"
     }
 
     private var secureTokenField: some View {
@@ -146,6 +203,31 @@ struct ConnectView: View {
 
     private var isConnecting: Bool {
         if case .connecting = store.connection { true } else { false }
+    }
+
+    private func copyPrompt() {
+        UIPasteboard.general.string = pairingPrompt
+        withAnimation(.snappy) { copiedPrompt = true }
+        Task {
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            await MainActor.run {
+                withAnimation(.snappy) { copiedPrompt = false }
+            }
+        }
+    }
+
+    private func shouldShowConnectionError(_ message: String) -> Bool {
+        !message.localizedCaseInsensitiveContains("unauthorized")
+    }
+
+    private func cleanConnectionError(_ message: String) -> String {
+        if message.localizedCaseInsensitiveContains("unauthorized") {
+            return "Not paired yet. Ask Hermes for a QR, then scan."
+        }
+        if message.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("{") {
+            return "Connection failed. Check Advanced connection or scan a fresh QR."
+        }
+        return message
     }
 
     private func connect() {
