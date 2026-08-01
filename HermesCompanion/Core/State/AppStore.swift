@@ -38,6 +38,23 @@ final class AppStore: ObservableObject {
         return sessions.filter { ($0.source ?? "").lowercased() == selectedSourceFilter }
     }
 
+    var terminalLines: [TerminalLine] {
+        messages.flatMap { message in
+            var lines: [TerminalLine] = []
+            let text = message.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !text.isEmpty {
+                lines.append(TerminalLine(kind: message.role == .user ? .input : .output, text: text))
+            }
+            for tool in message.toolCalls {
+                if let command = tool.command, !command.isEmpty {
+                    lines.append(TerminalLine(kind: .command, text: command))
+                }
+                lines.append(TerminalLine(kind: .status, text: "\(tool.name): \(tool.summary)"))
+            }
+            return lines
+        }
+    }
+
     func connect(host: HermesHost) async {
         connection = .connecting
         do {
@@ -171,5 +188,18 @@ enum MobileCommand: String, CaseIterable, Identifiable {
         case .togglePrivacy: "eye.slash"
         case .refresh: "arrow.triangle.2.circlepath"
         }
+    }
+}
+
+struct TerminalLine: Identifiable, Equatable {
+    let id = UUID()
+    var kind: Kind
+    var text: String
+
+    enum Kind: Equatable {
+        case input
+        case output
+        case command
+        case status
     }
 }
