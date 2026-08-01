@@ -37,7 +37,7 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        NSCameraUsageDescription: Hermes can attach photos to prompts when you choose them.
+        NSCameraUsageDescription: Hermes uses the camera to scan a Desktop pairing QR when you choose to connect.
         NSMicrophoneUsageDescription: Hermes can record voice prompts when you choose voice input.
         NSPhotoLibraryUsageDescription: Hermes can attach selected images to prompts.
         NSAppTransportSecurity:

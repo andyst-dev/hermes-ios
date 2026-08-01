@@ -6,6 +6,7 @@ struct ConnectView: View {
     @State private var profile = UserDefaults.standard.string(forKey: "hermes.profile") ?? ProcessInfo.processInfo.environment["HERMES_PROFILE"] ?? "default"
     @State private var token = ProcessInfo.processInfo.environment["HERMES_DASHBOARD_SESSION_TOKEN"] ?? KeychainStore.loadToken() ?? ""
     @State private var showingAdvanced = false
+    @State private var showingScanner = false
     @State private var tokenSaveError: String?
 
     var body: some View {
@@ -20,21 +21,35 @@ struct ConnectView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                HermesMobileSection(title: "This Mac") {
+                HermesMobileSection(title: "Desktop") {
                     HermesMobileRow(title: "Desktop bridge", subtitle: simplifiedHostLabel, icon: "network", accent: HermesTheme.primary)
                     HermesMobileRow(title: "Profile", subtitle: profile.isEmpty ? "default" : profile, icon: "folder", accent: HermesTheme.mutedForeground)
                 }
 
-                Button(action: connect) {
+                Button { showingScanner = true } label: {
                     HStack(spacing: 10) {
-                        if case .connecting = store.connection { ProgressView().tint(HermesTheme.primaryForeground) }
-                        Text("Connect")
+                        Image(systemName: "qrcode.viewfinder")
+                            .font(.system(size: 15, weight: .bold))
+                        Text("Scan Desktop QR")
                             .font(.system(size: 14, weight: .bold, design: .monospaced))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .background(HermesTheme.primary, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     .foregroundStyle(HermesTheme.primaryForeground)
+                }
+                .buttonStyle(.plain)
+
+                Button(action: connect) {
+                    HStack(spacing: 10) {
+                        if case .connecting = store.connection { ProgressView().tint(HermesTheme.primaryForeground) }
+                        Text("Connect manually")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(HermesTheme.card.opacity(0.58), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .foregroundStyle(HermesTheme.mutedForeground)
                 }
                 .buttonStyle(.plain)
                 .disabled(isConnecting)
@@ -73,6 +88,16 @@ struct ConnectView: View {
                         .foregroundStyle(HermesTheme.red)
                 }
             }
+        }
+        .sheet(isPresented: $showingScanner) {
+            PairingQRCodeScanner { code in
+                showingScanner = false
+                Task { await pair(with: code) }
+            } onError: { message in
+                showingScanner = false
+                tokenSaveError = message
+            }
+            .ignoresSafeArea()
         }
     }
 
@@ -138,6 +163,69 @@ struct ConnectView: View {
         }
         Task {
             await store.connect(host: HermesHost(name: "Desktop Hermes", baseURL: url, profile: trimmedProfile.isEmpty ? "default" : trimmedProfile))
+        }
+    }
+
+    @MainActor
+    private func pair(with qrText: String) async {
+        do {
+            let payload = try DesktopPairingPayload.parse(qrText)
+            let pairURL = payload.url.appending(path: "api").appending(path: "mobile").appending(path: "pair")
+            var request = URLRequest(url: pairURL)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONEncoder().encode(MobilePairRequest(code: payload.code, deviceName: UIDevice.current.name))
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+                throw PairingError.failed(String(data: data, encoding: .utf8) ?? "Pairing failed")
+            }
+            let paired = try JSONDecoder().decode(MobilePairResponse.self, from: data)
+            host = paired.url.absoluteString
+            profile = paired.profile
+            token = paired.token
+            try KeychainStore.saveToken(paired.token)
+            UserDefaults.standard.set(host, forKey: "hermes.host")
+            UserDefaults.standard.set(profile, forKey: "hermes.profile")
+            tokenSaveError = nil
+            await store.connect(host: HermesHost(name: "Desktop Hermes", baseURL: paired.url, profile: paired.profile))
+        } catch {
+            tokenSaveError = error.localizedDescription
+        }
+    }
+}
+
+private struct DesktopPairingPayload: Decodable {
+    let type: String
+    let url: URL
+    let profile: String
+    let code: String
+
+    static func parse(_ raw: String) throws -> DesktopPairingPayload {
+        guard let data = raw.data(using: .utf8) else { throw PairingError.failed("Invalid QR") }
+        let payload = try JSONDecoder().decode(DesktopPairingPayload.self, from: data)
+        guard payload.type == "hermes-mobile-pairing" else { throw PairingError.failed("Not a Hermes Desktop QR") }
+        return payload
+    }
+}
+
+private struct MobilePairRequest: Encodable {
+    let code: String
+    let deviceName: String
+}
+
+private struct MobilePairResponse: Decodable {
+    let ok: Bool
+    let url: URL
+    let profile: String
+    let token: String
+}
+
+private enum PairingError: LocalizedError {
+    case failed(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .failed(let message): message
         }
     }
 }

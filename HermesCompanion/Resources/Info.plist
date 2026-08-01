@@ -26,7 +26,7 @@
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Hermes can attach photos to prompts when you choose them.</string>
+	<string>Hermes uses the camera to scan a Desktop pairing QR when you choose to connect.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Hermes can record voice prompts when you choose voice input.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

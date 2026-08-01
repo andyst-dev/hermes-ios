@@ -5,7 +5,7 @@ This draft is the narrow client/server boundary for Hermes Companion. The iOS ap
 ## Transport
 
 - Base URL: user-paired desktop/server Hermes URL.
-- Auth: dashboard session token for the first bridge (`X-Hermes-Session-Token` or `Authorization: Bearer ...`); later QR pairing should mint a mobile-scoped token stored in iOS Keychain.
+- Auth: dashboard session token for local dev (`X-Hermes-Session-Token` or `Authorization: Bearer ***`), or a QR-paired mobile-scoped token stored in iOS Keychain.
 - Streaming: WebSocket preferred for chat turns; HTTP polling acceptable for session metadata.
 - Privacy: responses should support redacted display names/paths for public screenshot mode.
 
@@ -55,6 +55,33 @@ Sets the main model for new Hermes turns in the selected profile.
   "model": "nous/hermes-4"
 }
 ```
+
+### `GET /api/mobile/pairing`
+
+Authenticated Desktop endpoint that creates a short-lived, single-use QR payload.
+
+```json
+{
+  "url": "http://desktop-host:8765",
+  "profile": "default",
+  "code": "short-lived-code",
+  "expiresAt": "2026-08-01T14:02:00Z",
+  "qrText": "{...}"
+}
+```
+
+### `POST /api/mobile/pair`
+
+Public exchange endpoint. The one-time code is the authenticator and expires quickly.
+
+```json
+{
+  "code": "short-lived-code",
+  "deviceName": "Andy’s iPhone"
+}
+```
+
+Returns a mobile-scoped token. The iOS app stores it in Keychain and then uses the normal mobile API endpoints.
 
 ### `GET /api/mobile/sessions/{sessionID}/messages`
 

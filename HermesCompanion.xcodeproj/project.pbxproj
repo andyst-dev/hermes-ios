@@ -14,6 +14,7 @@
 		39672ABFD5AFBBFE9965F13D /* TerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E818831629534E58A4C86EC /* TerminalView.swift */; };
 		3997B012E29E2AF3DFCC55A2 /* HermesMobileChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2647EEA774508A3B4E265577 /* HermesMobileChrome.swift */; };
 		4B4AF3B3F33E742893D44901 /* HermesModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB54ED8BDAFA6616791A3EAD /* HermesModels.swift */; };
+		55F17EC5D159F2EAC6C7EB7E /* PairingQRCodeScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9731219EC46C17B43EF0CF0 /* PairingQRCodeScanner.swift */; };
 		560A6394F4F2E25F6F0FF4D3 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC4B1DB07C0A3801DF37BC7C /* ChatView.swift */; };
 		5AA5B52F16DDF4A8785F5105 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7648E66B2DD012CD0B2915E /* SettingsView.swift */; };
 		5EEE77C49A9B6B8BB4351881 /* InspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E07A1A2D334F4A3DAEC05615 /* InspectorView.swift */; };
@@ -70,6 +71,7 @@
 		DA5FEEEFC2590B1CFF74C949 /* HermesCompanionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesCompanionApp.swift; sourceTree = "<group>"; };
 		E07A1A2D334F4A3DAEC05615 /* InspectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorView.swift; sourceTree = "<group>"; };
 		E7648E66B2DD012CD0B2915E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		E9731219EC46C17B43EF0CF0 /* PairingQRCodeScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingQRCodeScanner.swift; sourceTree = "<group>"; };
 		FB54ED8BDAFA6616791A3EAD /* HermesModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesModels.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -207,6 +209,7 @@
 			isa = PBXGroup;
 			children = (
 				50C05059C56AC8B54ABC5F3A /* ConnectView.swift */,
+				E9731219EC46C17B43EF0CF0 /* PairingQRCodeScanner.swift */,
 			);
 			path = Connect;
 			sourceTree = "<group>";
@@ -394,6 +397,7 @@
 				819E7643A70CCE99A5C1FFD4 /* KeychainStore.swift in Sources */,
 				0A916E402F7082D7F5DBA7FA /* MockHermesTransport.swift in Sources */,
 				7508FCC9765ED24281FA9B1F /* ModelPickerView.swift in Sources */,
+				55F17EC5D159F2EAC6C7EB7E /* PairingQRCodeScanner.swift in Sources */,
 				A3BB7C7A13953CF0BC71C8B8 /* PreviewData.swift in Sources */,
 				E03008EDFE64AD3FC5F63596 /* RootView.swift in Sources */,
 				AC2256F103AB39E715CA0557 /* SessionListView.swift in Sources */,
