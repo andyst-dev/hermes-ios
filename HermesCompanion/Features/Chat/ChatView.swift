@@ -216,57 +216,39 @@ private struct ComposerView: View {
     @EnvironmentObject private var store: AppStore
 
     var body: some View {
-        VStack(spacing: 8) {
-            HStack(alignment: .bottom, spacing: 8) {
-                Button {} label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 13, weight: .semibold))
-                        .frame(width: 28, height: 28)
-                        .background(HermesTheme.secondary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(HermesTheme.stroke, lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(HermesTheme.primary)
-
-                TextField("Ask Hermes…", text: $store.composerText, axis: .vertical)
-                    .lineLimit(1...5)
-                    .font(.system(size: 14, design: .default))
-                    .foregroundStyle(HermesTheme.ink)
-                    .textInputAutocapitalization(.sentences)
-
-                Button {
-                    Task { await store.sendComposer() }
-                } label: {
-                    Image(systemName: store.isStreaming ? "stop.fill" : "arrow.up")
-                        .font(.system(size: 13, weight: .bold))
-                        .frame(width: 28, height: 28)
-                        .background(sendBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .foregroundStyle(sendForeground)
-                }
-                .buttonStyle(.plain)
-                .disabled(store.composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !store.isStreaming)
+        HStack(alignment: .center, spacing: 8) {
+            Button {} label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 13, weight: .semibold))
+                    .frame(width: 28, height: 28)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 9)
-            .background(HermesTheme.card, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(HermesTheme.input, lineWidth: 1))
-            .shadow(color: .black.opacity(0.20), radius: 16, x: 0, y: 8)
+            .buttonStyle(.plain)
+            .foregroundStyle(HermesTheme.primary)
+
+            TextField("Ask Hermes…", text: $store.composerText, axis: .vertical)
+                .lineLimit(1...5)
+                .font(.system(size: 14, design: .default))
+                .foregroundStyle(HermesTheme.ink)
+                .textInputAutocapitalization(.sentences)
+                .frame(minHeight: 28, alignment: .center)
+
+            Button {
+                Task { await store.sendComposer() }
+            } label: {
+                Image(systemName: store.isStreaming ? "stop.fill" : "arrow.up")
+                    .font(.system(size: 13, weight: .bold))
+                    .frame(width: 28, height: 28)
+                    .foregroundStyle(sendForeground)
+            }
+            .buttonStyle(.plain)
+            .disabled(store.composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !store.isStreaming)
         }
         .padding(.horizontal, 14)
-        .padding(.top, 10)
+        .padding(.vertical, 10)
+        .background(HermesTheme.card, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .padding(.horizontal, 14)
+        .padding(.top, 8)
         .padding(.bottom, 12)
-        .background(
-            LinearGradient(
-                colors: [HermesTheme.background.opacity(0.86), HermesTheme.sidebar],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
-        .overlay(Rectangle().frame(height: 1).foregroundStyle(HermesTheme.stroke), alignment: .top)
-    }
-
-    private var sendBackground: Color {
-        store.composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? HermesTheme.secondary : HermesTheme.primary
     }
 
     private var sendForeground: Color {
