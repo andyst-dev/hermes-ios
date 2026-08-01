@@ -2,9 +2,9 @@ import Foundation
 
 @MainActor
 final class HermesClient: ObservableObject {
-    private let transport: HermesTransport
+    private let transport: any HermesTransport
 
-    init(transport: HermesTransport) {
+    init(transport: any HermesTransport) {
         self.transport = transport
     }
 

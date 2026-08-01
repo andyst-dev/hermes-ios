@@ -1,11 +1,11 @@
 import Foundation
 
 /// Real mobile REST transport for the Hermes desktop/dashboard backend.
-/// Streaming and mutation endpoints stay explicit TODOs until the desktop bridge exposes them.
 actor HTTPHermesTransport: HermesTransport {
     var tokenProvider: @Sendable () -> String?
     private let urlSession: URLSession
     private var baseURL: URL?
+    private var profile: String = "default"
     private let decoder: JSONDecoder
 
     init(urlSession: URLSession = .shared, tokenProvider: @escaping @Sendable () -> String?) {
@@ -18,6 +18,7 @@ actor HTTPHermesTransport: HermesTransport {
 
     func connect(to host: HermesHost) async throws -> HermesHost {
         baseURL = host.baseURL
+        profile = host.profile
         let _: MobileHealthResponse = try await get("api/mobile/health")
         return host
     }
@@ -46,7 +47,13 @@ actor HTTPHermesTransport: HermesTransport {
     }
 
     func send(_ prompt: OutboundPrompt) async throws -> AsyncThrowingStream<HermesMessage, Error> {
-        throw HermesTransportError.server("Mobile streaming API is not wired yet.")
+        let response: MobileChatResponse = try await post("api/mobile/chat", body: prompt, timeout: 600)
+        return AsyncThrowingStream { continuation in
+            for message in response.messages {
+                continuation.yield(message)
+            }
+            continuation.finish()
+        }
     }
 
     func stop(sessionID: String) async throws {
@@ -57,15 +64,15 @@ actor HTTPHermesTransport: HermesTransport {
         try await dataRequest(path: path, method: "GET", body: Optional<Data>.none)
     }
 
-    private func post<T: Decodable, Body: Encodable>(_ path: String, body: Body) async throws -> T {
+    private func post<T: Decodable, Body: Encodable>(_ path: String, body: Body, timeout: TimeInterval = 12) async throws -> T {
         let data = try JSONEncoder().encode(body)
-        return try await dataRequest(path: path, method: "POST", body: data)
+        return try await dataRequest(path: path, method: "POST", body: data, timeout: timeout)
     }
 
-    private func dataRequest<T: Decodable>(path: String, method: String, body: Data?) async throws -> T {
+    private func dataRequest<T: Decodable>(path: String, method: String, body: Data?, timeout: TimeInterval = 12) async throws -> T {
         guard let baseURL else { throw HermesTransportError.notConnected }
         var request = URLRequest(url: endpointURL(baseURL: baseURL, path: path))
-        request.timeoutInterval = 12
+        request.timeoutInterval = timeout
         request.httpMethod = method
         if let body {
             request.httpBody = body
@@ -94,9 +101,16 @@ actor HTTPHermesTransport: HermesTransport {
     }
 
     private func endpointURL(baseURL: URL, path: String) -> URL {
-        path.split(separator: "/").reduce(baseURL) { partial, component in
+        let raw = path.split(separator: "/").reduce(baseURL) { partial, component in
             partial.appending(path: String(component))
         }
+        guard var components = URLComponents(url: raw, resolvingAgainstBaseURL: false) else { return raw }
+        var queryItems = components.queryItems ?? []
+        if !profile.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            queryItems.append(URLQueryItem(name: "profile", value: profile))
+        }
+        components.queryItems = queryItems
+        return components.url ?? raw
     }
 }
 
@@ -118,4 +132,9 @@ private struct MobileModelsResponse: Decodable {
 
 private struct MobileModelSetResponse: Decodable {
     let ok: Bool
+}
+
+private struct MobileChatResponse: Decodable {
+    let sessionID: String
+    let messages: [HermesMessage]
 }

@@ -2,82 +2,100 @@ import SwiftUI
 
 struct ConnectView: View {
     @EnvironmentObject private var store: AppStore
-    @State private var host = "http://macbook.local:8765"
-    @State private var profile = "default"
+    @State private var host = UserDefaults.standard.string(forKey: "hermes.host") ?? "http://127.0.0.1:8765"
+    @State private var profile = UserDefaults.standard.string(forKey: "hermes.profile") ?? "default"
+    @State private var token = KeychainStore.loadToken() ?? ""
+    @State private var tokenSaveError: String?
 
     var body: some View {
-        VStack(spacing: 26) {
-            Spacer(minLength: 24)
-
-            VStack(spacing: 16) {
-                HermesMark(size: 92)
-                HermesWordmark()
-                Text("Remote control for the agent that grows with you.")
-                    .font(.system(.subheadline, design: .default).weight(.medium))
-                    .foregroundStyle(HermesTheme.mutedForeground)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 28)
-            }
-
-            VStack(spacing: 14) {
-                HStack(spacing: 10) {
-                    Image(systemName: "desktopcomputer")
-                        .foregroundStyle(HermesTheme.primary)
-                    TextField("Hermes host", text: $host)
-                        .textInputAutocapitalization(.never)
-                        .keyboardType(.URL)
-                        .font(.system(.body, design: .monospaced))
+        HermesMobileScreen(title: "Connect", subtitle: "Hermes Desktop bridge", icon: "desktopcomputer") {
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 14) {
+                    HermesMark(size: 82)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text("Thin iOS client. Tools, files, models and execution stay on Desktop.")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(HermesTheme.mutedForeground)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(15)
-                .background(HermesTheme.sidebar, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(HermesTheme.stroke, lineWidth: 1))
 
-                HStack(spacing: 10) {
-                    Image(systemName: "person.crop.circle")
-                        .foregroundStyle(HermesTheme.primary)
-                    TextField("Profile", text: $profile)
-                        .textInputAutocapitalization(.never)
-                        .font(.system(.body, design: .monospaced))
+                HermesMobileSection(title: "Desktop") {
+                    connectionField(icon: "network", placeholder: "http://127.0.0.1:8765", text: $host, keyboard: .URL)
+                    connectionField(icon: "person.crop.circle", placeholder: "default", text: $profile)
+                    secureTokenField
                 }
-                .padding(15)
-                .background(HermesTheme.sidebar, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(HermesTheme.stroke, lineWidth: 1))
 
                 Button(action: connect) {
                     HStack(spacing: 10) {
-                        if case .connecting = store.connection { ProgressView().tint(.white) }
-                        Text("Connect to Hermes")
-                            .font(.system(.callout, design: .monospaced).weight(.bold))
-                            .tracking(0.4)
+                        if case .connecting = store.connection { ProgressView().tint(HermesTheme.primaryForeground) }
+                        Text("Connect to Hermes Desktop")
+                            .font(.system(size: 13, weight: .bold, design: .monospaced))
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 15)
-                    .background(HermesTheme.primary, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .padding(.vertical, 13)
+                    .background(HermesTheme.primary, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     .foregroundStyle(HermesTheme.primaryForeground)
                 }
+                .buttonStyle(.plain)
                 .disabled(isConnecting)
 
                 Button {} label: {
-                    Label("Scan pairing QR", systemImage: "qrcode.viewfinder")
-                        .font(.system(.footnote, design: .monospaced).weight(.semibold))
-                        .foregroundStyle(HermesTheme.foreground.opacity(0.72))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
+                    Label("Pairing QR coming next", systemImage: "qrcode.viewfinder")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(HermesTheme.mutedForeground)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+
+                if let tokenSaveError {
+                    Text(tokenSaveError)
+                        .font(.system(size: 11))
+                        .foregroundStyle(HermesTheme.red)
+                }
+                if case .failed(let message) = store.connection {
+                    Text(message)
+                        .font(.system(size: 11))
+                        .foregroundStyle(HermesTheme.red)
                 }
             }
-            .padding(18)
-            .desktopPanel(cornerRadius: 24)
-            .padding(.horizontal, 22)
-
-            if case .failed(let message) = store.connection {
-                Text(message)
-                    .foregroundStyle(HermesTheme.red)
-                    .font(.footnote)
-                    .padding(.horizontal, 30)
-            }
-
-            Spacer(minLength: 28)
         }
+    }
+
+    private var secureTokenField: some View {
+        HStack(spacing: 9) {
+            Image(systemName: "key")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(HermesTheme.primary)
+                .frame(width: 18)
+            SecureField("Dashboard token optional", text: $token)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .foregroundStyle(HermesTheme.ink)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
+        .background(HermesTheme.card.opacity(0.5), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(HermesTheme.stroke, lineWidth: 1))
+    }
+
+    private func connectionField(icon: String, placeholder: String, text: Binding<String>, keyboard: UIKeyboardType = .default) -> some View {
+        HStack(spacing: 9) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(HermesTheme.primary)
+                .frame(width: 18)
+            TextField(placeholder, text: text)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(keyboard)
+                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .foregroundStyle(HermesTheme.ink)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
+        .background(HermesTheme.card.opacity(0.5), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(HermesTheme.stroke, lineWidth: 1))
     }
 
     private var isConnecting: Bool {
@@ -85,9 +103,20 @@ struct ConnectView: View {
     }
 
     private func connect() {
-        guard let url = URL(string: host) else { return }
+        let trimmedHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedProfile = profile.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: trimmedHost) else { return }
+        do {
+            try KeychainStore.saveToken(token)
+            UserDefaults.standard.set(trimmedHost, forKey: "hermes.host")
+            UserDefaults.standard.set(trimmedProfile.isEmpty ? "default" : trimmedProfile, forKey: "hermes.profile")
+            tokenSaveError = nil
+        } catch {
+            tokenSaveError = error.localizedDescription
+            return
+        }
         Task {
-            await store.connect(host: HermesHost(name: "Desktop Hermes", baseURL: url, profile: profile))
+            await store.connect(host: HermesHost(name: "Desktop Hermes", baseURL: url, profile: trimmedProfile.isEmpty ? "default" : trimmedProfile))
         }
     }
 }

@@ -77,7 +77,10 @@ Returns desktop state for the mobile inspector without making the chat surface n
 
 ### `POST /api/mobile/chat`
 
-Starts or continues a turn.
+Starts or continues a turn on the paired Desktop backend. The first bridge is
+HTTP request/response: Desktop runs the Hermes CLI against the selected profile,
+then returns the refreshed transcript. A WebSocket stream can replace this
+without changing the request shape.
 
 ```json
 {
@@ -89,7 +92,7 @@ Starts or continues a turn.
 
 ### `WS /api/mobile/chat/stream/{turnID}`
 
-Streams message and tool-call deltas.
+Future streaming transport for message and tool-call deltas.
 
 ### `POST /api/mobile/sessions/{sessionID}/stop`
 

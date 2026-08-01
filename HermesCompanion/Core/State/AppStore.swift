@@ -130,6 +130,7 @@ final class AppStore: ObservableObject {
                     messages.append(update)
                 }
             }
+            try? await refreshSessions()
         } catch {
             messages.append(HermesMessage(id: UUID().uuidString, role: .system, text: error.localizedDescription, createdAt: .now, toolCalls: []))
         }
