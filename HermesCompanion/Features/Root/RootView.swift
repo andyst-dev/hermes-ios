@@ -5,6 +5,7 @@ struct RootView: View {
     @State private var showingSettings = false
     @State private var showingCommands = false
     @State private var showingInspector = false
+    @State private var showingModels = false
 
     var body: some View {
         ZStack {
@@ -15,7 +16,8 @@ struct RootView: View {
                     MainShellView(
                         showingSettings: $showingSettings,
                         showingCommands: $showingCommands,
-                        showingInspector: $showingInspector
+                        showingInspector: $showingInspector,
+                        showingModels: $showingModels
                     )
                 default:
                     ConnectView()
@@ -33,6 +35,9 @@ struct RootView: View {
             NavigationStack { InspectorView().navigationTitle("Desktop State") }
                 .environmentObject(store)
         }
+        .sheet(isPresented: $showingModels) {
+            ModelPickerView().environmentObject(store)
+        }
     }
 }
 
@@ -41,13 +46,14 @@ private struct MainShellView: View {
     @Binding var showingSettings: Bool
     @Binding var showingCommands: Bool
     @Binding var showingInspector: Bool
+    @Binding var showingModels: Bool
 
     var body: some View {
         NavigationSplitView {
             SessionListView(showingSettings: $showingSettings)
                 .navigationTitle("Hermes")
         } content: {
-            ChatView(showingCommands: $showingCommands, showingInspector: $showingInspector)
+            ChatView(showingCommands: $showingCommands, showingInspector: $showingInspector, showingModels: $showingModels)
                 .navigationTitle(store.selectedSession?.title ?? "New Session")
                 .navigationBarTitleDisplayMode(.inline)
         } detail: {

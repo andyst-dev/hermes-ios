@@ -10,6 +10,8 @@ final class AppStore: ObservableObject {
     @Published var isStreaming = false
     @Published var capabilities = PreviewData.capabilities
     @Published var activeModelID = PreviewData.capabilities.models.first?.id
+    @Published var activeProviderID = PreviewData.capabilities.models.first?.provider
+    @Published var selectedSourceFilter: String = "all"
     @Published var privacyMode = true
 
     private let client: HermesClient
@@ -23,7 +25,17 @@ final class AppStore: ObservableObject {
     }
 
     var activeModel: HermesModel? {
-        capabilities.models.first { $0.id == activeModelID }
+        capabilities.models.first { $0.id == activeModelID && ($0.provider == activeProviderID || activeProviderID == nil) }
+    }
+
+    var availableSources: [String] {
+        let sources = Set(sessions.compactMap { $0.source?.lowercased() }.filter { !$0.isEmpty })
+        return ["all"] + sources.sorted()
+    }
+
+    var filteredSessions: [HermesSession] {
+        guard selectedSourceFilter != "all" else { return sessions }
+        return sessions.filter { ($0.source ?? "").lowercased() == selectedSourceFilter }
     }
 
     func connect(host: HermesHost) async {
@@ -50,7 +62,29 @@ final class AppStore: ObservableObject {
 
     func refreshCapabilities() async throws {
         capabilities = try await client.capabilities()
-        if activeModelID == nil { activeModelID = capabilities.models.first?.id }
+        let models = try? await client.models()
+        if let models, !models.isEmpty {
+            capabilities.models = models
+        }
+        if let active = capabilities.models.first(where: { $0.isActive == true }) ?? capabilities.models.first {
+            activeModelID = active.id
+            activeProviderID = active.provider
+        }
+    }
+
+    func selectModel(_ model: HermesModel) async {
+        do {
+            try await client.selectModel(provider: model.provider, model: model.id)
+            activeModelID = model.id
+            activeProviderID = model.provider
+            capabilities.models = capabilities.models.map { existing in
+                var copy = existing
+                copy.isActive = existing.id == model.id && existing.provider == model.provider
+                return copy
+            }
+        } catch {
+            messages.append(HermesMessage(id: UUID().uuidString, role: .system, text: error.localizedDescription, createdAt: .now, toolCalls: []))
+        }
     }
 
     func select(session: HermesSession) async {

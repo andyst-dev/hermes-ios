@@ -2,9 +2,9 @@ import Foundation
 
 enum PreviewData {
     static let sessions: [HermesSession] = [
-        HermesSession(id: "pr-clean", title: "PR Discord permissions", subtitle: "NousResearch/hermes-agent · docs", updatedAt: .now, status: .completed),
-        HermesSession(id: "ios", title: "Hermes iOS Companion", subtitle: "SwiftUI prototype · running", updatedAt: .now, status: .running),
-        HermesSession(id: "approval", title: "Release review", subtitle: "Waiting for approval", updatedAt: .now, status: .waitingApproval)
+        HermesSession(id: "pr-clean", title: "PR Discord permissions", subtitle: "desktop · docs", updatedAt: .now, status: .completed, source: "desktop"),
+        HermesSession(id: "ios", title: "Hermes iOS Companion", subtitle: "telegram · running", updatedAt: .now, status: .running, source: "telegram"),
+        HermesSession(id: "approval", title: "Release review", subtitle: "desktop · waiting for approval", updatedAt: .now, status: .waitingApproval, source: "desktop")
     ]
 
     static let messages: [HermesMessage] = [
@@ -24,8 +24,8 @@ enum PreviewData {
 
     static let capabilities = HermesCapabilitySnapshot(
         models: [
-            HermesModel(id: "gpt-5.5", displayName: "GPT-5.5", provider: "OpenAI", supportsVision: true, supportsTools: true),
-            HermesModel(id: "hermes-4", displayName: "Hermes 4", provider: "Nous", supportsVision: false, supportsTools: true)
+            HermesModel(id: "gpt-5.5", displayName: "GPT-5.5", provider: "openai", providerName: "OpenAI", supportsVision: true, supportsTools: true, isActive: true),
+            HermesModel(id: "hermes-4", displayName: "Hermes 4", provider: "nous", providerName: "Nous", supportsVision: false, supportsTools: true, isActive: false)
         ],
         profiles: [
             HermesProfile(id: "default", displayName: "Default", isActive: true),

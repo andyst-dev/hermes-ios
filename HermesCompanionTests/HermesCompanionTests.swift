@@ -26,4 +26,22 @@ final class HermesCompanionTests: XCTestCase {
         await store.runCommand(.togglePrivacy)
         XCTAssertFalse(store.privacyMode)
     }
+
+    func testSessionSourceFiltersIncludeTelegram() async throws {
+        let store = AppStore(client: HermesClient(transport: MockHermesTransport()))
+        let host = HermesHost(name: "Test", baseURL: URL(string: "http://localhost:8765")!, profile: "default")
+        await store.connect(host: host)
+        XCTAssertTrue(store.availableSources.contains("telegram"))
+        store.selectedSourceFilter = "telegram"
+        XCTAssertEqual(store.filteredSessions.compactMap(\.source), ["telegram"])
+    }
+
+    func testModelSelectionUpdatesActiveModel() async throws {
+        let store = AppStore(client: HermesClient(transport: MockHermesTransport()))
+        let target = PreviewData.capabilities.models[1]
+        await store.selectModel(target)
+        XCTAssertEqual(store.activeModelID, target.id)
+        XCTAssertEqual(store.activeProviderID, target.provider)
+        XCTAssertEqual(store.activeModel?.isActive, true)
+    }
 }

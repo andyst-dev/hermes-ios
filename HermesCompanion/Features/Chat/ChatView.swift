@@ -4,6 +4,7 @@ struct ChatView: View {
     @EnvironmentObject private var store: AppStore
     @Binding var showingCommands: Bool
     @Binding var showingInspector: Bool
+    @Binding var showingModels: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -31,6 +32,10 @@ struct ChatView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: 12) {
+                    Button { showingModels = true } label: {
+                        Label(modelLabel, systemImage: "cpu")
+                            .labelStyle(.titleAndIcon)
+                    }
                     Button { showingInspector = true } label: { Image(systemName: "sidebar.right") }
                     if store.isStreaming {
                         Button(role: .destructive) { Task { await store.stop() } } label: {
@@ -40,6 +45,11 @@ struct ChatView: View {
                 }
             }
         }
+    }
+
+    private var modelLabel: String {
+        guard let model = store.activeModel else { return "Model" }
+        return model.displayName
     }
 }
 

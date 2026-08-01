@@ -20,6 +20,7 @@ struct HermesSession: Codable, Equatable, Identifiable {
     var subtitle: String
     var updatedAt: Date
     var status: SessionStatus
+    var source: String? = nil
 
     enum SessionStatus: String, Codable, CaseIterable {
         case idle
@@ -77,8 +78,15 @@ struct HermesModel: Codable, Equatable, Identifiable {
     let id: String
     var displayName: String
     var provider: String
+    var providerName: String? = nil
     var supportsVision: Bool
     var supportsTools: Bool
+    var isActive: Bool? = nil
+}
+
+struct HermesModelSelection: Codable, Equatable {
+    var provider: String
+    var model: String
 }
 
 struct HermesProfile: Codable, Equatable, Identifiable {

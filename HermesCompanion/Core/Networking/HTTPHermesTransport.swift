@@ -36,6 +36,15 @@ actor HTTPHermesTransport: HermesTransport {
         try await get("api/mobile/capabilities")
     }
 
+    func fetchModels() async throws -> [HermesModel] {
+        let response: MobileModelsResponse = try await get("api/mobile/models")
+        return response.models
+    }
+
+    func selectModel(provider: String, model: String) async throws {
+        let _: MobileModelSetResponse = try await post("api/mobile/model", body: HermesModelSelection(provider: provider, model: model))
+    }
+
     func send(_ prompt: OutboundPrompt) async throws -> AsyncThrowingStream<HermesMessage, Error> {
         throw HermesTransportError.server("Mobile streaming API is not wired yet.")
     }
@@ -45,9 +54,23 @@ actor HTTPHermesTransport: HermesTransport {
     }
 
     private func get<T: Decodable>(_ path: String) async throws -> T {
+        try await dataRequest(path: path, method: "GET", body: Optional<Data>.none)
+    }
+
+    private func post<T: Decodable, Body: Encodable>(_ path: String, body: Body) async throws -> T {
+        let data = try JSONEncoder().encode(body)
+        return try await dataRequest(path: path, method: "POST", body: data)
+    }
+
+    private func dataRequest<T: Decodable>(path: String, method: String, body: Data?) async throws -> T {
         guard let baseURL else { throw HermesTransportError.notConnected }
         var request = URLRequest(url: endpointURL(baseURL: baseURL, path: path))
         request.timeoutInterval = 12
+        request.httpMethod = method
+        if let body {
+            request.httpBody = body
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
         addAuth(to: &request)
         let (data, response) = try await urlSession.data(for: request)
         guard let http = response as? HTTPURLResponse else {
@@ -87,4 +110,12 @@ private struct MobileSessionsResponse: Decodable {
 
 private struct MobileMessagesResponse: Decodable {
     let messages: [HermesMessage]
+}
+
+private struct MobileModelsResponse: Decodable {
+    let models: [HermesModel]
+}
+
+private struct MobileModelSetResponse: Decodable {
+    let ok: Bool
 }

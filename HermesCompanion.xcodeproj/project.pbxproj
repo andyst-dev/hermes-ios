@@ -17,6 +17,7 @@
 		5EEE77C49A9B6B8BB4351881 /* InspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E07A1A2D334F4A3DAEC05615 /* InspectorView.swift */; };
 		5F41D44AD7D10680EEDECF6A /* HermesTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA763DBA419133EC164415C4 /* HermesTransport.swift */; };
 		6FAABD5A3125E1D0FE9A82F0 /* HermesCompanionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5FEEEFC2590B1CFF74C949 /* HermesCompanionApp.swift */; };
+		7508FCC9765ED24281FA9B1F /* ModelPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C6A62DED0BAB7395493726 /* ModelPickerView.swift */; };
 		8343519656FB9B122F3139FD /* HermesClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9801FAAC8D606D653D62C47D /* HermesClient.swift */; };
 		A3BB7C7A13953CF0BC71C8B8 /* PreviewData.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEF8A0232E8B3A54AB4FC24C /* PreviewData.swift */; };
 		A680F10C7F46DB0AEF1A83DB /* HermesCompanionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DEF8ED8453262DFAA6D2 /* HermesCompanionTests.swift */; };
@@ -52,6 +53,7 @@
 		7A75BF6BBCA5ED22868C2313 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		8C31DC2507E266A61FD54AAF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		9801FAAC8D606D653D62C47D /* HermesClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesClient.swift; sourceTree = "<group>"; };
+		A1C6A62DED0BAB7395493726 /* ModelPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelPickerView.swift; sourceTree = "<group>"; };
 		A64856389980D1D73A2DC3C3 /* HermesCompanion.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = HermesCompanion.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		ACD3FF5E5C9AE57B0F7C65B5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AEF8A0232E8B3A54AB4FC24C /* PreviewData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewData.swift; sourceTree = "<group>"; };
@@ -116,6 +118,7 @@
 				8F5A351DA0D64578E7DC3500 /* Commands */,
 				8525269557322C22650057B0 /* Connect */,
 				74C7425BD4F02ECEDE5892B0 /* Inspector */,
+				A7979E16D9C1E373F712ABDB /* Models */,
 				3B32AD7AAB5F9EE534E7D525 /* Root */,
 				C3015F9FF9C6F1A6ED37B3B5 /* Sessions */,
 				78003EC3D050C23211A63725 /* Settings */,
@@ -197,6 +200,14 @@
 				BF817F24DDC187E7EB511900 /* CommandPaletteView.swift */,
 			);
 			path = Commands;
+			sourceTree = "<group>";
+		};
+		A7979E16D9C1E373F712ABDB /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				A1C6A62DED0BAB7395493726 /* ModelPickerView.swift */,
+			);
+			path = Models;
 			sourceTree = "<group>";
 		};
 		AF07E3B445B7EFDEE0BC05D1 /* HermesCompanion */ = {
@@ -355,6 +366,7 @@
 				5F41D44AD7D10680EEDECF6A /* HermesTransport.swift in Sources */,
 				5EEE77C49A9B6B8BB4351881 /* InspectorView.swift in Sources */,
 				0A916E402F7082D7F5DBA7FA /* MockHermesTransport.swift in Sources */,
+				7508FCC9765ED24281FA9B1F /* ModelPickerView.swift in Sources */,
 				A3BB7C7A13953CF0BC71C8B8 /* PreviewData.swift in Sources */,
 				E03008EDFE64AD3FC5F63596 /* RootView.swift in Sources */,
 				AC2256F103AB39E715CA0557 /* SessionListView.swift in Sources */,

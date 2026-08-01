@@ -7,7 +7,9 @@ struct SessionListView: View {
     var body: some View {
         List(selection: $store.selectedSessionID) {
             Section {
-                ForEach(store.sessions) { session in
+                SourceFilterChips()
+                    .listRowBackground(Color.clear)
+                ForEach(store.filteredSessions) { session in
                     Button {
                         Task { await store.select(session: session) }
                     } label: {
@@ -27,6 +29,42 @@ struct SessionListView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showingSettings = true } label: { Image(systemName: "gearshape") }
             }
+        }
+    }
+}
+
+private struct SourceFilterChips: View {
+    @EnvironmentObject private var store: AppStore
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(store.availableSources, id: \.self) { source in
+                    Button {
+                        store.selectedSourceFilter = source
+                    } label: {
+                        Text(label(for: source))
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 11)
+                            .padding(.vertical, 7)
+                            .background(source == store.selectedSourceFilter ? HermesTheme.primary : HermesTheme.card, in: Capsule())
+                            .foregroundStyle(source == store.selectedSourceFilter ? HermesTheme.primaryForeground : HermesTheme.ink)
+                            .overlay(Capsule().stroke(HermesTheme.stroke, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
+    private func label(for source: String) -> String {
+        switch source {
+        case "all": "All convs"
+        case "telegram": "Telegram"
+        case "desktop": "Desktop"
+        case "cli": "CLI"
+        default: source.capitalized
         }
     }
 }

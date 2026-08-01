@@ -26,7 +26,7 @@ Returns host availability and API compatibility.
 
 ### `GET /api/mobile/sessions`
 
-Returns the session list sorted by most recent activity.
+Returns the canonical Hermes session list sorted by most recent activity. Because it reads the desktop/server `state.db`, this includes conversations created from Desktop, CLI/TUI, Telegram, and other gateways for the selected profile.
 
 ```json
 [
@@ -35,9 +35,25 @@ Returns the session list sorted by most recent activity.
     "title": "Hermes iOS Companion",
     "subtitle": "repo · running",
     "updatedAt": "2026-08-01T14:00:00Z",
-    "status": "running"
+    "status": "running",
+    "source": "telegram"
   }
 ]
+```
+
+### `GET /api/mobile/models`
+
+Returns the same authenticated model picker catalog Desktop uses, flattened for iOS.
+
+### `POST /api/mobile/model`
+
+Sets the main model for new Hermes turns in the selected profile.
+
+```json
+{
+  "provider": "nous",
+  "model": "nous/hermes-4"
+}
 ```
 
 ### `GET /api/mobile/sessions/{sessionID}/messages`

@@ -24,6 +24,14 @@ final class HermesClient: ObservableObject {
         try await transport.fetchCapabilities()
     }
 
+    func models() async throws -> [HermesModel] {
+        try await transport.fetchModels()
+    }
+
+    func selectModel(provider: String, model: String) async throws {
+        try await transport.selectModel(provider: provider, model: model)
+    }
+
     func send(_ prompt: OutboundPrompt) async throws -> AsyncThrowingStream<HermesMessage, Error> {
         try await transport.send(prompt)
     }
