@@ -22,7 +22,7 @@ struct ChatView: View {
             }
             ComposerView()
         }
-        .background(HermesTheme.chrome.opacity(0.72))
+        .background(HermesTheme.background.opacity(0.72))
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 if store.isStreaming {
@@ -60,15 +60,15 @@ private struct MessageBubble: View {
 
     private var background: Color {
         switch message.role {
-        case .user: Color.white
-        case .assistant: Color.white
+        case .user: HermesTheme.userBubble
+        case .assistant: HermesTheme.card
         case .system: HermesTheme.red.opacity(0.08)
         }
     }
 
     private var border: Color {
         switch message.role {
-        case .user: HermesTheme.primary.opacity(0.16)
+        case .user: HermesTheme.userBubbleBorder
         case .assistant: HermesTheme.stroke
         case .system: HermesTheme.red.opacity(0.16)
         }
@@ -96,7 +96,7 @@ private struct ToolCallCard: View {
                     .foregroundStyle(HermesTheme.ink.opacity(0.84))
                 Text(tool.summary)
                     .font(.caption)
-                    .foregroundStyle(HermesTheme.muted)
+                    .foregroundStyle(HermesTheme.mutedForeground)
                     .lineLimit(2)
                 if let command = tool.command {
                     Text(command)
@@ -108,7 +108,7 @@ private struct ToolCallCard: View {
             Spacer()
         }
         .padding(11)
-        .background(HermesTheme.sidebar, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(HermesTheme.muted, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(HermesTheme.stroke, lineWidth: 1))
     }
 
@@ -141,7 +141,7 @@ private struct ComposerView: View {
             Button {} label: {
                 Image(systemName: "plus")
                     .frame(width: 36, height: 36)
-                    .background(HermesTheme.sidebar, in: Circle())
+                    .background(HermesTheme.secondary, in: Circle())
                     .overlay(Circle().stroke(HermesTheme.stroke, lineWidth: 1))
             }
             TextField("Message Hermes", text: $store.composerText, axis: .vertical)
@@ -149,7 +149,7 @@ private struct ComposerView: View {
                 .font(.system(.body, design: .default))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(Color.white, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .background(HermesTheme.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(HermesTheme.stroke, lineWidth: 1))
             Button {
                 Task { await store.sendComposer() }
@@ -157,8 +157,8 @@ private struct ComposerView: View {
                 Image(systemName: store.isStreaming ? "stop.fill" : "arrow.up")
                     .font(.system(size: 15, weight: .bold))
                     .frame(width: 36, height: 36)
-                    .background(store.composerText.isEmpty ? HermesTheme.sidebar : HermesTheme.primary, in: Circle())
-                    .foregroundStyle(store.composerText.isEmpty ? HermesTheme.ink : .white)
+                    .background(store.composerText.isEmpty ? HermesTheme.secondary : HermesTheme.primary, in: Circle())
+                    .foregroundStyle(store.composerText.isEmpty ? HermesTheme.foreground : HermesTheme.primaryForeground)
             }
             .disabled(store.composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !store.isStreaming)
         }

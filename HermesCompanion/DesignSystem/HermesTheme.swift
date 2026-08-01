@@ -1,28 +1,42 @@
 import SwiftUI
 
 enum HermesTheme {
-    // Mirrored from the Desktop default theme tokens in apps/desktop/src/styles.css.
-    static let ink = Color(red: 0.090, green: 0.090, blue: 0.102)          // #17171a
-    static let primary = Color(red: 0.000, green: 0.325, blue: 0.992)      // #0053fd
-    static let warm = Color(red: 0.812, green: 0.502, blue: 0.427)         // #cf806d
-    static let chrome = Color(red: 0.973, green: 0.980, blue: 1.000)       // #f8faff
-    static let sidebar = Color(red: 0.953, green: 0.969, blue: 1.000)      // #f3f7ff
-    static let card = Color.white
-    static let elevated = Color(red: 0.988, green: 0.988, blue: 0.992)
-    static let stroke = Color.black.opacity(0.08)
-    static let muted = Color.black.opacity(0.54)
-    static let green = Color(red: 0.122, green: 0.541, blue: 0.396)
-    static let red = Color(red: 0.812, green: 0.176, blue: 0.337)
+    // Hermes Desktop "Ember" skin: warm orange on near-black.
+    // Source: apps/desktop/src/themes/presets.ts.
+    static let background = Color(red: 0.086, green: 0.031, blue: 0.000)       // #160800
+    static let foreground = Color(red: 1.000, green: 0.847, blue: 0.690)       // #ffd8b0
+    static let card = Color(red: 0.118, green: 0.055, blue: 0.016)             // #1e0e04
+    static let muted = Color(red: 0.165, green: 0.078, blue: 0.031)            // #2a1408
+    static let mutedForeground = Color(red: 0.667, green: 0.478, blue: 0.337)  // #aa7a56
+    static let popover = Color(red: 0.133, green: 0.063, blue: 0.031)          // #221008
+    static let primary = Color(red: 1.000, green: 0.847, blue: 0.690)          // #ffd8b0
+    static let primaryForeground = Color(red: 0.086, green: 0.031, blue: 0.000)
+    static let secondary = Color(red: 0.204, green: 0.094, blue: 0.000)        // #341800
+    static let accent = Color(red: 0.188, green: 0.086, blue: 0.000)           // #301600
+    static let border = Color(red: 0.227, green: 0.110, blue: 0.031)           // #3a1c08
+    static let input = border
+    static let ring = Color(red: 0.851, green: 0.451, blue: 0.086)             // #d97316
+    static let midground = ring
+    static let sidebar = Color(red: 0.063, green: 0.024, blue: 0.000)          // #100600
+    static let sidebarBorder = Color(red: 0.165, green: 0.063, blue: 0.016)    // #2a1004
+    static let userBubble = Color(red: 0.165, green: 0.063, blue: 0.000)       // #2a1000
+    static let userBubbleBorder = Color(red: 0.290, green: 0.125, blue: 0.063) // #4a2010
+    static let destructive = Color(red: 0.769, green: 0.188, blue: 0.063)      // #c43010
+    static let green = Color(red: 0.384, green: 0.765, blue: 0.478)
+
+    // Legacy aliases used by feature views.
+    static let ink = foreground
+    static let chrome = background
+    static let elevated = card
+    static let stroke = border
+    static let mutedText = mutedForeground
+    static let red = destructive
+    static let warm = ring
 
     static let mono = Font.system(.caption, design: .monospaced)
 
-    static func brandTitle(size: CGFloat) -> Font {
-        .custom("Collapse-Bold", size: size)
-    }
-
-    static func brandRegular(size: CGFloat) -> Font {
-        .custom("Collapse-Regular", size: size)
-    }
+    static func brandTitle(size: CGFloat) -> Font { .custom("Collapse-Bold", size: size) }
+    static func brandRegular(size: CGFloat) -> Font { .custom("Collapse-Regular", size: size) }
 }
 
 struct DesktopPanel: ViewModifier {
@@ -30,12 +44,19 @@ struct DesktopPanel: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .background(HermesTheme.card, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .background(
+                LinearGradient(
+                    colors: [HermesTheme.card, HermesTheme.popover],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(HermesTheme.stroke, lineWidth: 1)
+                    .stroke(HermesTheme.border, lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.06), radius: 24, x: 0, y: 18)
+            .shadow(color: .black.opacity(0.38), radius: 28, x: 0, y: 18)
     }
 }
 
@@ -52,7 +73,7 @@ struct StatusDot: View {
         Circle()
             .fill(color)
             .frame(width: 8, height: 8)
-            .overlay(Circle().stroke(.white.opacity(0.85), lineWidth: 1))
+            .overlay(Circle().stroke(HermesTheme.background.opacity(0.9), lineWidth: 1))
     }
 }
 
@@ -67,9 +88,9 @@ struct HermesMark: View {
             .clipShape(RoundedRectangle(cornerRadius: size * 0.23, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: size * 0.23, style: .continuous)
-                    .stroke(Color.black.opacity(0.08), lineWidth: 1)
+                    .stroke(HermesTheme.ring.opacity(0.45), lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.12), radius: 18, x: 0, y: 10)
+            .shadow(color: HermesTheme.ring.opacity(0.18), radius: 24, x: 0, y: 12)
     }
 }
 
@@ -81,12 +102,12 @@ struct HermesWordmark: View {
             Text("Hermes")
                 .font(HermesTheme.brandTitle(size: compact ? 22 : 38))
                 .tracking(compact ? -0.6 : -1.4)
-                .foregroundStyle(HermesTheme.ink)
+                .foregroundStyle(HermesTheme.foreground)
             Text("Agent")
                 .font(.system(size: compact ? 12 : 15, weight: .semibold, design: .monospaced))
                 .tracking(1.4)
                 .textCase(.uppercase)
-                .foregroundStyle(HermesTheme.primary)
+                .foregroundStyle(HermesTheme.ring)
         }
     }
 }

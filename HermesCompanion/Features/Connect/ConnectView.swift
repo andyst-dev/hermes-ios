@@ -14,7 +14,7 @@ struct ConnectView: View {
                 HermesWordmark()
                 Text("Remote control for the agent that grows with you.")
                     .font(.system(.subheadline, design: .default).weight(.medium))
-                    .foregroundStyle(HermesTheme.muted)
+                    .foregroundStyle(HermesTheme.mutedForeground)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 28)
             }
@@ -53,14 +53,14 @@ struct ConnectView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 15)
                     .background(HermesTheme.primary, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(HermesTheme.primaryForeground)
                 }
                 .disabled(isConnecting)
 
                 Button {} label: {
                     Label("Scan pairing QR", systemImage: "qrcode.viewfinder")
                         .font(.system(.footnote, design: .monospaced).weight(.semibold))
-                        .foregroundStyle(HermesTheme.ink.opacity(0.72))
+                        .foregroundStyle(HermesTheme.foreground.opacity(0.72))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                 }

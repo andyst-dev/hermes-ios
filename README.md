@@ -8,8 +8,9 @@ Native SwiftUI companion app for Hermes Agent. The desktop/server instance keeps
 
 ## Product direction
 
-- iPhone-first chat surface with a modern Hermes visual language
+- iPhone-first chat surface with the Hermes Desktop Ember palette (orange on black)
 - iPad split layout inspired by Hermes Desktop
+- bundled Hermes desktop logo and Collapse display font for brand parity
 - session list, streaming chat, tool-call cards, composer, and settings
 - future QR pairing with a revocable token stored in Keychain
 - future HTTP/WebSocket transport to the Hermes dashboard/mobile API
@@ -23,7 +24,7 @@ HermesCompanion
 │   ├── Models          # Stable client-side contracts
 │   ├── Networking      # HermesTransport protocol + mock/API skeletons
 │   └── State           # AppStore orchestration
-├── DesignSystem        # Theme, glass panels, status primitives
+├── DesignSystem        # Ember theme, brand typography, desktop-style panels
 └── Features            # Connect, Sessions, Chat, Settings
 ```
 
@@ -33,6 +34,10 @@ HermesCompanion
 xcodegen generate
 xcodebuild -scheme HermesCompanion -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' build
 ```
+
+## Backend contract
+
+The first mobile API draft lives in [`docs/mobile-api-contract.md`](docs/mobile-api-contract.md). It keeps iOS as a remote client: Hermes on the desktop/server owns tools, filesystem access, approvals, and model credentials.
 
 ## Privacy rules
 

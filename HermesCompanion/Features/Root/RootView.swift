@@ -42,19 +42,19 @@ private struct MainShellView: View {
 
 private struct BackgroundView: View {
     var body: some View {
-        LinearGradient(colors: [HermesTheme.chrome, HermesTheme.sidebar], startPoint: .topLeading, endPoint: .bottomTrailing)
+        LinearGradient(colors: [HermesTheme.background, HermesTheme.sidebar], startPoint: .topLeading, endPoint: .bottomTrailing)
             .overlay(alignment: .topTrailing) {
                 Circle()
-                    .fill(HermesTheme.primary.opacity(0.12))
+                    .fill(HermesTheme.ring.opacity(0.20))
                     .frame(width: 280, height: 280)
-                    .blur(radius: 70)
+                    .blur(radius: 78)
                     .offset(x: 130, y: -140)
             }
             .overlay(alignment: .bottomLeading) {
                 Circle()
-                    .fill(HermesTheme.warm.opacity(0.14))
+                    .fill(HermesTheme.userBubbleBorder.opacity(0.34))
                     .frame(width: 320, height: 320)
-                    .blur(radius: 85)
+                    .blur(radius: 95)
                     .offset(x: -160, y: 140)
             }
             .ignoresSafeArea()

@@ -45,7 +45,7 @@ private struct ConnectionHeader: View {
                 if case .connected(let host) = store.connection {
                     Text("\(host.name) · \(host.profile)")
                         .font(.caption)
-                        .foregroundStyle(HermesTheme.muted)
+                        .foregroundStyle(HermesTheme.mutedForeground)
                 }
             }
             Spacer()
@@ -71,7 +71,7 @@ private struct SessionRow: View {
                     .lineLimit(1)
                 Text(session.subtitle)
                     .font(.caption)
-                    .foregroundStyle(HermesTheme.muted)
+                    .foregroundStyle(HermesTheme.mutedForeground)
                     .lineLimit(1)
             }
             Spacer()
