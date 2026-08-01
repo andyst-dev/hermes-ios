@@ -12,13 +12,23 @@ struct ChatView: View {
             CompactChatControls(showingCommands: $showingCommands, showingInspector: $showingInspector, showingModels: $showingModels, showingTerminal: $showingTerminal)
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 14) {
-                        ForEach(store.messages) { message in
-                            MessageBubble(message: message)
-                                .id(message.id)
+                    LazyVStack(alignment: .leading, spacing: 18, pinnedViews: [.sectionHeaders]) {
+                        ForEach(ChatTurn.build(from: store.messages)) { turn in
+                            Section {
+                                ForEach(turn.responses) { message in
+                                    ResponseBlock(message: message)
+                                        .id(message.id)
+                                }
+                            } header: {
+                                if let userMessage = turn.userMessage {
+                                    StickyUserPrompt(message: userMessage)
+                                        .id(userMessage.id)
+                                }
+                            }
                         }
                     }
-                    .padding(18)
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 18)
                 }
                 .onChange(of: store.messages) { _, messages in
                     guard let last = messages.last else { return }
@@ -73,43 +83,74 @@ private struct CompactChatControls: View {
     }
 }
 
-private struct MessageBubble: View {
+private struct ChatTurn: Identifiable {
+    let id: String
+    var userMessage: HermesMessage?
+    var responses: [HermesMessage]
+
+    static func build(from messages: [HermesMessage]) -> [ChatTurn] {
+        var turns: [ChatTurn] = []
+        var current = ChatTurn(id: "intro", userMessage: nil, responses: [])
+
+        for message in messages {
+            if message.role == .user {
+                if current.userMessage != nil || !current.responses.isEmpty { turns.append(current) }
+                current = ChatTurn(id: message.id, userMessage: message, responses: [])
+            } else {
+                current.responses.append(message)
+            }
+        }
+
+        if current.userMessage != nil || !current.responses.isEmpty { turns.append(current) }
+        return turns
+    }
+}
+
+private struct StickyUserPrompt: View {
     let message: HermesMessage
 
     var body: some View {
-        HStack(alignment: .bottom) {
-            if message.role == .user { Spacer(minLength: 44) }
-            VStack(alignment: .leading, spacing: 10) {
+        VStack(spacing: 0) {
+            HStack {
                 Text(message.text)
-                    .font(.system(.body, design: .default))
+                    .font(.system(size: 14, weight: .medium, design: .default))
+                    .foregroundStyle(HermesTheme.ink)
+                    .textSelection(.enabled)
+                    .lineLimit(4)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .background(HermesTheme.userBubble, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(HermesTheme.userBubbleBorder, lineWidth: 1))
+            .shadow(color: .black.opacity(0.22), radius: 14, x: 0, y: 9)
+            .padding(.top, 8)
+            .padding(.bottom, 12)
+        }
+        .background(
+            LinearGradient(colors: [HermesTheme.background.opacity(0.98), HermesTheme.background.opacity(0.82)], startPoint: .top, endPoint: .bottom)
+        )
+    }
+}
+
+private struct ResponseBlock: View {
+    let message: HermesMessage
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if !message.text.isEmpty {
+                Text(message.text)
+                    .font(.system(size: 15, weight: .regular, design: .default))
+                    .lineSpacing(4)
                     .foregroundStyle(textColor)
                     .textSelection(.enabled)
-                ForEach(message.toolCalls) { tool in
-                    ToolCallCard(tool: tool)
-                }
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(15)
-            .background(background, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(border, lineWidth: 1))
-            .shadow(color: .black.opacity(message.role == .assistant ? 0.05 : 0.0), radius: 12, x: 0, y: 8)
-            if message.role != .user { Spacer(minLength: 44) }
+            ForEach(message.toolCalls) { tool in
+                ToolCallCard(tool: tool)
+            }
         }
-    }
-
-    private var background: Color {
-        switch message.role {
-        case .user: HermesTheme.userBubble
-        case .assistant: HermesTheme.card
-        case .system: HermesTheme.red.opacity(0.08)
-        }
-    }
-
-    private var border: Color {
-        switch message.role {
-        case .user: HermesTheme.userBubbleBorder
-        case .assistant: HermesTheme.stroke
-        case .system: HermesTheme.red.opacity(0.16)
-        }
+        .padding(.bottom, 12)
     }
 
     private var textColor: Color {
