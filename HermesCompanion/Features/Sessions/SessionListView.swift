@@ -27,7 +27,7 @@ struct SessionListView: View {
         .background(Color.clear)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button { showingSettings = true } label: { Image(systemName: "gearshape") }
+                Button { showingSettings = true } label: { Image(systemName: "gearshape").imageScale(.small) }
             }
         }
     }
@@ -38,15 +38,15 @@ private struct SourceFilterChips: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 ForEach(store.availableSources, id: \.self) { source in
                     Button {
                         store.selectedSourceFilter = source
                     } label: {
                         Text(label(for: source))
-                            .font(.caption.weight(.semibold))
-                            .padding(.horizontal, 11)
-                            .padding(.vertical, 7)
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 5)
                             .background(source == store.selectedSourceFilter ? HermesTheme.primary : HermesTheme.card, in: Capsule())
                             .foregroundStyle(source == store.selectedSourceFilter ? HermesTheme.primaryForeground : HermesTheme.ink)
                             .overlay(Capsule().stroke(HermesTheme.stroke, lineWidth: 1))
@@ -54,7 +54,7 @@ private struct SourceFilterChips: View {
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 2)
         }
     }
 

@@ -8,6 +8,7 @@ struct ChatView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            CompactChatControls(showingCommands: $showingCommands, showingInspector: $showingInspector, showingModels: $showingModels)
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 14) {
@@ -26,30 +27,45 @@ struct ChatView: View {
             ComposerView()
         }
         .background(HermesTheme.background.opacity(0.72))
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button { showingCommands = true } label: { Image(systemName: "command") }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                HStack(spacing: 12) {
-                    Button { showingModels = true } label: {
-                        Label(modelLabel, systemImage: "cpu")
-                            .labelStyle(.titleAndIcon)
-                    }
-                    Button { showingInspector = true } label: { Image(systemName: "sidebar.right") }
-                    if store.isStreaming {
-                        Button(role: .destructive) { Task { await store.stop() } } label: {
-                            Label("Stop", systemImage: "stop.fill")
-                        }
-                    }
-                }
+    }
+}
+
+private struct CompactChatControls: View {
+    @EnvironmentObject private var store: AppStore
+    @Binding var showingCommands: Bool
+    @Binding var showingInspector: Bool
+    @Binding var showingModels: Bool
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Spacer()
+            compactButton("command") { showingCommands = true }
+                .accessibilityLabel("Commands")
+            compactButton("cpu") { showingModels = true }
+                .accessibilityLabel("Change model")
+            compactButton("sidebar.right") { showingInspector = true }
+                .accessibilityLabel("Desktop state")
+            if store.isStreaming {
+                compactButton("stop.fill", role: .destructive) { Task { await store.stop() } }
+                    .accessibilityLabel("Stop")
             }
         }
+        .padding(.horizontal, 14)
+        .padding(.top, 6)
+        .padding(.bottom, 4)
+        .background(HermesTheme.background.opacity(0.72))
     }
 
-    private var modelLabel: String {
-        guard let model = store.activeModel else { return "Model" }
-        return model.displayName
+    private func compactButton(_ systemName: String, role: ButtonRole? = nil, action: @escaping () -> Void) -> some View {
+        Button(role: role, action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 13, weight: .semibold))
+                .frame(width: 28, height: 28)
+                .background(HermesTheme.card, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(HermesTheme.stroke, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(HermesTheme.primary)
     }
 }
 
@@ -158,7 +174,8 @@ private struct ComposerView: View {
         HStack(alignment: .bottom, spacing: 10) {
             Button {} label: {
                 Image(systemName: "plus")
-                    .frame(width: 36, height: 36)
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(width: 32, height: 32)
                     .background(HermesTheme.secondary, in: Circle())
                     .overlay(Circle().stroke(HermesTheme.stroke, lineWidth: 1))
             }
@@ -173,8 +190,8 @@ private struct ComposerView: View {
                 Task { await store.sendComposer() }
             } label: {
                 Image(systemName: store.isStreaming ? "stop.fill" : "arrow.up")
-                    .font(.system(size: 15, weight: .bold))
-                    .frame(width: 36, height: 36)
+                    .font(.system(size: 14, weight: .bold))
+                    .frame(width: 32, height: 32)
                     .background(store.composerText.isEmpty ? HermesTheme.secondary : HermesTheme.primary, in: Circle())
                     .foregroundStyle(store.composerText.isEmpty ? HermesTheme.foreground : HermesTheme.primaryForeground)
             }
