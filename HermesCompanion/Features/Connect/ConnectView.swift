@@ -14,11 +14,11 @@ struct ConnectView: View {
         VStack(spacing: 0) {
             ConnectOnboardingHeader()
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 26) {
                     onboardingHero
 
                     HermesMobileSection(title: "Ask Hermes", icon: "quote.bubble.fill", accent: HermesTheme.primary) {
-                        VStack(alignment: .leading, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 16) {
                             Text("On your Mac, open Hermes Desktop and say:")
                                 .font(.system(size: 12.5, weight: .medium))
                                 .foregroundStyle(HermesTheme.mutedForeground)
@@ -32,7 +32,7 @@ struct ConnectView: View {
                                 }
                                 .foregroundStyle(copiedPrompt ? HermesTheme.green : HermesTheme.primary)
                                 .padding(.horizontal, 11)
-                                .padding(.vertical, 8)
+                                .padding(.vertical, 9)
                                 .background(HermesTheme.card.opacity(0.58), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
                                 .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(HermesTheme.stroke, lineWidth: 1))
                             }
@@ -112,8 +112,8 @@ struct ConnectView: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 28)
+                .padding(.top, 22)
+                .padding(.bottom, 40)
             }
         }
         .background(HermesTheme.sidebar.ignoresSafeArea())
@@ -130,9 +130,9 @@ struct ConnectView: View {
     }
 
     private var onboardingHero: some View {
-        HStack(alignment: .center, spacing: 14) {
+        HStack(alignment: .center, spacing: 18) {
             HermesMark(size: 70)
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text("Connect your iPhone")
                     .font(HermesTheme.brandTitle(size: 27))
                     .foregroundStyle(HermesTheme.ink)
@@ -148,8 +148,8 @@ struct ConnectView: View {
         Text(pairingPrompt)
             .font(.system(size: 15, weight: .semibold, design: .monospaced))
             .foregroundStyle(HermesTheme.ink)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 15)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(HermesTheme.userBubble, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(HermesTheme.userBubbleBorder, lineWidth: 1))
@@ -294,8 +294,8 @@ private struct ConnectOnboardingHeader: View {
             Spacer()
         }
         .padding(.horizontal, 16)
-        .padding(.top, 14)
-        .padding(.bottom, 10)
+        .padding(.top, 18)
+        .padding(.bottom, 18)
     }
 }
 
