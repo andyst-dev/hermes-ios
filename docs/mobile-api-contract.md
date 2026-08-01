@@ -1,11 +1,11 @@
 # Hermes Mobile API Contract Draft
 
-This draft is the narrow client/server boundary for Hermes Companion. The iOS app stays a thin remote UI; the desktop/server Hermes instance owns tools, files, approvals, model secrets, sessions, and execution.
+This draft is the narrow client/server boundary for Hermes Companion. The iOS app stays a thin remote UI; the desktop/server Hermes instance owns tools, files, approvals, model secrets, sessions, and execution. The first read-only endpoints are mirrored by the Hermes dashboard backend under `/api/mobile/*`.
 
 ## Transport
 
 - Base URL: user-paired desktop/server Hermes URL.
-- Auth: short-lived bearer token from QR pairing, stored in iOS Keychain.
+- Auth: dashboard session token for the first bridge (`X-Hermes-Session-Token` or `Authorization: Bearer ...`); later QR pairing should mint a mobile-scoped token stored in iOS Keychain.
 - Streaming: WebSocket preferred for chat turns; HTTP polling acceptable for session metadata.
 - Privacy: responses should support redacted display names/paths for public screenshot mode.
 

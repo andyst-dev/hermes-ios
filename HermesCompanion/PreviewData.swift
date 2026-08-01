@@ -8,16 +8,16 @@ enum PreviewData {
     ]
 
     static let messages: [HermesMessage] = [
-        HermesMessage(id: UUID(), role: .assistant, text: "Connecté au Mac. Je peux piloter Hermes, lire les sessions, suivre les tools et lancer les validations.", createdAt: .now, toolCalls: []),
-        HermesMessage(id: UUID(), role: .user, text: "Trouve un PR méga clean facile", createdAt: .now, toolCalls: []),
+        HermesMessage(id: UUID().uuidString, role: .assistant, text: "Connecté au Mac. Je peux piloter Hermes, lire les sessions, suivre les tools et lancer les validations.", createdAt: .now, toolCalls: []),
+        HermesMessage(id: UUID().uuidString, role: .user, text: "Trouve un PR méga clean facile", createdAt: .now, toolCalls: []),
         HermesMessage(
-            id: UUID(),
+            id: UUID().uuidString,
             role: .assistant,
             text: "J’ai trouvé un candidat docs ciblé et sans duplicate. Je patch minimalement puis je build le site.",
             createdAt: .now,
             toolCalls: [
-                HermesToolCall(id: UUID(), name: "github", command: "gh issue view", status: .succeeded, summary: "Issue open, no assignee, no duplicate PR"),
-                HermesToolCall(id: UUID(), name: "terminal", command: "npm run build", status: .succeeded, summary: "Docusaurus build completed")
+                HermesToolCall(id: UUID().uuidString, name: "github", command: "gh issue view", status: .succeeded, summary: "Issue open, no assignee, no duplicate PR"),
+                HermesToolCall(id: UUID().uuidString, name: "terminal", command: "npm run build", status: .succeeded, summary: "Docusaurus build completed")
             ]
         )
     ]

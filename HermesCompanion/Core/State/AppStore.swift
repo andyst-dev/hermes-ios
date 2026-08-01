@@ -58,7 +58,7 @@ final class AppStore: ObservableObject {
         do {
             messages = try await client.messages(sessionID: session.id)
         } catch {
-            messages = [HermesMessage(id: UUID(), role: .system, text: error.localizedDescription, createdAt: .now, toolCalls: [])]
+            messages = [HermesMessage(id: UUID().uuidString, role: .system, text: error.localizedDescription, createdAt: .now, toolCalls: [])]
         }
     }
 
@@ -66,7 +66,7 @@ final class AppStore: ObservableObject {
         let text = composerText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         composerText = ""
-        let userMessage = HermesMessage(id: UUID(), role: .user, text: text, createdAt: .now, toolCalls: [])
+        let userMessage = HermesMessage(id: UUID().uuidString, role: .user, text: text, createdAt: .now, toolCalls: [])
         messages.append(userMessage)
         isStreaming = true
 
@@ -80,7 +80,7 @@ final class AppStore: ObservableObject {
                 }
             }
         } catch {
-            messages.append(HermesMessage(id: UUID(), role: .system, text: error.localizedDescription, createdAt: .now, toolCalls: []))
+            messages.append(HermesMessage(id: UUID().uuidString, role: .system, text: error.localizedDescription, createdAt: .now, toolCalls: []))
         }
         isStreaming = false
     }

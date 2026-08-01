@@ -31,7 +31,7 @@ struct HermesSession: Codable, Equatable, Identifiable {
 }
 
 struct HermesMessage: Codable, Equatable, Identifiable {
-    let id: UUID
+    let id: String
     var role: Role
     var text: String
     var createdAt: Date
@@ -45,7 +45,7 @@ struct HermesMessage: Codable, Equatable, Identifiable {
 }
 
 struct HermesToolCall: Codable, Equatable, Identifiable {
-    let id: UUID
+    let id: String
     var name: String
     var command: String?
     var status: Status

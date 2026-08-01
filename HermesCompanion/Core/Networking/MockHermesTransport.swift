@@ -27,12 +27,12 @@ struct MockHermesTransport: HermesTransport {
                     "\n\nEnsuite je prépare un PR body clean sans chemins locaux ni secrets."
                 ]
                 var current = HermesMessage(
-                    id: UUID(),
+                    id: UUID().uuidString,
                     role: .assistant,
                     text: "",
                     createdAt: .now,
                     toolCalls: [
-                        HermesToolCall(id: UUID(), name: "terminal", command: "git diff --check", status: .running, summary: "Validating patch hygiene")
+                        HermesToolCall(id: UUID().uuidString, name: "terminal", command: "git diff --check", status: .running, summary: "Validating patch hygiene")
                     ]
                 )
                 for chunk in chunks {
