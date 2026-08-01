@@ -4,7 +4,7 @@ struct ConnectView: View {
     @EnvironmentObject private var store: AppStore
     @State private var host = UserDefaults.standard.string(forKey: "hermes.host") ?? "http://127.0.0.1:8765"
     @State private var profile = UserDefaults.standard.string(forKey: "hermes.profile") ?? "default"
-    @State private var token = KeychainStore.loadToken() ?? ""
+    @State private var token = ProcessInfo.processInfo.environment["HERMES_DASHBOARD_SESSION_TOKEN"] ?? KeychainStore.loadToken() ?? ""
     @State private var tokenSaveError: String?
 
     var body: some View {

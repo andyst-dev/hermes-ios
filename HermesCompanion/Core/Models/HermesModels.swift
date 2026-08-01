@@ -42,6 +42,7 @@ struct HermesMessage: Codable, Equatable, Identifiable {
         case user
         case assistant
         case system
+        case tool
     }
 }
 

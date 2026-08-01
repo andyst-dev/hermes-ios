@@ -12,7 +12,7 @@ struct SettingsView: View {
                             HermesMobileRow(title: "Host", subtitle: store.privacyMode ? "Connected desktop" : host.baseURL.absoluteString, icon: "desktopcomputer", accent: HermesTheme.green)
                             HermesMobileRow(title: "Profile", subtitle: host.profile, icon: "folder", accent: HermesTheme.primary)
                         }
-                        HermesMobileRow(title: "Transport", subtitle: "Mock now · mobile bridge ready", icon: "point.3.connected.trianglepath.dotted", accent: HermesTheme.mutedForeground)
+                        HermesMobileRow(title: "Transport", subtitle: transportLabel, icon: "point.3.connected.trianglepath.dotted", accent: HermesTheme.mutedForeground)
                     }
 
                     HermesMobileSection(title: "Desktop parity", icon: "rectangle.split.3x1", accent: HermesTheme.primary) {
@@ -62,5 +62,15 @@ struct SettingsView: View {
     private var connectionLabel: String {
         if case .connected(let host) = store.connection { return "\(host.profile) · gateway ready" }
         return "not connected"
+    }
+
+    private var transportLabel: String {
+        if ProcessInfo.processInfo.environment["HERMES_DEMO_CONNECTED"] == "1" {
+            return "Demo mock"
+        }
+        if case .connected = store.connection {
+            return "HTTP mobile bridge"
+        }
+        return "Not connected"
     }
 }

@@ -40,6 +40,8 @@ targets:
         NSCameraUsageDescription: Hermes can attach photos to prompts when you choose them.
         NSMicrophoneUsageDescription: Hermes can record voice prompts when you choose voice input.
         NSPhotoLibraryUsageDescription: Hermes can attach selected images to prompts.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
   HermesCompanionTests:
     type: bundle.unit-test
     platform: iOS
