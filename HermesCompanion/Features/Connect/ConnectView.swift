@@ -39,6 +39,7 @@ struct ConnectView: View {
                             .buttonStyle(.plain)
                         }
                     }
+                    .padding(.top, 24)
 
                     HermesMobileSection(title: "Then scan", icon: "qrcode.viewfinder", accent: HermesTheme.primary) {
                         Text("Hermes will show a QR. Scan it here and this iPhone connects automatically.")
