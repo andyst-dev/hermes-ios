@@ -1,0 +1,62 @@
+name: HermesCompanion
+options:
+  minimumXcodeGenVersion: 2.42.0
+  deploymentTarget:
+    iOS: "18.0"
+  developmentLanguage: en
+settings:
+  base:
+    SWIFT_VERSION: 6.0
+    IPHONEOS_DEPLOYMENT_TARGET: 18.0
+    MARKETING_VERSION: 0.1.0
+    CURRENT_PROJECT_VERSION: 1
+targets:
+  HermesCompanion:
+    type: application
+    platform: iOS
+    sources:
+      - path: HermesCompanion
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.hermes.companion
+        PRODUCT_NAME: HermesCompanion
+        INFOPLIST_FILE: HermesCompanion/Resources/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_PREVIEWS: YES
+    info:
+      path: HermesCompanion/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: Hermes
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSCameraUsageDescription: Hermes can attach photos to prompts when you choose them.
+        NSMicrophoneUsageDescription: Hermes can record voice prompts when you choose voice input.
+        NSPhotoLibraryUsageDescription: Hermes can attach selected images to prompts.
+  HermesCompanionTests:
+    type: bundle.unit-test
+    platform: iOS
+    hostApplication: HermesCompanion
+    sources:
+      - path: HermesCompanionTests
+    dependencies:
+      - target: HermesCompanion
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.hermes.companion.tests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  HermesCompanion:
+    build:
+      targets:
+        HermesCompanion: all
+    test:
+      targets:
+        - HermesCompanionTests
