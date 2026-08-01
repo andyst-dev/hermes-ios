@@ -10,25 +10,38 @@ struct SessionListView: View {
         VStack(spacing: 0) {
             MobileSessionsHeader(showingSettings: $showingSettings, onNewSession: openNewSession)
             ScrollView(showsIndicators: false) {
+                let regularSessions = visibleSessions(excluding: "telegram")
+                let telegramSessions = visibleSessions(only: "telegram")
+                let hasResults = !regularSessions.isEmpty || !telegramSessions.isEmpty
+
                 VStack(alignment: .leading, spacing: 18) {
                     MobileQuickFilters()
                     SidebarSearchField(text: $searchText)
-                    PinnedSection()
-                    SessionSourceSection(
-                        title: "Sessions",
-                        icon: "checkerboard.rectangle",
-                        sessions: visibleSessions(excluding: "telegram"),
-                        searchText: searchText,
-                        onSessionSelected: onSessionSelected
-                    )
-                    SessionSourceSection(
-                        title: "Telegram",
-                        icon: "paperplane.circle.fill",
-                        accent: Color(red: 0.180, green: 0.620, blue: 0.920),
-                        sessions: visibleSessions(only: "telegram"),
-                        searchText: searchText,
-                        onSessionSelected: onSessionSelected
-                    )
+                    if store.selectedSourceFilter == "all" {
+                        PinnedSection()
+                    }
+                    if shouldShowRegularSection(sessions: regularSessions) {
+                        SessionSourceSection(
+                            title: regularSectionTitle,
+                            icon: regularSectionIcon,
+                            sessions: regularSessions,
+                            searchText: searchText,
+                            onSessionSelected: onSessionSelected
+                        )
+                    }
+                    if shouldShowTelegramSection(sessions: telegramSessions) {
+                        SessionSourceSection(
+                            title: "Telegram",
+                            icon: "paperplane.circle.fill",
+                            accent: Color(red: 0.180, green: 0.620, blue: 0.920),
+                            sessions: telegramSessions,
+                            searchText: searchText,
+                            onSessionSelected: onSessionSelected
+                        )
+                    }
+                    if !hasResults {
+                        EmptySessionsState(filter: store.selectedSourceFilter, searchText: searchText)
+                    }
                 }
                 .padding(.horizontal, 13)
                 .padding(.top, 10)
@@ -38,6 +51,32 @@ struct SessionListView: View {
         }
         .background(HermesTheme.sidebar)
         .toolbar(.hidden, for: .navigationBar)
+    }
+
+    private var selectedFilter: String { store.selectedSourceFilter.lowercased() }
+
+    private var regularSectionTitle: String {
+        switch selectedFilter {
+        case "desktop": "Desktop"
+        case "cli": "CLI"
+        default: "Sessions"
+        }
+    }
+
+    private var regularSectionIcon: String {
+        switch selectedFilter {
+        case "desktop": "macwindow"
+        case "cli": "terminal"
+        default: "checkerboard.rectangle"
+        }
+    }
+
+    private func shouldShowRegularSection(sessions: [HermesSession]) -> Bool {
+        selectedFilter != "telegram" && !sessions.isEmpty
+    }
+
+    private func shouldShowTelegramSection(sessions: [HermesSession]) -> Bool {
+        (selectedFilter == "all" || selectedFilter == "telegram") && !sessions.isEmpty
     }
 
     private func visibleSessions(only source: String? = nil, excluding excludedSource: String? = nil) -> [HermesSession] {
@@ -189,6 +228,34 @@ private struct PinnedSection: View {
             .padding(.horizontal, 5)
             .padding(.top, 1)
         }
+    }
+}
+
+private struct EmptySessionsState: View {
+    let filter: String
+    let searchText: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: "tray")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(HermesTheme.mutedForeground.opacity(0.7))
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(HermesTheme.ink.opacity(0.8))
+            Text("Only relevant sections are shown for the active source.")
+                .font(.system(size: 11))
+                .foregroundStyle(HermesTheme.mutedForeground.opacity(0.78))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(HermesTheme.card.opacity(0.42), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(HermesTheme.stroke.opacity(0.8), lineWidth: 1))
+    }
+
+    private var title: String {
+        if !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "No matching sessions" }
+        return "No \(filter == "all" ? "" : filter + " ")sessions"
     }
 }
 

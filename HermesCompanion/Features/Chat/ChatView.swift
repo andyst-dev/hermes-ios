@@ -6,10 +6,11 @@ struct ChatView: View {
     @Binding var showingInspector: Bool
     @Binding var showingModels: Bool
     @Binding var showingTerminal: Bool
+    var onBack: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 0) {
-            CompactChatControls(showingCommands: $showingCommands, showingInspector: $showingInspector, showingModels: $showingModels, showingTerminal: $showingTerminal)
+            CompactChatControls(showingCommands: $showingCommands, showingInspector: $showingInspector, showingModels: $showingModels, showingTerminal: $showingTerminal, onBack: onBack)
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 18, pinnedViews: [.sectionHeaders]) {
@@ -47,9 +48,18 @@ private struct CompactChatControls: View {
     @Binding var showingInspector: Bool
     @Binding var showingModels: Bool
     @Binding var showingTerminal: Bool
+    var onBack: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 8) {
+            if let onBack {
+                compactButton("chevron.left", action: onBack)
+                    .accessibilityLabel("Back to chats")
+                Text(store.selectedSession?.title ?? "New Session")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(HermesTheme.mutedForeground)
+                    .lineLimit(1)
+            }
             Spacer()
             compactButton("command") { showingCommands = true }
                 .accessibilityLabel("Commands")

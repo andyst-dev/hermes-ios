@@ -49,14 +49,44 @@ struct RootView: View {
 
 private struct MainShellView: View {
     @EnvironmentObject private var store: AppStore
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Binding var showingSettings: Bool
     @Binding var showingCommands: Bool
     @Binding var showingInspector: Bool
     @Binding var showingModels: Bool
     @Binding var showingTerminal: Bool
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @State private var showingChat = false
 
     var body: some View {
+        if horizontalSizeClass == .compact {
+            compactShell
+        } else {
+            splitShell
+        }
+    }
+
+    private var compactShell: some View {
+        ZStack {
+            if showingChat {
+                ChatView(
+                    showingCommands: $showingCommands,
+                    showingInspector: $showingInspector,
+                    showingModels: $showingModels,
+                    showingTerminal: $showingTerminal,
+                    onBack: { withAnimation(.snappy) { showingChat = false } }
+                )
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+            } else {
+                SessionListView(showingSettings: $showingSettings) {
+                    withAnimation(.snappy) { showingChat = true }
+                }
+                .transition(.move(edge: .leading).combined(with: .opacity))
+            }
+        }
+    }
+
+    private var splitShell: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             SessionListView(showingSettings: $showingSettings) {
                 withAnimation(.snappy) { columnVisibility = .detailOnly }
