@@ -3,11 +3,12 @@ import SwiftUI
 struct SessionListView: View {
     @EnvironmentObject private var store: AppStore
     @Binding var showingSettings: Bool
+    var onSessionSelected: () -> Void = {}
     @State private var searchText = ""
 
     var body: some View {
         VStack(spacing: 0) {
-            MobileSessionsHeader(showingSettings: $showingSettings)
+            MobileSessionsHeader(showingSettings: $showingSettings, onNewSession: openNewSession)
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 18) {
                     MobileQuickFilters()
@@ -17,14 +18,16 @@ struct SessionListView: View {
                         title: "Sessions",
                         icon: "checkerboard.rectangle",
                         sessions: visibleSessions(excluding: "telegram"),
-                        searchText: searchText
+                        searchText: searchText,
+                        onSessionSelected: onSessionSelected
                     )
                     SessionSourceSection(
                         title: "Telegram",
                         icon: "paperplane.circle.fill",
                         accent: Color(red: 0.180, green: 0.620, blue: 0.920),
                         sessions: visibleSessions(only: "telegram"),
-                        searchText: searchText
+                        searchText: searchText,
+                        onSessionSelected: onSessionSelected
                     )
                 }
                 .padding(.horizontal, 13)
@@ -40,6 +43,8 @@ struct SessionListView: View {
     private func visibleSessions(only source: String? = nil, excluding excludedSource: String? = nil) -> [HermesSession] {
         store.sessions.filter { session in
             let sessionSource = (session.source ?? "desktop").lowercased()
+            let selectedSource = store.selectedSourceFilter.lowercased()
+            if selectedSource != "all", sessionSource != selectedSource { return false }
             if let source, sessionSource != source { return false }
             if let excludedSource, sessionSource == excludedSource { return false }
             guard !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return true }
@@ -47,11 +52,19 @@ struct SessionListView: View {
             return session.title.lowercased().contains(needle) || session.subtitle.lowercased().contains(needle)
         }
     }
+
+    private func openNewSession() {
+        Task {
+            await store.runCommand(.newChat)
+            onSessionSelected()
+        }
+    }
 }
 
 private struct MobileSessionsHeader: View {
     @EnvironmentObject private var store: AppStore
     @Binding var showingSettings: Bool
+    let onNewSession: () -> Void
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
@@ -68,7 +81,7 @@ private struct MobileSessionsHeader: View {
                 }
             }
             Spacer()
-            Button {} label: {
+            Button(action: onNewSession) {
                 Image(systemName: "plus")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(HermesTheme.primary)
@@ -96,30 +109,49 @@ private struct MobileSessionsHeader: View {
 }
 
 private struct MobileQuickFilters: View {
-    private let actions: [(String, String)] = [
-        ("All", "bubble.left.and.bubble.right"),
-        ("Tools", "shippingbox"),
-        ("Files", "doc"),
-        ("Runs", "bolt")
-    ]
+    @EnvironmentObject private var store: AppStore
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-            ForEach(actions, id: \.0) { action in
-                    HStack(spacing: 6) {
-                    Image(systemName: action.1)
-                            .font(.system(size: 11, weight: .semibold))
-                    Text(action.0)
-                            .font(.system(size: 12, weight: .semibold))
+                ForEach(store.availableSources, id: \.self) { source in
+                    Button {
+                        store.selectedSourceFilter = source
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: icon(for: source))
+                                .font(.system(size: 11, weight: .semibold))
+                            Text(label(for: source))
+                                .font(.system(size: 12, weight: .semibold))
+                        }
+                        .foregroundStyle(source == store.selectedSourceFilter ? HermesTheme.primary : HermesTheme.mutedForeground)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(source == store.selectedSourceFilter ? HermesTheme.userBubble : HermesTheme.card.opacity(0.42), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
-                    .foregroundStyle(action.0 == "All" ? HermesTheme.primary : HermesTheme.mutedForeground)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 7)
-                    .background(action.0 == "All" ? HermesTheme.userBubble : HermesTheme.card.opacity(0.42), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            }
+                    .buttonStyle(.plain)
+                }
             }
             .padding(.horizontal, 1)
+        }
+    }
+
+    private func label(for source: String) -> String {
+        switch source {
+        case "all": "All"
+        case "telegram": "Telegram"
+        case "desktop": "Desktop"
+        case "cli": "CLI"
+        default: source.capitalized
+        }
+    }
+
+    private func icon(for source: String) -> String {
+        switch source {
+        case "telegram": "paperplane.circle.fill"
+        case "desktop": "macwindow"
+        case "cli": "terminal"
+        default: "bubble.left.and.bubble.right"
         }
     }
 }
@@ -167,6 +199,7 @@ private struct SessionSourceSection: View {
     var accent: Color = HermesTheme.mutedForeground
     let sessions: [HermesSession]
     let searchText: String
+    let onSessionSelected: () -> Void
 
     var body: some View {
         SidebarSection(title: title, icon: icon, accent: accent) {
@@ -183,8 +216,15 @@ private struct SessionSourceSection: View {
                         }
                         VStack(alignment: .leading, spacing: 2) {
                             ForEach(group.sessions) { session in
-                                SidebarSessionRow(session: session, selected: session.id == store.selectedSessionID)
-                                    .onTapGesture { Task { await store.select(session: session) } }
+                                Button {
+                                    Task {
+                                        await store.select(session: session)
+                                        onSessionSelected()
+                                    }
+                                } label: {
+                                    SidebarSessionRow(session: session, selected: session.id == store.selectedSessionID)
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
                     }

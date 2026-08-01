@@ -58,7 +58,9 @@ private struct MainShellView: View {
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            SessionListView(showingSettings: $showingSettings)
+            SessionListView(showingSettings: $showingSettings) {
+                withAnimation(.snappy) { columnVisibility = .detailOnly }
+            }
                 .navigationTitle("Hermes")
         } content: {
             ChatView(showingCommands: $showingCommands, showingInspector: $showingInspector, showingModels: $showingModels, showingTerminal: $showingTerminal)
