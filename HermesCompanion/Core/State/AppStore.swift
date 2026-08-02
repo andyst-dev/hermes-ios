@@ -143,6 +143,19 @@ final class AppStore: ObservableObject {
         isStreaming = false
     }
 
+    func disconnect(clearPairing: Bool = false) {
+        connection = .disconnected
+        selectedSessionID = nil
+        sessions = []
+        messages = []
+        isStreaming = false
+        if clearPairing {
+            KeychainStore.deleteToken()
+            UserDefaults.standard.removeObject(forKey: "hermes.host")
+            UserDefaults.standard.removeObject(forKey: "hermes.profile")
+        }
+    }
+
     func runCommand(_ command: MobileCommand) async {
         switch command {
         case .newChat:

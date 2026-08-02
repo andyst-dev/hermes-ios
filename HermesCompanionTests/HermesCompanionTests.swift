@@ -55,4 +55,20 @@ final class HermesCompanionTests: XCTestCase {
         XCTAssertFalse(system.isTranscriptVisible)
         XCTAssertFalse(compaction.isTranscriptVisible)
     }
+
+    func testDisconnectClearsMobileState() async throws {
+        let store = AppStore(client: HermesClient(transport: MockHermesTransport()))
+        let host = HermesHost(name: "Test", baseURL: URL(string: "http://localhost:8765")!, profile: "default")
+        await store.connect(host: host)
+        XCTAssertFalse(store.sessions.isEmpty)
+        XCTAssertFalse(store.messages.isEmpty)
+
+        store.disconnect(clearPairing: false)
+
+        XCTAssertEqual(store.connection, .disconnected)
+        XCTAssertNil(store.selectedSessionID)
+        XCTAssertTrue(store.sessions.isEmpty)
+        XCTAssertTrue(store.messages.isEmpty)
+        XCTAssertFalse(store.isStreaming)
+    }
 }
