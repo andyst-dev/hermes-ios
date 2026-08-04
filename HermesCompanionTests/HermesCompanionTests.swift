@@ -78,4 +78,15 @@ final class HermesCompanionTests: XCTestCase {
         XCTAssertNotNil(store.selectedSessionID)
         XCTAssertTrue(store.selectedSessionID?.hasPrefix("mock-session-") == true)
     }
+
+    func testFilesListingThroughTransport() async throws {
+        let store = AppStore(client: HermesClient(transport: MockHermesTransport()))
+        let listing = try await store.files(path: nil)
+        XCTAssertFalse(listing.entries.isEmpty)
+        XCTAssertTrue(listing.entries.contains { $0.isDirectory })
+
+        let file = try await store.readFile(path: "README.md")
+        XCTAssertFalse(file.content.isEmpty)
+        XCTAssertEqual(file.name, "README.md")
+    }
 }

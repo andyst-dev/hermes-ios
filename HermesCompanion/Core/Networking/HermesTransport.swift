@@ -10,6 +10,8 @@ protocol HermesTransport: Sendable {
     func send(_ prompt: OutboundPrompt) async throws -> AsyncThrowingStream<HermesMessage, Error>
     func newChat() async throws -> String
     func stop(sessionID: String) async throws
+    func fetchFiles(path: String?) async throws -> HermesFileListing
+    func readFile(path: String) async throws -> HermesFileContent
 }
 
 enum HermesTransportError: Error, LocalizedError {

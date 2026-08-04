@@ -76,6 +76,18 @@ actor HTTPHermesTransport: HermesTransport {
         return response.sessionID
     }
 
+    func fetchFiles(path: String?) async throws -> HermesFileListing {
+        var queryItems: [URLQueryItem] = []
+        if let path, !path.isEmpty {
+            queryItems.append(URLQueryItem(name: "path", value: path))
+        }
+        return try await dataRequest(path: "api/mobile/files", method: "GET", body: Optional<Data>.none, queryItems: queryItems)
+    }
+
+    func readFile(path: String) async throws -> HermesFileContent {
+        try await dataRequest(path: "api/mobile/files/read", method: "GET", body: Optional<Data>.none, queryItems: [URLQueryItem(name: "path", value: path)])
+    }
+
     private func get<T: Decodable>(_ path: String) async throws -> T {
         try await dataRequest(path: path, method: "GET", body: Optional<Data>.none)
     }
@@ -85,9 +97,9 @@ actor HTTPHermesTransport: HermesTransport {
         return try await dataRequest(path: path, method: "POST", body: data, timeout: timeout)
     }
 
-    private func dataRequest<T: Decodable>(path: String, method: String, body: Data?, timeout: TimeInterval = 12) async throws -> T {
+    private func dataRequest<T: Decodable>(path: String, method: String, body: Data?, timeout: TimeInterval = 12, queryItems: [URLQueryItem] = []) async throws -> T {
         guard let baseURL else { throw HermesTransportError.notConnected }
-        var request = URLRequest(url: endpointURL(baseURL: baseURL, path: path))
+        var request = URLRequest(url: endpointURL(baseURL: baseURL, path: path, queryItems: queryItems))
         request.timeoutInterval = timeout
         request.httpMethod = method
         if let body {
@@ -116,12 +128,13 @@ actor HTTPHermesTransport: HermesTransport {
         request.setValue(token, forHTTPHeaderField: "X-Hermes-Session-Token")
     }
 
-    private func endpointURL(baseURL: URL, path: String) -> URL {
+    private func endpointURL(baseURL: URL, path: String, queryItems extra: [URLQueryItem] = []) -> URL {
         let raw = path.split(separator: "/").reduce(baseURL) { partial, component in
             partial.appending(path: String(component))
         }
         guard var components = URLComponents(url: raw, resolvingAgainstBaseURL: false) else { return raw }
         var queryItems = components.queryItems ?? []
+        queryItems.append(contentsOf: extra)
         if !profile.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             queryItems.append(URLQueryItem(name: "profile", value: profile))
         }

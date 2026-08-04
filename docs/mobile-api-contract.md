@@ -136,6 +136,17 @@ Interrupts a running mobile chat turn. The bridge tracks the Hermes chat
 subprocess per session and terminates it on demand; an idle session gets
 `{"detail": "No running turn"}`.
 
+### `GET /api/mobile/files?path=...`
+
+Lists Desktop managed files (same policy as the dashboard Files tab). Paths
+are relative to the managed root (usually the home folder) and never expose
+absolute host paths. Credential files (`.env`, tokens) are hidden.
+
+### `GET /api/mobile/files/read?path=...`
+
+Reads a text file (capped at 256 KB, `truncated` flag in the response).
+Binary and sensitive files are refused (415/403).
+
 ## Pairing flow
 
 1. Desktop Hermes shows QR with one-time pairing URL.

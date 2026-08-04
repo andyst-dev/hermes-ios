@@ -156,6 +156,14 @@ final class AppStore: ObservableObject {
         }
     }
 
+    func files(path: String? = nil) async throws -> HermesFileListing {
+        try await client.files(path: path)
+    }
+
+    func readFile(path: String) async throws -> HermesFileContent {
+        try await client.readFile(path: path)
+    }
+
     func runCommand(_ command: MobileCommand) async {
         switch command {
         case .newChat:

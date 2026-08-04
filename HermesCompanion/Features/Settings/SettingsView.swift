@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var store: AppStore
     @State private var showingModels = false
+    @State private var showingFiles = false
     @State private var showingForgetPairingAlert = false
     @State private var actionStatus: String?
 
@@ -39,6 +40,9 @@ struct SettingsView: View {
                     HermesMobileSection(title: "Desktop controls", icon: "slider.horizontal.3", accent: HermesTheme.primary) {
                         SettingsButtonRow(title: "Model", subtitle: modelSubtitle, icon: "cpu", accent: HermesTheme.primary) {
                             showingModels = true
+                        }
+                        SettingsButtonRow(title: "Files", subtitle: "Browse Desktop managed files", icon: "folder", accent: HermesTheme.primary) {
+                            showingFiles = true
                         }
                         SettingsButtonRow(title: "Copy desktop URL", subtitle: copyURLSubtitle, icon: "doc.on.doc", accent: HermesTheme.mutedForeground) {
                             copyDesktopURL()
@@ -79,7 +83,8 @@ struct SettingsView: View {
                         HermesMobileRow(title: "Real sessions", subtitle: "Desktop/CLI/gateway conversations", icon: "message", accent: HermesTheme.green)
                         HermesMobileRow(title: "Models", subtitle: "Read and switch Desktop model", icon: "cpu", accent: HermesTheme.green)
                         HermesMobileRow(title: "Remote chat", subtitle: "Send prompts through Desktop bridge", icon: "paperplane", accent: HermesTheme.green)
-                        HermesMobileRow(title: "Next", subtitle: "Streaming, files, approvals", icon: "ellipsis", accent: HermesTheme.mutedForeground)
+                        HermesMobileRow(title: "Files", subtitle: "Browse and preview Desktop files", icon: "folder", accent: HermesTheme.green)
+                        HermesMobileRow(title: "Next", subtitle: "Streaming, approvals", icon: "ellipsis", accent: HermesTheme.mutedForeground)
                     }
 
                     if let actionStatus {
@@ -97,6 +102,10 @@ struct SettingsView: View {
         .presentationDetents([.large])
         .sheet(isPresented: $showingModels) {
             ModelPickerView()
+                .environmentObject(store)
+        }
+        .sheet(isPresented: $showingFiles) {
+            FilesView()
                 .environmentObject(store)
         }
         .alert("Forget pairing?", isPresented: $showingForgetPairingAlert) {

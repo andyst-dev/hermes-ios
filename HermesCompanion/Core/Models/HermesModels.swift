@@ -123,6 +123,26 @@ struct HermesFileArtifact: Codable, Equatable, Identifiable {
     }
 }
 
+struct HermesFileEntry: Codable, Equatable, Identifiable {
+    var id: String { path }
+    let name: String
+    let path: String
+    let isDirectory: Bool
+    let size: Int?
+    let mtime: Double?
+}
+
+struct HermesFileListing: Codable, Equatable {
+    let path: String
+    let entries: [HermesFileEntry]
+}
+
+struct HermesFileContent: Codable, Equatable {
+    let name: String
+    let content: String
+    let truncated: Bool
+}
+
 struct HermesJob: Codable, Equatable, Identifiable {
     let id: String
     var title: String

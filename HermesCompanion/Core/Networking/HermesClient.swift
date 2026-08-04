@@ -43,4 +43,12 @@ final class HermesClient: ObservableObject {
     func stop(sessionID: String) async throws {
         try await transport.stop(sessionID: sessionID)
     }
+
+    func files(path: String?) async throws -> HermesFileListing {
+        try await transport.fetchFiles(path: path)
+    }
+
+    func readFile(path: String) async throws -> HermesFileContent {
+        try await transport.readFile(path: path)
+    }
 }

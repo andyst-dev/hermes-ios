@@ -28,6 +28,20 @@ struct MockHermesTransport: HermesTransport {
         "mock-session-\(UUID().uuidString.prefix(8))"
     }
 
+    func fetchFiles(path: String?) async throws -> HermesFileListing {
+        HermesFileListing(
+            path: path ?? "",
+            entries: [
+                HermesFileEntry(name: "README.md", path: "README.md", isDirectory: false, size: 512, mtime: nil),
+                HermesFileEntry(name: "projects", path: "projects", isDirectory: true, size: nil, mtime: nil),
+            ]
+        )
+    }
+
+    func readFile(path: String) async throws -> HermesFileContent {
+        HermesFileContent(name: path, content: "# Mock file\n\nThis is demo content.", truncated: false)
+    }
+
     func send(_ prompt: OutboundPrompt) async throws -> AsyncThrowingStream<HermesMessage, Error> {
         AsyncThrowingStream { continuation in
             Task {
