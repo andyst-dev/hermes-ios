@@ -160,6 +160,22 @@ Pins/unpins a session (`{"pinned": true}`). The sessions list returns `pinned`.
 Archives a session (`{"archived": true}`); archived sessions disappear from
 the mobile list but stay on Desktop.
 
+### `POST /api/mobile/chat`
+
+Sends a turn. Two response modes:
+
+- **JSON** (default): runs the full turn on Desktop, returns
+  `{"sessionID", "messages"}`.
+- **SSE** (send `Accept: text/event-stream`): streams the turn live.
+  Events (`data: {json}\n\n`):
+  - `{"type":"delta","text":...}` — token deltas of the assistant reply
+    (the CLI child emits them on stderr as JSONL via `HERMES_MOBILE_STREAM`)
+  - `{"type":"transcript","sessionID":...,"messages":[...]}` — authoritative
+    final transcript (replaces the streamed deltas)
+  - `{"type":"error","detail":...}` — failure
+
+The subprocess stays registered for `POST /api/mobile/stop` in both modes.
+
 ### `POST /api/mobile/attachments`
 
 Multipart upload (`file` part) stored under `~/.hermes/mobile-attachments/`
