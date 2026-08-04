@@ -49,7 +49,7 @@ actor HTTPHermesTransport: HermesTransport {
     }
 
     func fetchModels() async throws -> [HermesModel] {
-        let response: MobileModelsResponse = try await get("api/mobile/models")
+        let response: MobileModelsResponse = try await get("api/mobile/models", timeout: 90)
         return response.models
     }
 
@@ -100,8 +100,8 @@ actor HTTPHermesTransport: HermesTransport {
         let _: MobileSessionActionResponse = try await post("api/mobile/sessions/\(id)/archive", body: MobileArchiveRequest(archived: true))
     }
 
-    private func get<T: Decodable>(_ path: String) async throws -> T {
-        try await dataRequest(path: path, method: "GET", body: Optional<Data>.none)
+    private func get<T: Decodable>(_ path: String, timeout: TimeInterval = 12) async throws -> T {
+        try await dataRequest(path: path, method: "GET", body: Optional<Data>.none, timeout: timeout)
     }
 
     private func post<T: Decodable, Body: Encodable>(_ path: String, body: Body, timeout: TimeInterval = 12) async throws -> T {

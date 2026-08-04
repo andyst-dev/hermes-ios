@@ -64,16 +64,15 @@ private struct MainShellView: View {
         ZStack {
             if showingChat {
                 ChatView(
-                    showingCommands: $showingCommands,
                     showingInspector: $showingInspector,
                     showingModels: $showingModels,
                     onBack: { withAnimation(.snappy) { showingChat = false } }
                 )
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             } else {
-                SessionListView(showingSettings: $showingSettings) {
+                SessionListView(showingSettings: $showingSettings, onSessionSelected: {
                     withAnimation(.snappy) { showingChat = true }
-                }
+                }, onOpenCommands: { showingCommands = true })
                 .transition(.move(edge: .leading).combined(with: .opacity))
             }
         }
@@ -81,12 +80,12 @@ private struct MainShellView: View {
 
     private var splitShell: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            SessionListView(showingSettings: $showingSettings) {
+            SessionListView(showingSettings: $showingSettings, onSessionSelected: {
                 withAnimation(.snappy) { columnVisibility = .detailOnly }
-            }
+            }, onOpenCommands: { showingCommands = true })
                 .navigationTitle("Hermes")
         } content: {
-            ChatView(showingCommands: $showingCommands, showingInspector: $showingInspector, showingModels: $showingModels)
+            ChatView(showingInspector: $showingInspector, showingModels: $showingModels)
                 .navigationTitle(store.selectedSession?.title ?? "New Session")
                 .navigationBarTitleDisplayMode(.inline)
         } detail: {

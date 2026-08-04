@@ -50,8 +50,11 @@ struct ModelPickerView: View {
     }
 
     private var activeSubtitle: String {
-        if let active = store.activeModel { return "active · \(active.displayName)" }
-        return "choose desktop model"
+        let count = store.capabilities.models.count
+        if let active = store.activeModel {
+            return count > 1 ? "active · \(active.displayName) · \(count) available" : "active · \(active.displayName)"
+        }
+        return count > 1 ? "\(count) models available" : "choose desktop model"
     }
 
     private var groupedProviderNames: [String] {

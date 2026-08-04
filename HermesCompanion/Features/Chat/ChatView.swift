@@ -2,14 +2,13 @@ import SwiftUI
 
 struct ChatView: View {
     @EnvironmentObject private var store: AppStore
-    @Binding var showingCommands: Bool
     @Binding var showingInspector: Bool
     @Binding var showingModels: Bool
     var onBack: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 0) {
-            CompactChatControls(showingCommands: $showingCommands, showingInspector: $showingInspector, showingModels: $showingModels, onBack: onBack)
+            CompactChatControls(showingInspector: $showingInspector, showingModels: $showingModels, onBack: onBack)
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 18, pinnedViews: [.sectionHeaders]) {
@@ -58,7 +57,6 @@ struct ChatView: View {
 
 private struct CompactChatControls: View {
     @EnvironmentObject private var store: AppStore
-    @Binding var showingCommands: Bool
     @Binding var showingInspector: Bool
     @Binding var showingModels: Bool
     var onBack: (() -> Void)? = nil
@@ -74,8 +72,6 @@ private struct CompactChatControls: View {
                     .lineLimit(1)
             }
             Spacer()
-            compactButton("command") { showingCommands = true }
-                .accessibilityLabel("Commands")
             compactButton("cpu") { showingModels = true }
                 .accessibilityLabel("Change model")
             compactButton("sidebar.right") { showingInspector = true }

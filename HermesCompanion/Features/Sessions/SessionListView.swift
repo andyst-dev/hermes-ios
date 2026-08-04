@@ -4,11 +4,12 @@ struct SessionListView: View {
     @EnvironmentObject private var store: AppStore
     @Binding var showingSettings: Bool
     var onSessionSelected: () -> Void = {}
+    var onOpenCommands: () -> Void = {}
     @State private var searchText = ""
 
     var body: some View {
         VStack(spacing: 0) {
-            MobileSessionsHeader(showingSettings: $showingSettings, onNewSession: openNewSession)
+            MobileSessionsHeader(showingSettings: $showingSettings, onNewSession: openNewSession, onOpenCommands: onOpenCommands)
             ScrollView(showsIndicators: false) {
                 let regularSessions = visibleSessions(excluding: "telegram")
                 let telegramSessions = visibleSessions(only: "telegram")
@@ -111,6 +112,7 @@ struct SessionListView: View {
 private struct MobileSessionsHeader: View {
     @Binding var showingSettings: Bool
     let onNewSession: () -> Void
+    let onOpenCommands: () -> Void
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
@@ -132,6 +134,13 @@ private struct MobileSessionsHeader: View {
                     .foregroundStyle(HermesTheme.primary)
                     .frame(width: 32, height: 32)
                     .background(HermesTheme.userBubble, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            Button(action: onOpenCommands) {
+                Image(systemName: "command")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(HermesTheme.mutedForeground)
+                    .frame(width: 32, height: 32)
             }
             .buttonStyle(.plain)
             Button { showingSettings = true } label: {
