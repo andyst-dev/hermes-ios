@@ -1,5 +1,6 @@
 import PhotosUI
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ChatView: View {
     @EnvironmentObject private var store: AppStore
@@ -331,6 +332,7 @@ private struct ComposerView: View {
     @EnvironmentObject private var store: AppStore
     @State private var showingPhotoPicker = false
     @State private var showingDesktopFiles = false
+    @State private var showingFilesImporter = false
     @State private var pickerItems: [PhotosPickerItem] = []
 
     var body: some View {
@@ -377,6 +379,11 @@ private struct ComposerView: View {
                     } label: {
                         Label("Choose from Desktop", systemImage: "folder")
                     }
+                    Button {
+                        showingFilesImporter = true
+                    } label: {
+                        Label("Choose from Files", systemImage: "folder.badge.plus")
+                    }
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 13, weight: .semibold))
@@ -415,6 +422,22 @@ private struct ComposerView: View {
         .sheet(isPresented: $showingDesktopFiles) {
             DesktopFilePickerView()
                 .environmentObject(store)
+        }
+        .fileImporter(isPresented: $showingFilesImporter, allowedContentTypes: [.image], allowsMultipleSelection: true) { result in
+            guard case .success(let urls) = result else { return }
+            Task {
+                for url in urls {
+                    let accessing = url.startAccessingSecurityScopedResource()
+                    defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+                    guard let data = try? Data(contentsOf: url), !data.isEmpty else { continue }
+                    let id = UUID()
+                    let filename = url.lastPathComponent.isEmpty ? "file-\(id.uuidString.prefix(8)).jpg" : url.lastPathComponent
+                    let fileURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(filename)
+                    try? data.write(to: fileURL)
+                    let mime = UTType(filenameExtension: URL(fileURLWithPath: filename).pathExtension)?.preferredMIMEType ?? "image/jpeg"
+                    store.addPendingAttachment(OutboundPrompt.Attachment(id: id, filename: filename, mimeType: mime, sizeBytes: data.count))
+                }
+            }
         }
         .onChange(of: pickerItems) { _, items in
             guard !items.isEmpty else { return }
