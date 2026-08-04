@@ -13,6 +13,7 @@ final class AppStore: ObservableObject {
     @Published var activeProviderID = PreviewData.capabilities.models.first?.provider
     @Published var selectedSourceFilter: String = "all"
     @Published var privacyMode = true
+    @Published var pendingAttachments: [OutboundPrompt.Attachment] = []
 
     private let client: HermesClient
 
@@ -98,14 +99,23 @@ final class AppStore: ObservableObject {
 
     func sendComposer() async {
         let text = composerText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
+        guard !text.isEmpty || !pendingAttachments.isEmpty else { return }
         composerText = ""
         let userMessage = HermesMessage(id: UUID().uuidString, role: .user, text: text, createdAt: .now, toolCalls: [])
         messages.append(userMessage)
         isStreaming = true
 
         do {
-            let stream = try await client.send(OutboundPrompt(sessionID: selectedSessionID, text: text, attachments: []))
+            var attachments = pendingAttachments
+            pendingAttachments = []
+            for index in attachments.indices {
+                if attachments[index].path == nil {
+                    if let uploaded = try? await client.uploadAttachment(fileURL: attachmentFileURL(for: attachments[index])) {
+                        attachments[index].path = uploaded
+                    }
+                }
+            }
+            let stream = try await client.send(OutboundPrompt(sessionID: selectedSessionID, text: text, attachments: attachments))
             for try await update in stream {
                 if let index = messages.lastIndex(where: { $0.id == update.id }) {
                     messages[index] = update
@@ -118,6 +128,18 @@ final class AppStore: ObservableObject {
             messages.append(HermesMessage(id: UUID().uuidString, role: .system, text: error.localizedDescription, createdAt: .now, toolCalls: []))
         }
         isStreaming = false
+    }
+
+    func addPendingAttachment(_ attachment: OutboundPrompt.Attachment) {
+        pendingAttachments.append(attachment)
+    }
+
+    func removePendingAttachment(id: UUID) {
+        pendingAttachments.removeAll { $0.id == id }
+    }
+
+    private func attachmentFileURL(for attachment: OutboundPrompt.Attachment) -> URL {
+        URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(attachment.filename)
     }
 
     func stop() async {

@@ -85,6 +85,7 @@ struct OutboundPrompt: Codable, Equatable {
         var filename: String
         var mimeType: String
         var sizeBytes: Int
+        var path: String? = nil
     }
 }
 

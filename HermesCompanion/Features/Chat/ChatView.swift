@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 
 struct ChatView: View {
@@ -328,44 +329,96 @@ private struct ToolCallCard: View {
 
 private struct ComposerView: View {
     @EnvironmentObject private var store: AppStore
+    @State private var showingPhotoPicker = false
+    @State private var pickerItems: [PhotosPickerItem] = []
 
     var body: some View {
-        HStack(alignment: .center, spacing: 8) {
-            Button {} label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 13, weight: .semibold))
-                    .frame(width: 28, height: 28)
+        VStack(spacing: 6) {
+            if !store.pendingAttachments.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(store.pendingAttachments) { attachment in
+                            HStack(spacing: 6) {
+                                Image(systemName: "photo")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(HermesTheme.primary)
+                                Text(attachment.filename)
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundStyle(HermesTheme.ink)
+                                    .lineLimit(1)
+                                Button {
+                                    store.removePendingAttachment(id: attachment.id)
+                                } label: {
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 9, weight: .bold))
+                                        .foregroundStyle(HermesTheme.mutedForeground)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 6)
+                            .background(HermesTheme.userBubble, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(HermesTheme.userBubbleBorder, lineWidth: 1))
+                        }
+                    }
+                }
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(HermesTheme.primary)
 
-            TextField("Ask Hermes…", text: $store.composerText, axis: .vertical)
-                .lineLimit(1...5)
-                .font(.system(size: 14, design: .default))
-                .foregroundStyle(HermesTheme.ink)
-                .textInputAutocapitalization(.sentences)
-                .frame(minHeight: 28, alignment: .center)
+            HStack(alignment: .center, spacing: 8) {
+                Button {
+                    showingPhotoPicker = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(HermesTheme.primary)
+                .accessibilityLabel("Attach photos")
 
-            Button {
-                Task { await store.sendComposer() }
-            } label: {
-                Image(systemName: store.isStreaming ? "stop.fill" : "arrow.up")
-                    .font(.system(size: 13, weight: .bold))
-                    .frame(width: 28, height: 28)
-                    .foregroundStyle(sendForeground)
+                TextField("Ask Hermes…", text: $store.composerText, axis: .vertical)
+                    .lineLimit(1...5)
+                    .font(.system(size: 14, design: .default))
+                    .foregroundStyle(HermesTheme.ink)
+                    .textInputAutocapitalization(.sentences)
+                    .frame(minHeight: 28, alignment: .center)
+
+                Button {
+                    Task { await store.sendComposer() }
+                } label: {
+                    Image(systemName: store.isStreaming ? "stop.fill" : "arrow.up")
+                        .font(.system(size: 13, weight: .bold))
+                        .frame(width: 28, height: 28)
+                        .foregroundStyle(sendForeground)
+                }
+                .buttonStyle(.plain)
+                .disabled(store.composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && store.pendingAttachments.isEmpty && !store.isStreaming)
             }
-            .buttonStyle(.plain)
-            .disabled(store.composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !store.isStreaming)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(HermesTheme.card, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(HermesTheme.card, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .padding(.horizontal, 14)
         .padding(.top, 8)
         .padding(.bottom, 12)
+        .photosPicker(isPresented: $showingPhotoPicker, selection: $pickerItems, maxSelectionCount: 3, matching: .images)
+        .onChange(of: pickerItems) { _, items in
+            guard !items.isEmpty else { return }
+            Task {
+                for item in items {
+                    guard let data = try? await item.loadTransferable(type: Data.self), !data.isEmpty else { continue }
+                    let id = UUID()
+                    let filename = "photo-\(id.uuidString.prefix(8)).jpg"
+                    let fileURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(filename)
+                    try? data.write(to: fileURL)
+                    store.addPendingAttachment(OutboundPrompt.Attachment(id: id, filename: filename, mimeType: "image/jpeg", sizeBytes: data.count))
+                }
+                pickerItems = []
+            }
+        }
     }
 
     private var sendForeground: Color {
-        store.composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? HermesTheme.foreground : HermesTheme.primaryForeground
+        store.composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && store.pendingAttachments.isEmpty ? HermesTheme.foreground : HermesTheme.primaryForeground
     }
 }

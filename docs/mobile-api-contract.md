@@ -160,6 +160,14 @@ Pins/unpins a session (`{"pinned": true}`). The sessions list returns `pinned`.
 Archives a session (`{"archived": true}`); archived sessions disappear from
 the mobile list but stay on Desktop.
 
+### `POST /api/mobile/attachments`
+
+Multipart upload (`file` part) stored under `~/.hermes/mobile-attachments/`
+(20 MB cap). Returns `{"path": ...}`. The path is then sent inside
+`POST /api/mobile/chat` attachments (`[{"path": "..."}]`) and forwarded to the
+Desktop Hermes CLI as `--image`. Paths outside the mobile uploads directory
+are rejected.
+
 ## Pairing flow
 
 1. Desktop Hermes shows QR with one-time pairing URL.

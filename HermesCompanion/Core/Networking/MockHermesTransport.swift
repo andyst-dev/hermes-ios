@@ -60,6 +60,10 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
         sessionList.removeAll { $0.id == id }
     }
 
+    func uploadAttachment(fileURL: URL) async throws -> String {
+        "/mock/\(fileURL.lastPathComponent)"
+    }
+
     func send(_ prompt: OutboundPrompt) async throws -> AsyncThrowingStream<HermesMessage, Error> {
         AsyncThrowingStream { continuation in
             Task {

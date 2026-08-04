@@ -100,6 +100,39 @@ actor HTTPHermesTransport: HermesTransport {
         let _: MobileSessionActionResponse = try await post("api/mobile/sessions/\(id)/archive", body: MobileArchiveRequest(archived: true))
     }
 
+    func uploadAttachment(fileURL: URL) async throws -> String {
+        guard let baseURL else { throw HermesTransportError.notConnected }
+        let data = try Data(contentsOf: fileURL)
+        let boundary = "hermes-mobile-\(UUID().uuidString)"
+        let filename = fileURL.lastPathComponent.isEmpty ? "attachment.bin" : fileURL.lastPathComponent
+
+        var body = Data()
+        body.append(Data("--\(boundary)\r\n".utf8))
+        body.append(Data("Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n".utf8))
+        body.append(Data("Content-Type: application/octet-stream\r\n\r\n".utf8))
+        body.append(data)
+        body.append(Data("\r\n--\(boundary)--\r\n".utf8))
+
+        var request = URLRequest(url: endpointURL(baseURL: baseURL, path: "api/mobile/attachments"))
+        request.httpMethod = "POST"
+        request.timeoutInterval = 90
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.httpBody = body
+        addAuth(to: &request)
+
+        let (responseData, response) = try await urlSession.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw HermesTransportError.server("Upload failed (HTTP \(String(describing: (response as? HTTPURLResponse)?.statusCode)))")
+        }
+        struct UploadResponse: Decodable { let ok: Bool; let path: String }
+        do {
+            let decoded = try decoder.decode(UploadResponse.self, from: responseData)
+            return decoded.path
+        } catch {
+            throw HermesTransportError.server("Could not decode upload response")
+        }
+    }
+
     private func get<T: Decodable>(_ path: String, timeout: TimeInterval = 12) async throws -> T {
         try await dataRequest(path: path, method: "GET", body: Optional<Data>.none, timeout: timeout)
     }
