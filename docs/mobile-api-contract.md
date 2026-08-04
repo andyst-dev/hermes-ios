@@ -168,6 +168,14 @@ Multipart upload (`file` part) stored under `~/.hermes/mobile-attachments/`
 Desktop Hermes CLI as `--image`. Paths outside the mobile uploads directory
 are rejected.
 
+### `POST /api/mobile/files/attach?path=<rel>`
+
+Attach an existing Desktop-managed image to a chat without re-uploading.
+Validates against the managed-files policy (traversal → 400, sensitive
+`.env` → 403, non-image → 415, >20 MB → 413). Returns
+`{"id", "name", "path", "mimeType", "sizeBytes"}`; iOS adds it to the
+pending attachments with the `path` already set.
+
 ## Pairing flow
 
 1. Desktop Hermes shows QR with one-time pairing URL.
