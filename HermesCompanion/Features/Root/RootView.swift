@@ -6,7 +6,6 @@ struct RootView: View {
     @State private var showingCommands = false
     @State private var showingInspector = false
     @State private var showingModels = false
-    @State private var showingTerminal = false
 
     var body: some View {
         ZStack {
@@ -18,8 +17,7 @@ struct RootView: View {
                         showingSettings: $showingSettings,
                         showingCommands: $showingCommands,
                         showingInspector: $showingInspector,
-                        showingModels: $showingModels,
-                        showingTerminal: $showingTerminal
+                        showingModels: $showingModels
                     )
                 default:
                     ConnectView()
@@ -41,9 +39,6 @@ struct RootView: View {
         .sheet(isPresented: $showingModels) {
             ModelPickerView().environmentObject(store)
         }
-        .sheet(isPresented: $showingTerminal) {
-            TerminalView().environmentObject(store)
-        }
     }
 }
 
@@ -54,7 +49,6 @@ private struct MainShellView: View {
     @Binding var showingCommands: Bool
     @Binding var showingInspector: Bool
     @Binding var showingModels: Bool
-    @Binding var showingTerminal: Bool
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var showingChat = false
 
@@ -73,7 +67,6 @@ private struct MainShellView: View {
                     showingCommands: $showingCommands,
                     showingInspector: $showingInspector,
                     showingModels: $showingModels,
-                    showingTerminal: $showingTerminal,
                     onBack: { withAnimation(.snappy) { showingChat = false } }
                 )
                 .transition(.move(edge: .trailing).combined(with: .opacity))
@@ -93,7 +86,7 @@ private struct MainShellView: View {
             }
                 .navigationTitle("Hermes")
         } content: {
-            ChatView(showingCommands: $showingCommands, showingInspector: $showingInspector, showingModels: $showingModels, showingTerminal: $showingTerminal)
+            ChatView(showingCommands: $showingCommands, showingInspector: $showingInspector, showingModels: $showingModels)
                 .navigationTitle(store.selectedSession?.title ?? "New Session")
                 .navigationBarTitleDisplayMode(.inline)
         } detail: {

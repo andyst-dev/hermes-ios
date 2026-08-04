@@ -6,9 +6,7 @@ struct CommandPaletteView: View {
     @State private var query = ""
 
     private var commands: [MobileCommand] {
-        // New chat lives in the sessions list "+" button; the palette is for
-        // conversation actions only (no duplicate entry points).
-        let all = MobileCommand.allCases.filter { $0 != .newChat }
+        let all = MobileCommand.allCases
         guard !query.isEmpty else { return all }
         return all.filter { $0.title.localizedCaseInsensitiveContains(query) }
     }

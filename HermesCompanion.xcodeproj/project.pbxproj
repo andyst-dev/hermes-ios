@@ -11,7 +11,6 @@
 		0A916E402F7082D7F5DBA7FA /* MockHermesTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D01983E0F2F3A97C81D5DE1 /* MockHermesTransport.swift */; };
 		192E8C22095A31D8296A9FB3 /* CommandPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF817F24DDC187E7EB511900 /* CommandPaletteView.swift */; };
 		2C3601D636E637CEB80AB084 /* ConnectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50C05059C56AC8B54ABC5F3A /* ConnectView.swift */; };
-		39672ABFD5AFBBFE9965F13D /* TerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E818831629534E58A4C86EC /* TerminalView.swift */; };
 		3997B012E29E2AF3DFCC55A2 /* HermesMobileChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2647EEA774508A3B4E265577 /* HermesMobileChrome.swift */; };
 		4A6BCE064C87F1DDF6F1FD19 /* FilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 381D91433351994202DB41EA /* FilesView.swift */; };
 		4B4AF3B3F33E742893D44901 /* HermesModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB54ED8BDAFA6616791A3EAD /* HermesModels.swift */; };
@@ -56,7 +55,6 @@
 		45A26AE0A0B6C0BA9CD7EBB8 /* Collapse-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Collapse-Regular.ttf"; sourceTree = "<group>"; };
 		50C05059C56AC8B54ABC5F3A /* ConnectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectView.swift; sourceTree = "<group>"; };
 		5E37458716472E19A8BFE529 /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
-		5E818831629534E58A4C86EC /* TerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalView.swift; sourceTree = "<group>"; };
 		6BC9D15A54119CCFEBB3196C /* HermesTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesTheme.swift; sourceTree = "<group>"; };
 		78AAFBA76E8B1897CCC68836 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
 		7A75BF6BBCA5ED22868C2313 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
@@ -142,7 +140,6 @@
 				3B32AD7AAB5F9EE534E7D525 /* Root */,
 				C3015F9FF9C6F1A6ED37B3B5 /* Sessions */,
 				78003EC3D050C23211A63725 /* Settings */,
-				B2C83374726C715EA313153C /* Terminal */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -252,14 +249,6 @@
 				7939F4EE56438D4A8D21FBD7 /* Resources */,
 			);
 			path = HermesCompanion;
-			sourceTree = "<group>";
-		};
-		B2C83374726C715EA313153C /* Terminal */ = {
-			isa = PBXGroup;
-			children = (
-				5E818831629534E58A4C86EC /* TerminalView.swift */,
-			);
-			path = Terminal;
 			sourceTree = "<group>";
 		};
 		C3015F9FF9C6F1A6ED37B3B5 /* Sessions */ = {
@@ -414,7 +403,6 @@
 				E03008EDFE64AD3FC5F63596 /* RootView.swift in Sources */,
 				AC2256F103AB39E715CA0557 /* SessionListView.swift in Sources */,
 				5AA5B52F16DDF4A8785F5105 /* SettingsView.swift in Sources */,
-				39672ABFD5AFBBFE9965F13D /* TerminalView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

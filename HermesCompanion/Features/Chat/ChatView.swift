@@ -5,12 +5,11 @@ struct ChatView: View {
     @Binding var showingCommands: Bool
     @Binding var showingInspector: Bool
     @Binding var showingModels: Bool
-    @Binding var showingTerminal: Bool
     var onBack: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 0) {
-            CompactChatControls(showingCommands: $showingCommands, showingInspector: $showingInspector, showingModels: $showingModels, showingTerminal: $showingTerminal, onBack: onBack)
+            CompactChatControls(showingCommands: $showingCommands, showingInspector: $showingInspector, showingModels: $showingModels, onBack: onBack)
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 18, pinnedViews: [.sectionHeaders]) {
@@ -62,7 +61,6 @@ private struct CompactChatControls: View {
     @Binding var showingCommands: Bool
     @Binding var showingInspector: Bool
     @Binding var showingModels: Bool
-    @Binding var showingTerminal: Bool
     var onBack: (() -> Void)? = nil
 
     var body: some View {
@@ -80,10 +78,8 @@ private struct CompactChatControls: View {
                 .accessibilityLabel("Commands")
             compactButton("cpu") { showingModels = true }
                 .accessibilityLabel("Change model")
-            compactButton("terminal") { showingTerminal = true }
-                .accessibilityLabel("Terminal")
             compactButton("sidebar.right") { showingInspector = true }
-                .accessibilityLabel("Desktop state")
+                .accessibilityLabel("Conversation info")
             if store.isStreaming {
                 compactButton("stop.fill", role: .destructive) { Task { await store.stop() } }
                     .accessibilityLabel("Stop")
