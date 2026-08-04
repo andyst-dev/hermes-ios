@@ -98,7 +98,7 @@ private struct MainShellView: View {
                 .navigationBarTitleDisplayMode(.inline)
         } detail: {
             InspectorView()
-                .navigationTitle("Desktop State")
+                .navigationTitle("Conversation")
         }
     }
 }

@@ -21,22 +21,6 @@ struct SettingsView: View {
                         HermesMobileRow(title: "Transport", subtitle: transportLabel, icon: "point.3.connected.trianglepath.dotted", accent: HermesTheme.mutedForeground)
                     }
 
-                    HermesMobileSection(title: "Actions", icon: "bolt.fill", accent: HermesTheme.primary) {
-                        SettingsActionRow(title: "Refresh desktop state", subtitle: "Reload sessions, models, tools", icon: "arrow.triangle.2.circlepath", accent: HermesTheme.primary) {
-                            await run(.refresh, done: "Desktop state refreshed")
-                        }
-                        SettingsActionRow(title: "New chat", subtitle: "Start a clean mobile conversation", icon: "plus.message", accent: HermesTheme.primary) {
-                            await run(.newChat, done: "New chat ready")
-                        }
-                        SettingsActionRow(title: "Continue last task", subtitle: "Send Continue in the selected chat", icon: "arrow.clockwise", accent: HermesTheme.warm) {
-                            await run(.continueLast, done: "Continue sent")
-                        }
-                        SettingsActionRow(title: "Stop running turn", subtitle: store.isStreaming ? "Request stop on Desktop" : "No running turn", icon: "stop.fill", accent: HermesTheme.destructive) {
-                            await run(.stop, done: "Stop requested")
-                        }
-                        .opacity(store.isStreaming ? 1 : 0.55)
-                    }
-
                     HermesMobileSection(title: "Desktop controls", icon: "slider.horizontal.3", accent: HermesTheme.primary) {
                         SettingsButtonRow(title: "Model", subtitle: modelSubtitle, icon: "cpu", accent: HermesTheme.primary) {
                             showingModels = true
@@ -158,11 +142,6 @@ struct SettingsView: View {
         return "No connected desktop"
     }
 
-    private func run(_ command: MobileCommand, done: String) async {
-        await store.runCommand(command)
-        actionStatus = done
-    }
-
     private func copyDesktopURL() {
         guard case .connected(let host) = store.connection else {
             actionStatus = "Connect to Desktop first."
@@ -170,55 +149,6 @@ struct SettingsView: View {
         }
         UIPasteboard.general.string = host.baseURL.absoluteString
         actionStatus = "Desktop URL copied."
-    }
-}
-
-private struct SettingsActionRow: View {
-    let title: String
-    let subtitle: String
-    let icon: String
-    let accent: Color
-    let action: () async -> Void
-    @State private var running = false
-
-    var body: some View {
-        Button {
-            guard !running else { return }
-            running = true
-            Task {
-                await action()
-                await MainActor.run { running = false }
-            }
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(accent)
-                    .frame(width: 18)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.system(size: 13.5, weight: .semibold))
-                        .foregroundStyle(HermesTheme.ink)
-                    Text(subtitle)
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(HermesTheme.mutedForeground.opacity(0.78))
-                }
-                Spacer(minLength: 0)
-                if running {
-                    ProgressView()
-                        .scaleEffect(0.72)
-                        .tint(HermesTheme.primary)
-                } else {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(HermesTheme.mutedForeground.opacity(0.45))
-                }
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(HermesTheme.card.opacity(0.26), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        }
-        .buttonStyle(.plain)
     }
 }
 

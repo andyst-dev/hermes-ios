@@ -51,6 +51,10 @@ struct SessionListView: View {
         }
         .background(HermesTheme.sidebar)
         .toolbar(.hidden, for: .navigationBar)
+        .refreshable {
+            try? await store.refreshSessions()
+            try? await store.refreshCapabilities()
+        }
     }
 
     private var selectedFilter: String { store.selectedSourceFilter.lowercased() }
