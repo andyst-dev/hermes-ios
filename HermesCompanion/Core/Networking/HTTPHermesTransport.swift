@@ -68,7 +68,12 @@ actor HTTPHermesTransport: HermesTransport {
     }
 
     func stop(sessionID: String) async throws {
-        throw HermesTransportError.server("Mobile stop API is not wired yet.")
+        let _: MobileStopResponse = try await post("api/mobile/stop", body: MobileStopRequest(sessionID: sessionID))
+    }
+
+    func newChat() async throws -> String {
+        let response: MobileNewChatResponse = try await post("api/mobile/new-chat", body: EmptyBody())
+        return response.sessionID
     }
 
     private func get<T: Decodable>(_ path: String) async throws -> T {
@@ -149,3 +154,18 @@ private struct MobileChatResponse: Decodable {
     let sessionID: String
     let messages: [HermesMessage]
 }
+
+private struct MobileStopRequest: Encodable {
+    let sessionID: String
+}
+
+private struct MobileStopResponse: Decodable {
+    let ok: Bool
+}
+
+private struct MobileNewChatResponse: Decodable {
+    let ok: Bool
+    let sessionID: String
+}
+
+private struct EmptyBody: Encodable {}

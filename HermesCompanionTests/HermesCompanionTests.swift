@@ -71,4 +71,11 @@ final class HermesCompanionTests: XCTestCase {
         XCTAssertTrue(store.messages.isEmpty)
         XCTAssertFalse(store.isStreaming)
     }
+
+    func testNewChatCreatesSessionThroughTransport() async throws {
+        let store = AppStore(client: HermesClient(transport: MockHermesTransport()))
+        await store.runCommand(.newChat)
+        XCTAssertNotNil(store.selectedSessionID)
+        XCTAssertTrue(store.selectedSessionID?.hasPrefix("mock-session-") == true)
+    }
 }

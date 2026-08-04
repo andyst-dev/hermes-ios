@@ -125,6 +125,17 @@ Future streaming transport for message and tool-call deltas.
 
 Requests cancellation of the active turn.
 
+### `POST /api/mobile/new-chat`
+
+Creates a real session row in the Desktop `state.db` (source `mobile`) and
+returns its `sessionID`. The iOS app selects the new session and starts empty.
+
+### `POST /api/mobile/stop`
+
+Interrupts a running mobile chat turn. The bridge tracks the Hermes chat
+subprocess per session and terminates it on demand; an idle session gets
+`{"detail": "No running turn"}`.
+
 ## Pairing flow
 
 1. Desktop Hermes shows QR with one-time pairing URL.

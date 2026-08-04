@@ -8,6 +8,7 @@ protocol HermesTransport: Sendable {
     func fetchModels() async throws -> [HermesModel]
     func selectModel(provider: String, model: String) async throws
     func send(_ prompt: OutboundPrompt) async throws -> AsyncThrowingStream<HermesMessage, Error>
+    func newChat() async throws -> String
     func stop(sessionID: String) async throws
 }
 

@@ -24,6 +24,10 @@ struct MockHermesTransport: HermesTransport {
 
     func selectModel(provider: String, model: String) async throws {}
 
+    func newChat() async throws -> String {
+        "mock-session-\(UUID().uuidString.prefix(8))"
+    }
+
     func send(_ prompt: OutboundPrompt) async throws -> AsyncThrowingStream<HermesMessage, Error> {
         AsyncThrowingStream { continuation in
             Task {

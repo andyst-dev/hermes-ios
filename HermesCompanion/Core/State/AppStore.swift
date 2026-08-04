@@ -159,8 +159,14 @@ final class AppStore: ObservableObject {
     func runCommand(_ command: MobileCommand) async {
         switch command {
         case .newChat:
-            selectedSessionID = nil
-            messages = []
+            do {
+                let sessionID = try await client.newChat()
+                selectedSessionID = sessionID
+                messages = []
+                try? await refreshSessions()
+            } catch {
+                messages.append(HermesMessage(id: UUID().uuidString, role: .system, text: error.localizedDescription, createdAt: .now, toolCalls: []))
+            }
         case .stop:
             await stop()
         case .continueLast:

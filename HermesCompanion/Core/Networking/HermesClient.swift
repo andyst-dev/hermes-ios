@@ -36,6 +36,10 @@ final class HermesClient: ObservableObject {
         try await transport.send(prompt)
     }
 
+    func newChat() async throws -> String {
+        try await transport.newChat()
+    }
+
     func stop(sessionID: String) async throws {
         try await transport.stop(sessionID: sessionID)
     }
