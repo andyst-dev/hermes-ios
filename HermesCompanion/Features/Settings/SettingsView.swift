@@ -222,7 +222,7 @@ private struct SettingsActionRow: View {
     }
 }
 
-private struct SettingsButtonRow: View {
+struct SettingsButtonRow: View {
     let title: String
     let subtitle: String
     let icon: String

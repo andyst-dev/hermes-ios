@@ -51,4 +51,16 @@ final class HermesClient: ObservableObject {
     func readFile(path: String) async throws -> HermesFileContent {
         try await transport.readFile(path: path)
     }
+
+    func renameSession(id: String, title: String) async throws {
+        try await transport.renameSession(id: id, title: title)
+    }
+
+    func pinSession(id: String, pinned: Bool) async throws {
+        try await transport.pinSession(id: id, pinned: pinned)
+    }
+
+    func archiveSession(id: String) async throws {
+        try await transport.archiveSession(id: id)
+    }
 }

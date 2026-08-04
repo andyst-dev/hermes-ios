@@ -147,6 +147,19 @@ absolute host paths. Credential files (`.env`, tokens) are hidden.
 Reads a text file (capped at 256 KB, `truncated` flag in the response).
 Binary and sensitive files are refused (415/403).
 
+### `POST /api/mobile/sessions/{sessionID}/rename`
+
+Renames a session on Desktop (`{"title": "..."}`). 404 if missing.
+
+### `POST /api/mobile/sessions/{sessionID}/pin`
+
+Pins/unpins a session (`{"pinned": true}`). The sessions list returns `pinned`.
+
+### `POST /api/mobile/sessions/{sessionID}/archive`
+
+Archives a session (`{"archived": true}`); archived sessions disappear from
+the mobile list but stay on Desktop.
+
 ## Pairing flow
 
 1. Desktop Hermes shows QR with one-time pairing URL.

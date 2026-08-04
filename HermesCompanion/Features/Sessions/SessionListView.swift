@@ -18,7 +18,7 @@ struct SessionListView: View {
                     MobileQuickFilters()
                     SidebarSearchField(text: $searchText)
                     if store.selectedSourceFilter == "all" {
-                        PinnedSection()
+                        PinnedSection(sessions: pinnedSessions)
                     }
                     if shouldShowRegularSection(sessions: regularSessions) {
                         SessionSourceSection(
@@ -97,6 +97,10 @@ struct SessionListView: View {
             await store.runCommand(.newChat)
             onSessionSelected()
         }
+    }
+
+    private var pinnedSessions: [HermesSession] {
+        store.sessions.filter { $0.pinned == true }
     }
 }
 
@@ -210,17 +214,33 @@ private struct SidebarSearchField: View {
 }
 
 private struct PinnedSection: View {
+    @EnvironmentObject private var store: AppStore
+    let sessions: [HermesSession]
+
     var body: some View {
-        SidebarSection(title: "Pinned", icon: "checkerboard.rectangle") {
-            HStack(spacing: 9) {
-                Image(systemName: "pin.slash")
-                    .font(.system(size: 11, weight: .medium))
-                Text("Long-press a chat to pin")
-                    .font(.system(size: 12))
+        if !sessions.isEmpty {
+            SidebarSection(title: "Pinned", icon: "pin.fill") {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(sessions) { session in
+                        Button {
+                            Task {
+                                await store.select(session: session)
+                            }
+                        } label: {
+                            SidebarSessionRow(session: session, selected: session.id == store.selectedSessionID)
+                        }
+                        .buttonStyle(.plain)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button {
+                                Task { try? await store.pinSession(id: session.id, pinned: false) }
+                            } label: {
+                                Label("Unpin", systemImage: "pin.slash")
+                            }
+                            .tint(HermesTheme.ring)
+                        }
+                    }
+                }
             }
-            .foregroundStyle(HermesTheme.mutedForeground.opacity(0.72))
-            .padding(.horizontal, 5)
-            .padding(.top, 1)
         }
     }
 }
@@ -286,6 +306,19 @@ private struct SessionSourceSection: View {
                                     SidebarSessionRow(session: session, selected: session.id == store.selectedSessionID)
                                 }
                                 .buttonStyle(.plain)
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    Button(role: .destructive) {
+                                        Task { try? await store.archiveSession(id: session.id) }
+                                    } label: {
+                                        Label("Archive", systemImage: "archivebox")
+                                    }
+                                    Button {
+                                        Task { try? await store.pinSession(id: session.id, pinned: !(session.pinned ?? false)) }
+                                    } label: {
+                                        Label(session.pinned == true ? "Unpin" : "Pin", systemImage: session.pinned == true ? "pin.slash" : "pin")
+                                    }
+                                    .tint(HermesTheme.ring)
+                                }
                             }
                         }
                     }

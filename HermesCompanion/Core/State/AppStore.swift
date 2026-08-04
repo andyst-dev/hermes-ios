@@ -164,6 +164,32 @@ final class AppStore: ObservableObject {
         try await client.readFile(path: path)
     }
 
+    func renameSession(id: String, title: String) async throws {
+        try await client.renameSession(id: id, title: title)
+        if let index = sessions.firstIndex(where: { $0.id == id }) {
+            sessions[index].title = title
+        }
+        try? await refreshSessions()
+    }
+
+    func pinSession(id: String, pinned: Bool) async throws {
+        try await client.pinSession(id: id, pinned: pinned)
+        if let index = sessions.firstIndex(where: { $0.id == id }) {
+            sessions[index].pinned = pinned
+        }
+        try? await refreshSessions()
+    }
+
+    func archiveSession(id: String) async throws {
+        try await client.archiveSession(id: id)
+        sessions.removeAll { $0.id == id }
+        if selectedSessionID == id {
+            selectedSessionID = nil
+            messages = []
+        }
+        try? await refreshSessions()
+    }
+
     func runCommand(_ command: MobileCommand) async {
         switch command {
         case .newChat:

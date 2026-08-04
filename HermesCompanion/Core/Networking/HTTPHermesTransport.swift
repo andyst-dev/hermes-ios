@@ -88,6 +88,18 @@ actor HTTPHermesTransport: HermesTransport {
         try await dataRequest(path: "api/mobile/files/read", method: "GET", body: Optional<Data>.none, queryItems: [URLQueryItem(name: "path", value: path)])
     }
 
+    func renameSession(id: String, title: String) async throws {
+        let _: MobileSessionActionResponse = try await post("api/mobile/sessions/\(id)/rename", body: MobileRenameRequest(title: title))
+    }
+
+    func pinSession(id: String, pinned: Bool) async throws {
+        let _: MobileSessionActionResponse = try await post("api/mobile/sessions/\(id)/pin", body: MobilePinRequest(pinned: pinned))
+    }
+
+    func archiveSession(id: String) async throws {
+        let _: MobileSessionActionResponse = try await post("api/mobile/sessions/\(id)/archive", body: MobileArchiveRequest(archived: true))
+    }
+
     private func get<T: Decodable>(_ path: String) async throws -> T {
         try await dataRequest(path: path, method: "GET", body: Optional<Data>.none)
     }
@@ -182,3 +194,19 @@ private struct MobileNewChatResponse: Decodable {
 }
 
 private struct EmptyBody: Encodable {}
+
+private struct MobileRenameRequest: Encodable {
+    let title: String
+}
+
+private struct MobilePinRequest: Encodable {
+    let pinned: Bool
+}
+
+private struct MobileArchiveRequest: Encodable {
+    let archived: Bool
+}
+
+private struct MobileSessionActionResponse: Decodable {
+    let ok: Bool
+}

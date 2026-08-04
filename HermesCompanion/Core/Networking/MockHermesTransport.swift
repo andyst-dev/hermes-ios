@@ -1,13 +1,15 @@
 import Foundation
 
-struct MockHermesTransport: HermesTransport {
+final class MockHermesTransport: HermesTransport, @unchecked Sendable {
+    private var sessionList: [HermesSession] = PreviewData.sessions
+
     func connect(to host: HermesHost) async throws -> HermesHost {
         try await Task.sleep(for: .milliseconds(350))
         return host
     }
 
     func fetchSessions() async throws -> [HermesSession] {
-        PreviewData.sessions
+        sessionList
     }
 
     func fetchMessages(sessionID: String) async throws -> [HermesMessage] {
@@ -40,6 +42,22 @@ struct MockHermesTransport: HermesTransport {
 
     func readFile(path: String) async throws -> HermesFileContent {
         HermesFileContent(name: path, content: "# Mock file\n\nThis is demo content.", truncated: false)
+    }
+
+    func renameSession(id: String, title: String) async throws {
+        if let index = sessionList.firstIndex(where: { $0.id == id }) {
+            sessionList[index].title = title
+        }
+    }
+
+    func pinSession(id: String, pinned: Bool) async throws {
+        if let index = sessionList.firstIndex(where: { $0.id == id }) {
+            sessionList[index].pinned = pinned
+        }
+    }
+
+    func archiveSession(id: String) async throws {
+        sessionList.removeAll { $0.id == id }
     }
 
     func send(_ prompt: OutboundPrompt) async throws -> AsyncThrowingStream<HermesMessage, Error> {

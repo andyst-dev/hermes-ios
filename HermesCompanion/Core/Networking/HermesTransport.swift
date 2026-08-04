@@ -12,6 +12,9 @@ protocol HermesTransport: Sendable {
     func stop(sessionID: String) async throws
     func fetchFiles(path: String?) async throws -> HermesFileListing
     func readFile(path: String) async throws -> HermesFileContent
+    func renameSession(id: String, title: String) async throws
+    func pinSession(id: String, pinned: Bool) async throws
+    func archiveSession(id: String) async throws
 }
 
 enum HermesTransportError: Error, LocalizedError {

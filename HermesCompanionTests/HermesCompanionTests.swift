@@ -89,4 +89,23 @@ final class HermesCompanionTests: XCTestCase {
         XCTAssertFalse(file.content.isEmpty)
         XCTAssertEqual(file.name, "README.md")
     }
+
+    func testSessionMutationsThroughTransport() async throws {
+        let store = AppStore(client: HermesClient(transport: MockHermesTransport()))
+        let host = HermesHost(name: "Test", baseURL: URL(string: "http://localhost:8765")!, profile: "default")
+        await store.connect(host: host)
+        guard let session = store.sessions.first else {
+            XCTFail("expected a session")
+            return
+        }
+
+        try await store.pinSession(id: session.id, pinned: true)
+        XCTAssertTrue(store.sessions.first { $0.id == session.id }?.pinned == true)
+
+        try await store.renameSession(id: session.id, title: "Renamed chat")
+        XCTAssertEqual(store.sessions.first { $0.id == session.id }?.title, "Renamed chat")
+
+        try await store.archiveSession(id: session.id)
+        XCTAssertFalse(store.sessions.contains { $0.id == session.id })
+    }
 }

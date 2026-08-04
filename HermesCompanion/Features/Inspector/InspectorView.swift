@@ -2,8 +2,11 @@ import SwiftUI
 
 struct InspectorView: View {
     @EnvironmentObject private var store: AppStore
-    @State private var showingModels = false
-    @State private var showingFiles = false
+    @Environment(\.dismiss) private var dismiss
+    @State private var showingRenameAlert = false
+    @State private var renameText = ""
+    @State private var showingArchiveAlert = false
+    @State private var actionMessage: String?
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -17,30 +20,6 @@ struct InspectorView: View {
                         HermesMobileRow(title: "Updated", subtitle: relativeTime(session.updatedAt), icon: "clock", accent: HermesTheme.mutedForeground)
                     } else {
                         EmptyLine("No conversation selected")
-                    }
-                }
-
-                HermesMobileSection(title: "Model", icon: "cpu", accent: HermesTheme.primary) {
-                    if let model = store.activeModel {
-                        Button {
-                            showingModels = true
-                        } label: {
-                            HermesMobileRow(
-                                title: model.displayName,
-                                subtitle: "\(model.providerName ?? model.provider) · \(model.supportsTools ? "tools" : "text") · \(model.supportsVision ? "vision" : "no vision") · tap to switch",
-                                icon: "cpu",
-                                accent: HermesTheme.primary,
-                                selected: true
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    } else {
-                        Button {
-                            showingModels = true
-                        } label: {
-                            HermesMobileRow(title: "Choose model", subtitle: "No active model yet", icon: "cpu", accent: HermesTheme.primary)
-                        }
-                        .buttonStyle(.plain)
                     }
                 }
 
@@ -60,15 +39,23 @@ struct InspectorView: View {
                     }
                 }
 
-                HermesMobileSection(title: "Desktop", icon: "desktopcomputer", accent: HermesTheme.mutedForeground) {
-                    HermesMobileRow(title: "Profiles", subtitle: "\(store.capabilities.profiles.count) available", icon: "folder", accent: HermesTheme.mutedForeground)
-                    HermesMobileRow(title: "Toolsets", subtitle: "\(store.capabilities.tools.count) configured", icon: "wrench.and.screwdriver", accent: HermesTheme.mutedForeground)
-                    Button {
-                        showingFiles = true
-                    } label: {
-                        HermesMobileRow(title: "Files", subtitle: "Browse Desktop managed files", icon: "folder", accent: HermesTheme.primary)
+                if store.selectedSession != nil {
+                    HermesMobileSection(title: "Actions", icon: "bolt.fill", accent: HermesTheme.primary) {
+                        SettingsButtonRow(title: "Rename conversation", subtitle: "Change the title on Desktop", icon: "pencil", accent: HermesTheme.primary) {
+                            renameText = store.selectedSession?.title ?? ""
+                            showingRenameAlert = true
+                        }
+                        SettingsButtonRow(title: "Archive conversation", subtitle: "Hide from the list (Desktop keeps it)", icon: "archivebox", accent: HermesTheme.warm) {
+                            showingArchiveAlert = true
+                        }
                     }
-                    .buttonStyle(.plain)
+
+                    if let actionMessage {
+                        Text(actionMessage)
+                            .font(.system(size: 11.5, weight: .medium))
+                            .foregroundStyle(HermesTheme.mutedForeground)
+                            .padding(.horizontal, 3)
+                    }
                 }
             }
             .padding(.horizontal, 13)
@@ -76,13 +63,33 @@ struct InspectorView: View {
             .padding(.bottom, 28)
         }
         .background(HermesTheme.sidebar.ignoresSafeArea())
-        .sheet(isPresented: $showingModels) {
-            ModelPickerView()
-                .environmentObject(store)
+        .alert("Rename conversation", isPresented: $showingRenameAlert) {
+            TextField("Title", text: $renameText)
+            Button("Cancel", role: .cancel) {}
+            Button("Save") {
+                let title = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !title.isEmpty, let session = store.selectedSession else { return }
+                Task {
+                    do {
+                        try await store.renameSession(id: session.id, title: title)
+                        actionMessage = "Renamed."
+                    } catch {
+                        actionMessage = "Rename failed."
+                    }
+                }
+            }
         }
-        .sheet(isPresented: $showingFiles) {
-            FilesView()
-                .environmentObject(store)
+        .alert("Archive this conversation?", isPresented: $showingArchiveAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Archive", role: .destructive) {
+                guard let session = store.selectedSession else { return }
+                Task {
+                    try? await store.archiveSession(id: session.id)
+                    dismiss()
+                }
+            }
+        } message: {
+            Text("It stays on Desktop, just hidden from this list.")
         }
     }
 

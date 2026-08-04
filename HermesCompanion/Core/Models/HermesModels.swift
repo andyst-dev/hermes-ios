@@ -21,6 +21,7 @@ struct HermesSession: Codable, Equatable, Identifiable {
     var updatedAt: Date
     var status: SessionStatus
     var source: String? = nil
+    var pinned: Bool? = nil
 
     enum SessionStatus: String, Codable, CaseIterable {
         case idle
