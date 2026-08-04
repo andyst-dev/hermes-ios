@@ -2,47 +2,73 @@ import SwiftUI
 
 struct InspectorView: View {
     @EnvironmentObject private var store: AppStore
+    @State private var showingModels = false
+    @State private var showingFiles = false
 
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 18) {
-                HermesMobileSection(title: "Model", icon: "cpu", accent: HermesTheme.primary) {
-                    if let model = store.activeModel {
-                        HermesMobileRow(
-                            title: model.displayName,
-                            subtitle: "\(model.providerName ?? model.provider) · \(model.supportsTools ? "tools" : "text") · \(model.supportsVision ? "vision" : "no vision")",
-                            icon: "cpu",
-                            accent: HermesTheme.primary,
-                            selected: true
-                        )
+                HermesMobileSection(title: "Session", icon: "message", accent: HermesTheme.primary) {
+                    if let session = store.selectedSession {
+                        HermesMobileRow(title: "Title", subtitle: session.title, icon: "text.alignleft", accent: HermesTheme.mutedForeground)
+                        HermesMobileRow(title: "Source", subtitle: session.source ?? "desktop", icon: "macwindow", accent: HermesTheme.primary)
+                        HermesMobileRow(title: "Status", subtitle: session.status.rawValue, icon: statusIcon(session.status), accent: statusColor(session.status))
+                        HermesMobileRow(title: "Messages", subtitle: "\(store.messages.count) in view", icon: "bubble.left.and.bubble.right", accent: HermesTheme.mutedForeground)
+                        HermesMobileRow(title: "Updated", subtitle: relativeTime(session.updatedAt), icon: "clock", accent: HermesTheme.mutedForeground)
+                    } else {
+                        EmptyLine("No conversation selected")
                     }
-                    CapabilityBadges(items: store.capabilities.models.prefix(5).map { $0.displayName })
                 }
 
-                HermesMobileSection(title: "Approvals", icon: "hand.raised.fill", accent: HermesTheme.warm) {
-                    if store.capabilities.approvals.isEmpty {
-                        EmptyLine("No pending approvals")
+                HermesMobileSection(title: "Model", icon: "cpu", accent: HermesTheme.primary) {
+                    if let model = store.activeModel {
+                        Button {
+                            showingModels = true
+                        } label: {
+                            HermesMobileRow(
+                                title: model.displayName,
+                                subtitle: "\(model.providerName ?? model.provider) · \(model.supportsTools ? "tools" : "text") · \(model.supportsVision ? "vision" : "no vision") · tap to switch",
+                                icon: "cpu",
+                                accent: HermesTheme.primary,
+                                selected: true
+                            )
+                        }
+                        .buttonStyle(.plain)
                     } else {
-                        ForEach(store.capabilities.approvals) { approval in
-                            HermesMobileRow(title: approval.title, subtitle: approval.detail, icon: "exclamationmark.shield", accent: riskColor(approval.risk))
+                        Button {
+                            showingModels = true
+                        } label: {
+                            HermesMobileRow(title: "Choose model", subtitle: "No active model yet", icon: "cpu", accent: HermesTheme.primary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                HermesMobileSection(title: "Tools used here", icon: "wrench.and.screwdriver", accent: HermesTheme.mutedForeground) {
+                    let tools = usedTools
+                    if tools.isEmpty {
+                        EmptyLine("No tool calls in this conversation")
+                    } else {
+                        ForEach(tools, id: \.name) { tool in
+                            HermesMobileRow(
+                                title: tool.name,
+                                subtitle: "\(tool.count) call\(tool.count == 1 ? "" : "s")",
+                                icon: "terminal",
+                                accent: accent(for: tool.state)
+                            )
                         }
                     }
                 }
 
-                HermesMobileSection(title: "Jobs", icon: "bolt.horizontal.circle", accent: HermesTheme.primary) {
-                    ForEach(store.capabilities.jobs) { job in
-                        HermesMobileRow(title: job.title, subtitle: job.detail, icon: jobIcon(job.status), accent: statusColor(job.status))
+                HermesMobileSection(title: "Desktop", icon: "desktopcomputer", accent: HermesTheme.mutedForeground) {
+                    HermesMobileRow(title: "Profiles", subtitle: "\(store.capabilities.profiles.count) available", icon: "folder", accent: HermesTheme.mutedForeground)
+                    HermesMobileRow(title: "Toolsets", subtitle: "\(store.capabilities.tools.count) configured", icon: "wrench.and.screwdriver", accent: HermesTheme.mutedForeground)
+                    Button {
+                        showingFiles = true
+                    } label: {
+                        HermesMobileRow(title: "Files", subtitle: "Browse Desktop managed files", icon: "folder", accent: HermesTheme.primary)
                     }
-                }
-
-                HermesMobileSection(title: "Files", icon: "folder", accent: HermesTheme.mutedForeground) {
-                    ForEach(store.capabilities.files) { file in
-                        HermesMobileRow(title: file.label, subtitle: store.privacyMode ? redactedPath(file.path) : file.path, icon: fileIcon(file.kind), accent: HermesTheme.primary)
-                    }
-                }
-
-                HermesMobileSection(title: "Tools", icon: "wrench.and.screwdriver", accent: HermesTheme.mutedForeground) {
-                    CapabilityBadges(items: store.capabilities.tools)
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 13)
@@ -50,49 +76,71 @@ struct InspectorView: View {
             .padding(.bottom, 28)
         }
         .background(HermesTheme.sidebar.ignoresSafeArea())
-    }
-
-    private func riskColor(_ risk: HermesApproval.Risk) -> Color {
-        switch risk {
-        case .low: HermesTheme.green
-        case .medium: HermesTheme.ring
-        case .high: HermesTheme.destructive
+        .sheet(isPresented: $showingModels) {
+            ModelPickerView()
+                .environmentObject(store)
+        }
+        .sheet(isPresented: $showingFiles) {
+            FilesView()
+                .environmentObject(store)
         }
     }
 
-    private func statusColor(_ status: HermesJob.Status) -> Color {
-        switch status {
-        case .running: HermesTheme.ring
-        case .waitingApproval: HermesTheme.primary
-        case .completed: HermesTheme.green
-        case .failed: HermesTheme.destructive
-        case .scheduled: HermesTheme.mutedForeground
+    private var usedTools: [ToolUsage] {
+        var counts: [String: Int] = [:]
+        var state: [String: HermesToolCall.Status] = [:]
+        for message in store.messages {
+            for call in message.toolCalls {
+                counts[call.name, default: 0] += 1
+                state[call.name] = call.status
+            }
         }
+        return counts.map { ToolUsage(name: $0.key, count: $0.value, state: state[$0.key] ?? .succeeded) }
+            .sorted { $0.count > $1.count }
     }
 
-    private func jobIcon(_ status: HermesJob.Status) -> String {
+    private func statusIcon(_ status: HermesSession.SessionStatus) -> String {
         switch status {
         case .running: "play.fill"
         case .waitingApproval: "hand.raised.fill"
-        case .completed: "checkmark"
         case .failed: "xmark"
-        case .scheduled: "calendar"
+        case .completed: "checkmark"
+        case .idle: "pause"
         }
     }
 
-    private func fileIcon(_ kind: HermesFileArtifact.Kind) -> String {
-        switch kind {
-        case .text: "doc.text"
-        case .image: "photo"
-        case .html: "safari"
-        case .pdf: "doc.richtext"
-        case .directory: "folder"
+    private func statusColor(_ status: HermesSession.SessionStatus) -> Color {
+        switch status {
+        case .running: HermesTheme.ring
+        case .waitingApproval: HermesTheme.primary
+        case .failed: HermesTheme.destructive
+        case .completed: HermesTheme.green
+        case .idle: HermesTheme.mutedForeground
         }
     }
 
-    private func redactedPath(_ path: String) -> String {
-        path.split(separator: "/").last.map(String.init) ?? "file"
+    private func accent(for state: HermesToolCall.Status) -> Color {
+        switch state {
+        case .failed: HermesTheme.destructive
+        case .running: HermesTheme.ring
+        case .waitingApproval: HermesTheme.primary
+        case .succeeded: HermesTheme.green
+        case .queued: HermesTheme.mutedForeground
+        }
     }
+
+    private func relativeTime(_ date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: date, relativeTo: .now)
+    }
+}
+
+private struct ToolUsage: Identifiable {
+    var id: String { name }
+    let name: String
+    let count: Int
+    let state: HermesToolCall.Status
 }
 
 struct CapabilityBadges: View {

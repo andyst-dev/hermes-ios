@@ -34,7 +34,7 @@ struct RootView: View {
             CommandPaletteView().environmentObject(store)
         }
         .sheet(isPresented: $showingInspector) {
-            HermesMobileScreen(title: "Inspector", subtitle: "desktop state · paired Mac", icon: "sidebar.right", showsDone: true) {
+            HermesMobileScreen(title: "Inspector", subtitle: "this conversation", icon: "sidebar.right", showsDone: true) {
                 InspectorView().environmentObject(store)
             }
         }
