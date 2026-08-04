@@ -62,10 +62,17 @@ final class AppStore: ObservableObject {
     }
 
     func refreshCapabilities() async throws {
-        capabilities = try await client.capabilities()
-        let models = try? await client.models()
-        if let models, !models.isEmpty {
-            capabilities.models = models
+        // Model discovery is independent from the lightweight capability snapshot.
+        // Do it first: a capabilities failure must never collapse the picker back
+        // to its single bundled preview model.
+        let discoveredModels = try await client.models()
+        if !discoveredModels.isEmpty {
+            capabilities.models = discoveredModels
+        }
+        if let snapshot = try? await client.capabilities() {
+            var merged = snapshot
+            merged.models = capabilities.models
+            capabilities = merged
         }
         if let active = capabilities.models.first(where: { $0.isActive == true }) ?? capabilities.models.first {
             activeModelID = active.id
@@ -136,6 +143,19 @@ final class AppStore: ObservableObject {
 
     func removePendingAttachment(id: UUID) {
         pendingAttachments.removeAll { $0.id == id }
+    }
+
+    func attachDesktopFile(path: String) async throws {
+        let attached = try await client.attachDesktopFile(path: path)
+        pendingAttachments.append(
+            OutboundPrompt.Attachment(
+                id: attached.id,
+                filename: attached.name,
+                mimeType: attached.mimeType,
+                sizeBytes: attached.sizeBytes,
+                path: attached.path
+            )
+        )
     }
 
     private func attachmentFileURL(for attachment: OutboundPrompt.Attachment) -> URL {

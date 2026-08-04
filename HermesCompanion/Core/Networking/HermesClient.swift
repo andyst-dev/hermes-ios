@@ -67,4 +67,8 @@ final class HermesClient: ObservableObject {
     func uploadAttachment(fileURL: URL) async throws -> String {
         try await transport.uploadAttachment(fileURL: fileURL)
     }
+
+    func attachDesktopFile(path: String) async throws -> HermesDesktopAttachment {
+        try await transport.attachDesktopFile(path: path)
+    }
 }

@@ -19,6 +19,7 @@
 		5AA5B52F16DDF4A8785F5105 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7648E66B2DD012CD0B2915E /* SettingsView.swift */; };
 		5EEE77C49A9B6B8BB4351881 /* InspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E07A1A2D334F4A3DAEC05615 /* InspectorView.swift */; };
 		5F41D44AD7D10680EEDECF6A /* HermesTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA763DBA419133EC164415C4 /* HermesTransport.swift */; };
+		6D01578DF95E6B15AB3E3DF2 /* DesktopFilePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13402D88283B8025AE010DAE /* DesktopFilePickerView.swift */; };
 		6FAABD5A3125E1D0FE9A82F0 /* HermesCompanionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5FEEEFC2590B1CFF74C949 /* HermesCompanionApp.swift */; };
 		7508FCC9765ED24281FA9B1F /* ModelPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C6A62DED0BAB7395493726 /* ModelPickerView.swift */; };
 		819E7643A70CCE99A5C1FFD4 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78AAFBA76E8B1897CCC68836 /* KeychainStore.swift */; };
@@ -47,6 +48,7 @@
 /* Begin PBXFileReference section */
 		0B12E3F4318C118EAE60B80E /* HermesCompanionTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = HermesCompanionTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0D01983E0F2F3A97C81D5DE1 /* MockHermesTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockHermesTransport.swift; sourceTree = "<group>"; };
+		13402D88283B8025AE010DAE /* DesktopFilePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopFilePickerView.swift; sourceTree = "<group>"; };
 		2647EEA774508A3B4E265577 /* HermesMobileChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesMobileChrome.swift; sourceTree = "<group>"; };
 		2D00A43C4B11D147CC9A67FC /* HTTPHermesTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPHermesTransport.swift; sourceTree = "<group>"; };
 		2EA7DEF8ED8453262DFAA6D2 /* HermesCompanionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesCompanionTests.swift; sourceTree = "<group>"; };
@@ -87,6 +89,7 @@
 		11B403B309ABD00252B11B98 /* Files */ = {
 			isa = PBXGroup;
 			children = (
+				13402D88283B8025AE010DAE /* DesktopFilePickerView.swift */,
 				381D91433351994202DB41EA /* FilesView.swift */,
 			);
 			path = Files;
@@ -386,6 +389,7 @@
 				560A6394F4F2E25F6F0FF4D3 /* ChatView.swift in Sources */,
 				192E8C22095A31D8296A9FB3 /* CommandPaletteView.swift in Sources */,
 				2C3601D636E637CEB80AB084 /* ConnectView.swift in Sources */,
+				6D01578DF95E6B15AB3E3DF2 /* DesktopFilePickerView.swift in Sources */,
 				4A6BCE064C87F1DDF6F1FD19 /* FilesView.swift in Sources */,
 				D9A00A08371D965C06A38A25 /* HTTPHermesTransport.swift in Sources */,
 				8343519656FB9B122F3139FD /* HermesClient.swift in Sources */,

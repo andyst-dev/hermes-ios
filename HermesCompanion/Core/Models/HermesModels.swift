@@ -132,6 +132,15 @@ struct HermesFileEntry: Codable, Equatable, Identifiable {
     let isDirectory: Bool
     let size: Int?
     let mtime: Double?
+    let mimeType: String?
+}
+
+struct HermesDesktopAttachment: Codable, Equatable, Identifiable {
+    let id: UUID
+    let name: String
+    let path: String
+    let mimeType: String
+    let sizeBytes: Int
 }
 
 struct HermesFileListing: Codable, Equatable {

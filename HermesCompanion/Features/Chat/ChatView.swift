@@ -330,6 +330,7 @@ private struct ToolCallCard: View {
 private struct ComposerView: View {
     @EnvironmentObject private var store: AppStore
     @State private var showingPhotoPicker = false
+    @State private var showingDesktopFiles = false
     @State private var pickerItems: [PhotosPickerItem] = []
 
     var body: some View {
@@ -365,8 +366,17 @@ private struct ComposerView: View {
             }
 
             HStack(alignment: .center, spacing: 8) {
-                Button {
-                    showingPhotoPicker = true
+                Menu {
+                    Button {
+                        showingPhotoPicker = true
+                    } label: {
+                        Label("Choose photos", systemImage: "photo.on.rectangle")
+                    }
+                    Button {
+                        showingDesktopFiles = true
+                    } label: {
+                        Label("Choose from Desktop", systemImage: "folder")
+                    }
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 13, weight: .semibold))
@@ -374,7 +384,7 @@ private struct ComposerView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(HermesTheme.primary)
-                .accessibilityLabel("Attach photos")
+                .accessibilityLabel("Add attachment")
 
                 TextField("Ask Hermes…", text: $store.composerText, axis: .vertical)
                     .lineLimit(1...5)
@@ -402,6 +412,10 @@ private struct ComposerView: View {
         .padding(.top, 8)
         .padding(.bottom, 12)
         .photosPicker(isPresented: $showingPhotoPicker, selection: $pickerItems, maxSelectionCount: 3, matching: .images)
+        .sheet(isPresented: $showingDesktopFiles) {
+            DesktopFilePickerView()
+                .environmentObject(store)
+        }
         .onChange(of: pickerItems) { _, items in
             guard !items.isEmpty else { return }
             Task {

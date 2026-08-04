@@ -34,8 +34,9 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
         HermesFileListing(
             path: path ?? "",
             entries: [
-                HermesFileEntry(name: "README.md", path: "README.md", isDirectory: false, size: 512, mtime: nil),
-                HermesFileEntry(name: "projects", path: "projects", isDirectory: true, size: nil, mtime: nil),
+                HermesFileEntry(name: "reference.png", path: "reference.png", isDirectory: false, size: 512, mtime: nil, mimeType: "image/png"),
+                HermesFileEntry(name: "README.md", path: "README.md", isDirectory: false, size: 512, mtime: nil, mimeType: "text/markdown"),
+                HermesFileEntry(name: "projects", path: "projects", isDirectory: true, size: nil, mtime: nil, mimeType: nil),
             ]
         )
     }
@@ -62,6 +63,10 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
 
     func uploadAttachment(fileURL: URL) async throws -> String {
         "/mock/\(fileURL.lastPathComponent)"
+    }
+
+    func attachDesktopFile(path: String) async throws -> HermesDesktopAttachment {
+        HermesDesktopAttachment(id: UUID(), name: URL(fileURLWithPath: path).lastPathComponent, path: "/mock/\(path)", mimeType: "image/png", sizeBytes: 512)
     }
 
     func send(_ prompt: OutboundPrompt) async throws -> AsyncThrowingStream<HermesMessage, Error> {

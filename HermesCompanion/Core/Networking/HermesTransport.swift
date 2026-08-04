@@ -16,6 +16,7 @@ protocol HermesTransport: Sendable {
     func pinSession(id: String, pinned: Bool) async throws
     func archiveSession(id: String) async throws
     func uploadAttachment(fileURL: URL) async throws -> String
+    func attachDesktopFile(path: String) async throws -> HermesDesktopAttachment
 }
 
 enum HermesTransportError: Error, LocalizedError {

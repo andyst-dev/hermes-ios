@@ -108,4 +108,14 @@ final class HermesCompanionTests: XCTestCase {
         try await store.archiveSession(id: session.id)
         XCTAssertFalse(store.sessions.contains { $0.id == session.id })
     }
+
+    func testDesktopFileAttachmentFlow() async throws {
+        let store = AppStore(client: HermesClient(transport: MockHermesTransport()))
+        try await store.attachDesktopFile(path: "reference.png")
+        XCTAssertEqual(store.pendingAttachments.count, 1)
+        let attachment = try XCTUnwrap(store.pendingAttachments.first)
+        XCTAssertEqual(attachment.filename, "reference.png")
+        XCTAssertEqual(attachment.mimeType, "image/png")
+        XCTAssertNotNil(attachment.path)
+    }
 }

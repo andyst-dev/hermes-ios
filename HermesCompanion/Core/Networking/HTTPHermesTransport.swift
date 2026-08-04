@@ -100,6 +100,10 @@ actor HTTPHermesTransport: HermesTransport {
         let _: MobileSessionActionResponse = try await post("api/mobile/sessions/\(id)/archive", body: MobileArchiveRequest(archived: true))
     }
 
+    func attachDesktopFile(path: String) async throws -> HermesDesktopAttachment {
+        try await post("api/mobile/files/attach", body: MobileDesktopFileAttachmentRequest(path: path))
+    }
+
     func uploadAttachment(fileURL: URL) async throws -> String {
         guard let baseURL else { throw HermesTransportError.notConnected }
         let data = try Data(contentsOf: fileURL)
@@ -238,6 +242,10 @@ private struct MobilePinRequest: Encodable {
 
 private struct MobileArchiveRequest: Encodable {
     let archived: Bool
+}
+
+private struct MobileDesktopFileAttachmentRequest: Encodable {
+    let path: String
 }
 
 private struct MobileSessionActionResponse: Decodable {
