@@ -58,12 +58,137 @@ actor HTTPHermesTransport: HermesTransport {
     }
 
     func send(_ prompt: OutboundPrompt) async throws -> AsyncThrowingStream<HermesMessage, Error> {
-        let response: MobileChatResponse = try await post("api/mobile/chat", body: prompt, timeout: 600)
+        guard let baseURL else { throw HermesTransportError.notConnected }
+        let body = try JSONEncoder().encode(prompt)
+        var request = URLRequest(url: endpointURL(baseURL: baseURL, path: "api/mobile/chat"))
+        request.httpMethod = "POST"
+        request.timeoutInterval = 600
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        request.httpBody = body
+        addAuth(to: &request)
+
+        let (bytes, response) = try await urlSession.bytes(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw HermesTransportError.invalidResponse
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw HermesTransportError.server("Chat failed (HTTP \(http.statusCode))")
+        }
+
         return AsyncThrowingStream { continuation in
-            for message in response.messages.filter(\.isTranscriptVisible) {
-                continuation.yield(message)
+            Task {
+                do {
+                    var buffer = Data()
+                    var streamID: String?
+                    var streamText = ""
+                    for try await chunk in bytes {
+                        buffer.append(chunk)
+                        while let range = buffer.range(of: Data("\n\n".utf8)) {
+                            let frame = Data(buffer[..<range.lowerBound])
+                            buffer.removeSubrange(...range.upperBound)
+                            if let event = try HTTPHermesTransport.parseSSEEvent(frame) {
+                                switch event.kind {
+                                case .delta(let text):
+                                    let id = streamID ?? "stream-\(UUID().uuidString)"
+                                    streamID = id
+                                    streamText += text
+                                    continuation.yield(HermesMessage(id: id, role: .assistant, text: streamText, createdAt: .now, toolCalls: []))
+                                case .transcript(let sessionID, let messages):
+                                    _ = sessionID
+                                    for message in messages where message.isTranscriptVisible {
+                                        continuation.yield(message)
+                                    }
+                                case .error(let detail):
+                                    throw HermesTransportError.server(detail)
+                                case .done:
+                                    return
+                                }
+                            }
+                        }
+                    }
+                    // Trailing frame without final blank line.
+                    if !buffer.isEmpty, let event = try HTTPHermesTransport.parseSSEEvent(buffer) {
+                        switch event.kind {
+                        case .delta(let text):
+                            let id = streamID ?? "stream-\(UUID().uuidString)"
+                            streamID = id
+                            streamText += text
+                            continuation.yield(HermesMessage(id: id, role: .assistant, text: streamText, createdAt: .now, toolCalls: []))
+                        case .transcript(_, let messages):
+                            for message in messages where message.isTranscriptVisible {
+                                continuation.yield(message)
+                            }
+                        case .error(let detail):
+                            throw HermesTransportError.server(detail)
+                        case .done:
+                            break
+                        }
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
             }
-            continuation.finish()
+        }
+    }
+
+    /// Parse one SSE frame (bytes between blank lines) into a mobile chat event.
+    static func parseSSEEvent(_ frame: Data) throws -> SSEEvent? {
+        guard let text = String(data: frame, encoding: .utf8) else { return nil }
+        var payload = ""
+        for line in text.components(separatedBy: "\n") {
+            let trimmed = line.hasSuffix("\r") ? String(line.dropLast()) : line
+            if trimmed.hasPrefix("data:") {
+                let value = trimmed.dropFirst(5)
+                if value.hasPrefix(" ") {
+                    payload += value.dropFirst()
+                } else {
+                    payload += value
+                }
+                payload += "\n"
+            }
+        }
+        let json = payload.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !json.isEmpty, let data = json.data(using: .utf8),
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        switch dict["type"] as? String {
+        case "delta":
+            guard let text = dict["text"] as? String else { return nil }
+            return SSEEvent(kind: .delta(text))
+        case "transcript":
+            let sessionID = dict["sessionID"] as? String
+            var messages: [HermesMessage] = []
+            if let raw = dict["messages"] as? [[String: Any]] {
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .custom { decoder in
+                    let container = try decoder.singleValueContainer()
+                    let raw = try container.decode(String.self)
+                    let fractional = ISO8601DateFormatter()
+                    fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                    let standard = ISO8601DateFormatter()
+                    standard.formatOptions = [.withInternetDateTime]
+                    if let date = fractional.date(from: raw) ?? standard.date(from: raw) {
+                        return date
+                    }
+                    throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid ISO-8601 date: \(raw)")
+                }
+                for entry in raw {
+                    if let data = try? JSONSerialization.data(withJSONObject: entry),
+                       let message = try? decoder.decode(HermesMessage.self, from: data) {
+                        messages.append(message)
+                    }
+                }
+            }
+            return SSEEvent(kind: .transcript(sessionID, messages))
+        case "error":
+            return SSEEvent(kind: .error(dict["detail"] as? String ?? "Hermes chat failed"))
+        case "done":
+            return SSEEvent(kind: .done)
+        default:
+            return nil
         }
     }
 
@@ -192,6 +317,17 @@ actor HTTPHermesTransport: HermesTransport {
     }
 }
 
+enum SSEEventKind {
+    case delta(String)
+    case transcript(String?, [HermesMessage])
+    case error(String)
+    case done
+}
+
+struct SSEEvent {
+    let kind: SSEEventKind
+}
+
 private struct MobileHealthResponse: Decodable {
     let ok: Bool
 }
@@ -210,11 +346,6 @@ private struct MobileModelsResponse: Decodable {
 
 private struct MobileModelSetResponse: Decodable {
     let ok: Bool
-}
-
-private struct MobileChatResponse: Decodable {
-    let sessionID: String
-    let messages: [HermesMessage]
 }
 
 private struct MobileStopRequest: Encodable {

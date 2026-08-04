@@ -118,4 +118,45 @@ final class HermesCompanionTests: XCTestCase {
         XCTAssertEqual(attachment.mimeType, "image/png")
         XCTAssertNotNil(attachment.path)
     }
+
+    func testSSEParserHandlesDeltaTranscriptAndDone() throws {
+        let deltaFrame = try XCTUnwrap(try HTTPHermesTransport.parseSSEEvent(Data("data: {\"type\":\"delta\",\"text\":\"Bonjour\"}\n\n".utf8)))
+        guard case .delta(let text) = deltaFrame.kind else {
+            XCTFail("expected delta")
+            return
+        }
+        XCTAssertEqual(text, "Bonjour")
+
+        let messageJSON = #"{"id":"m1","role":"assistant","text":"Coucou","createdAt":"2026-08-04T12:00:00Z","toolCalls":[]}"#
+        let transcriptFrame = try XCTUnwrap(
+            try HTTPHermesTransport.parseSSEEvent(Data("data: {\"type\":\"transcript\",\"sessionID\":\"s1\",\"messages\":[\(messageJSON)]}\n\n".utf8))
+        )
+        guard case .transcript(let sessionID, let messages) = transcriptFrame.kind else {
+            XCTFail("expected transcript")
+            return
+        }
+        XCTAssertEqual(sessionID, "s1")
+        XCTAssertEqual(messages.count, 1)
+        XCTAssertEqual(messages.first?.text, "Coucou")
+
+        let errorFrame = try XCTUnwrap(try HTTPHermesTransport.parseSSEEvent(Data("data: {\"type\":\"error\",\"detail\":\"boom\"}\n\n".utf8)))
+        guard case .error(let detail) = errorFrame.kind else {
+            XCTFail("expected error")
+            return
+        }
+        XCTAssertEqual(detail, "boom")
+
+        let doneFrame = try XCTUnwrap(try HTTPHermesTransport.parseSSEEvent(Data("data: {\"type\":\"done\"}\n\n".utf8)))
+        guard case .done = doneFrame.kind else {
+            XCTFail("expected done")
+            return
+        }
+    }
+
+    func testSSEParserIgnoresCommentsAndEmptyFrames() throws {
+        let frame = try HTTPHermesTransport.parseSSEEvent(Data(": keepalive\n\n".utf8))
+        XCTAssertNil(frame)
+        let empty = try HTTPHermesTransport.parseSSEEvent(Data())
+        XCTAssertNil(empty)
+    }
 }
