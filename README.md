@@ -58,7 +58,7 @@ Run the backend — **install the plugin** (requires a stock Hermes install with
 
 ```bash
 # 1. Install + enable the Hermes Mobile plugin (ships in this repo under plugin/)
-hermes plugins install andyst-dev/hermes-ios:plugin --enable
+hermes plugins install andyst-dev/hermes-ios/plugin --enable
 
 # 2. Start the official Hermes dashboard — the plugin loads with it
 hermes dashboard --host 127.0.0.1 --port 8765 --no-open
