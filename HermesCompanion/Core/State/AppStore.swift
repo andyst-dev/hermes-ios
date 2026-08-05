@@ -14,6 +14,7 @@ final class AppStore: ObservableObject {
     @Published var selectedSourceFilter: String = "all"
     @Published var privacyMode = true
     @Published var pendingAttachments: [OutboundPrompt.Attachment] = []
+    @Published var pendingApproval: ApprovalRequest?
 
     private let client: HermesClient
 
@@ -122,7 +123,11 @@ final class AppStore: ObservableObject {
                     }
                 }
             }
-            let stream = try await client.send(OutboundPrompt(sessionID: selectedSessionID, text: text, attachments: attachments))
+            let stream = try await client.send(OutboundPrompt(sessionID: selectedSessionID, text: text, attachments: attachments)) { [weak self] request in
+                Task { @MainActor in
+                    self?.pendingApproval = request
+                }
+            }
             for try await update in stream {
                 if let index = messages.lastIndex(where: { $0.id == update.id }) {
                     messages[index] = update
@@ -135,6 +140,19 @@ final class AppStore: ObservableObject {
             messages.append(HermesMessage(id: UUID().uuidString, role: .system, text: error.localizedDescription, createdAt: .now, toolCalls: []))
         }
         isStreaming = false
+    }
+
+    /// Answer a pending dangerous-command approval. "once" / "session" /
+    /// "always" unblock the turn; "deny" blocks it.
+    func respond(toApproval request: ApprovalRequest, verdict: String) {
+        pendingApproval = nil
+        Task {
+            do {
+                try await client.approve(approvalID: request.id, verdict: verdict)
+            } catch {
+                messages.append(HermesMessage(id: UUID().uuidString, role: .system, text: error.localizedDescription, createdAt: .now, toolCalls: []))
+            }
+        }
     }
 
     func addPendingAttachment(_ attachment: OutboundPrompt.Attachment) {

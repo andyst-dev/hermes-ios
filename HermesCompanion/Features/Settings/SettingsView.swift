@@ -67,8 +67,9 @@ struct SettingsView: View {
                         HermesMobileRow(title: "Real sessions", subtitle: "Desktop/CLI/gateway conversations", icon: "message", accent: HermesTheme.green)
                         HermesMobileRow(title: "Models", subtitle: "Read and switch Desktop model", icon: "cpu", accent: HermesTheme.green)
                         HermesMobileRow(title: "Remote chat", subtitle: "Send prompts through Desktop bridge", icon: "paperplane", accent: HermesTheme.green)
+                        HermesMobileRow(title: "Live streaming", subtitle: "Tokens arrive as the Desktop generates", icon: "bolt", accent: HermesTheme.green)
+                        HermesMobileRow(title: "Command approvals", subtitle: "Approve or deny dangerous commands", icon: "exclamationmark.triangle", accent: HermesTheme.green)
                         HermesMobileRow(title: "Files", subtitle: "Browse and preview Desktop files", icon: "folder", accent: HermesTheme.green)
-                        HermesMobileRow(title: "Next", subtitle: "Streaming, approvals", icon: "ellipsis", accent: HermesTheme.mutedForeground)
                     }
 
                     if let actionStatus {

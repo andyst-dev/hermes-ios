@@ -69,7 +69,7 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
         HermesDesktopAttachment(id: UUID(), name: URL(fileURLWithPath: path).lastPathComponent, path: "/mock/\(path)", mimeType: "image/png", sizeBytes: 512)
     }
 
-    func send(_ prompt: OutboundPrompt) async throws -> AsyncThrowingStream<HermesMessage, Error> {
+    func send(_ prompt: OutboundPrompt, onApproval: @escaping @Sendable (ApprovalRequest) -> Void) async throws -> AsyncThrowingStream<HermesMessage, Error> {
         AsyncThrowingStream { continuation in
             Task {
                 let chunks = [
@@ -98,6 +98,8 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
             }
         }
     }
+
+    func approve(approvalID: String, verdict: String) async throws {}
 
     func stop(sessionID: String) async throws {}
 }

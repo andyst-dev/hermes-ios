@@ -57,7 +57,7 @@ actor HTTPHermesTransport: HermesTransport {
         let _: MobileModelSetResponse = try await post("api/mobile/model", body: HermesModelSelection(provider: provider, model: model))
     }
 
-    func send(_ prompt: OutboundPrompt) async throws -> AsyncThrowingStream<HermesMessage, Error> {
+    func send(_ prompt: OutboundPrompt, onApproval: @escaping @Sendable (ApprovalRequest) -> Void) async throws -> AsyncThrowingStream<HermesMessage, Error> {
         guard let baseURL else { throw HermesTransportError.notConnected }
         let body = try JSONEncoder().encode(prompt)
         var request = URLRequest(url: endpointURL(baseURL: baseURL, path: "api/mobile/chat"))
@@ -99,6 +99,8 @@ actor HTTPHermesTransport: HermesTransport {
                                     for message in messages where message.isTranscriptVisible {
                                         continuation.yield(message)
                                     }
+                                case .approval(let id, let command, let description):
+                                    onApproval(ApprovalRequest(id: id, command: command, description: description))
                                 case .error(let detail):
                                     throw HermesTransportError.server(detail)
                                 case .done:
@@ -119,6 +121,8 @@ actor HTTPHermesTransport: HermesTransport {
                             for message in messages where message.isTranscriptVisible {
                                 continuation.yield(message)
                             }
+                        case .approval(let id, let command, let description):
+                            onApproval(ApprovalRequest(id: id, command: command, description: description))
                         case .error(let detail):
                             throw HermesTransportError.server(detail)
                         case .done:
@@ -130,6 +134,23 @@ actor HTTPHermesTransport: HermesTransport {
                     continuation.finish(throwing: error)
                 }
             }
+        }
+    }
+
+    func approve(approvalID: String, verdict: String) async throws {
+        guard let baseURL else { throw HermesTransportError.notConnected }
+        var request = URLRequest(url: endpointURL(baseURL: baseURL, path: "api/mobile/approvals/\(approvalID)/reply"))
+        request.httpMethod = "POST"
+        request.timeoutInterval = 30
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["verdict": verdict])
+        addAuth(to: &request)
+        let (_, response) = try await urlSession.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw HermesTransportError.invalidResponse
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw HermesTransportError.server("Approval reply failed (HTTP \(http.statusCode))")
         }
     }
 
@@ -185,6 +206,13 @@ actor HTTPHermesTransport: HermesTransport {
             return SSEEvent(kind: .transcript(sessionID, messages))
         case "error":
             return SSEEvent(kind: .error(dict["detail"] as? String ?? "Hermes chat failed"))
+        case "approval":
+            guard let id = dict["id"] as? String else { return nil }
+            return SSEEvent(kind: .approval(
+                id,
+                dict["command"] as? String ?? "",
+                dict["description"] as? String ?? ""
+            ))
         case "done":
             return SSEEvent(kind: .done)
         default:
@@ -320,6 +348,7 @@ actor HTTPHermesTransport: HermesTransport {
 enum SSEEventKind {
     case delta(String)
     case transcript(String?, [HermesMessage])
+    case approval(String, String, String)
     case error(String)
     case done
 }

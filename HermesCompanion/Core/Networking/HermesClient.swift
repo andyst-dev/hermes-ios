@@ -32,8 +32,12 @@ final class HermesClient: ObservableObject {
         try await transport.selectModel(provider: provider, model: model)
     }
 
-    func send(_ prompt: OutboundPrompt) async throws -> AsyncThrowingStream<HermesMessage, Error> {
-        try await transport.send(prompt)
+    func send(_ prompt: OutboundPrompt, onApproval: @escaping @Sendable (ApprovalRequest) -> Void) async throws -> AsyncThrowingStream<HermesMessage, Error> {
+        try await transport.send(prompt, onApproval: onApproval)
+    }
+
+    func approve(approvalID: String, verdict: String) async throws {
+        try await transport.approve(approvalID: approvalID, verdict: verdict)
     }
 
     func newChat() async throws -> String {

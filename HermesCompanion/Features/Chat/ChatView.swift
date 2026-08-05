@@ -45,6 +45,9 @@ struct ChatView: View {
                     scrollToBottom(proxy)
                 }
             }
+            if let approval = store.pendingApproval {
+                ApprovalCard(request: approval)
+            }
             ComposerView()
         }
         .background(HermesTheme.background.opacity(0.72))
@@ -459,5 +462,80 @@ private struct ComposerView: View {
         if store.isStreaming { return HermesTheme.foreground }
         // Empty → muted brown; ready to send → bright beige.
         return canSend ? HermesTheme.foreground : HermesTheme.mutedForeground
+    }
+}
+
+/// Dangerous-command approval surfaced by the Desktop during a streaming
+/// turn. The turn is blocked until the phone answers.
+private struct ApprovalCard: View {
+    @EnvironmentObject private var store: AppStore
+    let request: ApprovalRequest
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(HermesTheme.destructive)
+                Text("Approbation requise")
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundStyle(HermesTheme.foreground)
+            }
+            if !request.description.isEmpty {
+                Text(request.description)
+                    .font(.system(size: 12))
+                    .foregroundStyle(HermesTheme.mutedForeground)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Text(request.command)
+                .font(HermesTheme.mono)
+                .foregroundStyle(HermesTheme.foreground)
+                .textSelection(.enabled)
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(HermesTheme.popover, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(HermesTheme.destructive.opacity(0.55), lineWidth: 1)
+                )
+            HStack(spacing: 8) {
+                Button {
+                    store.respond(toApproval: request, verdict: "once")
+                } label: {
+                    Text("Approuver une fois")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundStyle(HermesTheme.primaryForeground)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(HermesTheme.primary, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                Button {
+                    store.respond(toApproval: request, verdict: "deny")
+                } label: {
+                    Text("Refuser")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundStyle(HermesTheme.destructive)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(HermesTheme.popover, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                .stroke(HermesTheme.destructive.opacity(0.6), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+                Spacer()
+            }
+        }
+        .padding(14)
+        .background(HermesTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(HermesTheme.destructive.opacity(0.45), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.35), radius: 20, x: 0, y: 12)
+        .padding(.horizontal, 18)
+        .padding(.bottom, 10)
     }
 }

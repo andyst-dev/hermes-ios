@@ -89,6 +89,14 @@ struct OutboundPrompt: Codable, Equatable {
     }
 }
 
+/// A dangerous-command approval requested by the Desktop during a streaming
+/// chat turn. The phone must answer with a verdict to unblock the turn.
+struct ApprovalRequest: Equatable, Identifiable {
+    let id: String
+    let command: String
+    let description: String
+}
+
 struct HermesModel: Codable, Equatable, Identifiable {
     let id: String
     var displayName: String
