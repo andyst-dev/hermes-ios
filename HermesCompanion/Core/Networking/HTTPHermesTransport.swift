@@ -84,9 +84,13 @@ actor HTTPHermesTransport: HermesTransport {
                     var streamText = ""
                     for try await chunk in bytes {
                         buffer.append(chunk)
+                        // NOTE: never mutate `buffer` in place while a slice of it
+                        // is alive — Data stores small buffers inline and
+                        // removeSubrange on a shared inline buffer traps. Instead,
+                        // re-assign the un-consumed suffix (safe copy-on-write).
                         while let range = buffer.range(of: Data("\n\n".utf8)) {
-                            let frame = Data(buffer[..<range.lowerBound])
-                            buffer.removeSubrange(...range.upperBound)
+                            let frame = buffer.subdata(in: buffer.startIndex..<range.lowerBound)
+                            buffer = buffer.subdata(in: range.upperBound..<buffer.endIndex)
                             if let event = try HTTPHermesTransport.parseSSEEvent(frame) {
                                 switch event.kind {
                                 case .delta(let text):

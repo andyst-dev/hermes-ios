@@ -412,6 +412,8 @@ private struct ComposerView: View {
                         .foregroundStyle(sendForeground)
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("composer.send")
+                .accessibilityLabel(store.isStreaming ? "Stop" : "Send")
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
