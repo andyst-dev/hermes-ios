@@ -114,9 +114,19 @@ def client(monkeypatch):
             return httpx.Response(
                 200,
                 json={
-                    "models": [
-                        {"model_id": "deepseek:deepseek-v4-flash", "name": "DeepSeek V4 Flash", "provider": "deepseek"},
-                        {"model_id": "nous:anthropic/claude-sonnet-5", "name": "Claude Sonnet 5", "provider": "nous"},
+                    "providers": [
+                        {
+                            "slug": "deepseek",
+                            "name": "DeepSeek",
+                            "is_current": True,
+                            "models": ["deepseek/deepseek-v4-flash"],
+                        },
+                        {
+                            "slug": "nous",
+                            "name": "Nous Portal",
+                            "is_current": False,
+                            "models": ["anthropic/claude-sonnet-5"],
+                        },
                     ]
                 },
             )
@@ -124,10 +134,24 @@ def client(monkeypatch):
             return httpx.Response(200, json={"ok": True})
         if request.url.path == "/api/files":
             return httpx.Response(
-                200, json={"files": [{"name": "notes.md", "path": "notes.md", "type": "file"}]}
+                200,
+                json={
+                    "entries": [
+                        {
+                            "name": "notes.md",
+                            "path": "/Users/x/notes.md",
+                            "is_directory": False,
+                            "size": 12,
+                            "mime_type": "text/plain",
+                        }
+                    ]
+                },
             )
         if request.url.path == "/api/files/read":
-            return httpx.Response(200, json={"name": "notes.md", "content": "contenu"})
+            return httpx.Response(
+                200,
+                json={"name": "notes.md", "path": "/x/notes.md", "data_url": "data:text/plain;base64,Y29udGVudQ=="},
+            )
         return httpx.Response(404, json={"detail": "not mocked"})
 
     transport = httpx.MockTransport(fake_handler)
@@ -200,12 +224,14 @@ def test_models_and_files(client):
     models = client.get("/api/mobile/models").json()
     assert len(models["models"]) == 2
     assert "deepseek" in models["providers"]
+    assert models["models"][0]["displayName"] == "deepseek-v4-flash"
 
     set_resp = client.post("/api/mobile/model", json={"model": "deepseek:deepseek-v4-flash"})
     assert set_resp.status_code == 200
 
     files = client.get("/api/mobile/files").json()
-    assert files["files"][0]["name"] == "notes.md"
+    assert files["files"][0]["label"] == "notes.md"
+    assert files["files"][0]["kind"] == "text"
 
     content = client.get("/api/mobile/files/read", params={"path": "notes.md"}).json()
     assert content["content"] == "contenu"

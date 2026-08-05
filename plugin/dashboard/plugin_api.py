@@ -386,8 +386,13 @@ class _DashboardProxy:
         return rows
 
     async def set_model(self, model_id: str) -> dict[str, Any]:
+        # Dashboard POST /api/model/set expects ModelAssignment:
+        # {"scope": "main", "provider": "...", "model": "..."}
+        provider, _, model = model_id.partition("/")
         resp = await self._client.post(
-            f"{self._base}/api/model/set", json={"model": model_id}, headers=self._headers()
+            f"{self._base}/api/model/set",
+            json={"scope": "main", "provider": provider, "model": model or model_id},
+            headers=self._headers(),
         )
         resp.raise_for_status()
         return resp.json()
@@ -493,6 +498,10 @@ class _ChatRequest(BaseModel):
     attachments: Optional[list[dict[str, Any]]] = None
 
 
+class _StopRequest(BaseModel):
+    sessionID: Optional[str] = None
+
+
 class _ReplyRequest(BaseModel):
     verdict: str
 
@@ -581,7 +590,7 @@ async def mobile_new_chat() -> dict[str, Any]:
 
 
 @router.post("/stop")
-async def mobile_stop(body: Optional[_ChatRequest] = None) -> dict[str, Any]:
+async def mobile_stop(body: Optional[_StopRequest] = None) -> dict[str, Any]:
     engine = _get_engine()
     sid = (body.sessionID if body else None) or engine._active_hermes_session
     if sid:

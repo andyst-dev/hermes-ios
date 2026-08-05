@@ -82,16 +82,21 @@ class DashboardClient:
     # -- files -------------------------------------------------------------
 
     async def list_files(self, path: str | None = None) -> list[dict[str, Any]]:
-        params = {"path": path} if path else {}
+        params = {}
+        if path:
+            params["path"] = os.path.expanduser(path) if not path.startswith("/") else path
         resp = await self._client.get(
             f"{self.base_url}/api/files", params=params, headers=self._headers()
         )
         resp.raise_for_status()
-        return resp.json().get("files", [])
+        payload = resp.json()
+        # Dashboard shape: {"path", "parent", "entries": [{"name", "path", "is_directory", ...}]}
+        return payload.get("entries", [])
 
     async def read_file(self, path: str) -> dict[str, Any]:
+        absolute = path if path.startswith("/") else os.path.join(os.path.expanduser("~"), path)
         resp = await self._client.get(
-            f"{self.base_url}/api/files/read", params={"path": path}, headers=self._headers()
+            f"{self.base_url}/api/files/read", params={"path": absolute}, headers=self._headers()
         )
         resp.raise_for_status()
         return resp.json()
@@ -103,11 +108,31 @@ class DashboardClient:
             f"{self.base_url}/api/model/options", headers=self._headers()
         )
         resp.raise_for_status()
-        return resp.json().get("models", [])
+        payload = resp.json()
+        # Dashboard shape: {"providers": [{"slug", "name", "is_current", "models": [...]}]}
+        rows = []
+        for provider in payload.get("providers", []):
+            slug = provider.get("slug") or ""
+            name = provider.get("name") or slug
+            for model_id in provider.get("models", []):
+                rows.append(
+                    {
+                        "model_id": model_id,
+                        "provider": slug,
+                        "provider_name": name,
+                        "name": model_id.split("/", 1)[-1],
+                    }
+                )
+        return rows
 
     async def set_model(self, model_id: str) -> dict[str, Any]:
+        # Dashboard POST /api/model/set expects ModelAssignment:
+        # {"scope": "main", "provider": "...", "model": "..."}
+        provider, _, model = model_id.partition("/")
         resp = await self._client.post(
-            f"{self.base_url}/api/model/set", json={"model": model_id}, headers=self._headers()
+            f"{self.base_url}/api/model/set",
+            json={"scope": "main", "provider": provider, "model": model or model_id},
+            headers=self._headers(),
         )
         resp.raise_for_status()
         return resp.json()

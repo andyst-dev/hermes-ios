@@ -423,10 +423,27 @@ async def mobile_model_set(body: MobileModelRequest) -> dict[str, Any]:
 @mobile_router.get("/files")
 async def mobile_files(path: str | None = None) -> dict[str, Any]:
     try:
-        rows = await _get_dashboard().list_files(path)
+        entries = await _get_dashboard().list_files(path)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Dashboard unreachable: {exc}") from exc
-    return {"files": rows, "path": path or ""}
+    # The iOS app expects HermesFileArtifact rows: id(UUID), label, path, kind.
+    artifacts = []
+    for entry in entries:
+        name = entry.get("name") or ""
+        entry_path = entry.get("path") or ""
+        mime = entry.get("mime_type") or ""
+        artifacts.append(
+            {
+                "id": str(uuid.uuid4()),
+                "label": name,
+                "path": entry_path,
+                "kind": "image" if mime.startswith("image/") else "text",
+                "isDirectory": bool(entry.get("is_directory")),
+                "size": entry.get("size"),
+                "mtime": entry.get("mtime"),
+            }
+        )
+    return {"files": artifacts, "path": path or ""}
 
 
 @mobile_router.get("/files/read")
@@ -435,7 +452,23 @@ async def mobile_files_read(path: str) -> dict[str, Any]:
         result = await _get_dashboard().read_file(path)
     except Exception as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return result
+    # Dashboard returns {name, path, size, mime_type, data_url(base64)}; the
+    # iOS app expects {name, content, truncated}.
+    name = result.get("name") or os.path.basename(path)
+    content = ""
+    data_url = result.get("data_url") or ""
+    if data_url.startswith("data:") and "base64," in data_url:
+        import base64
+
+        b64 = data_url.split("base64,", 1)[1]
+        try:
+            content = base64.b64decode(b64).decode("utf-8", errors="replace")
+        except Exception:
+            content = ""
+    truncated = len(content) > 200_000
+    if truncated:
+        content = content[:200_000]
+    return {"name": name, "content": content, "truncated": truncated}
 
 
 # ---------------------------------------------------------------------------
