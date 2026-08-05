@@ -409,7 +409,6 @@ private struct ComposerView: View {
                         .foregroundStyle(sendForeground)
                 }
                 .buttonStyle(.plain)
-                .disabled(store.composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && store.pendingAttachments.isEmpty && !store.isStreaming)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
@@ -456,6 +455,9 @@ private struct ComposerView: View {
     }
 
     private var sendForeground: Color {
-        store.composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && store.pendingAttachments.isEmpty ? HermesTheme.foreground : HermesTheme.primaryForeground
+        let canSend = !store.composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !store.pendingAttachments.isEmpty
+        if store.isStreaming { return HermesTheme.foreground }
+        // Empty → muted brown; ready to send → bright beige.
+        return canSend ? HermesTheme.foreground : HermesTheme.mutedForeground
     }
 }

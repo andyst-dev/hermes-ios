@@ -159,4 +159,13 @@ final class HermesCompanionTests: XCTestCase {
         let empty = try HTTPHermesTransport.parseSSEEvent(Data())
         XCTAssertNil(empty)
     }
+
+    func testKeychainTokenRoundTrip() throws {
+        KeychainStore.deleteToken()
+        XCTAssertNil(KeychainStore.loadToken())
+        try KeychainStore.saveToken("test-token-123")
+        XCTAssertEqual(KeychainStore.loadToken(), "test-token-123")
+        KeychainStore.deleteToken()
+        XCTAssertNil(KeychainStore.loadToken())
+    }
 }
