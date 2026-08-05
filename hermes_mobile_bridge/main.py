@@ -45,7 +45,6 @@ def _get_engine() -> ACPExtEngine:
         )
     return _engine
 
-
 def _get_dashboard() -> DashboardClient:
     global _dashboard
     if _dashboard is None:

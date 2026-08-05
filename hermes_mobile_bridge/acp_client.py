@@ -151,11 +151,31 @@ class ACPExtEngine:
         self._reverse_map[acp_id] = hermes_id
         self._active_hermes_session = hermes_id
         if self._model_id:
-            try:
-                await self._conn.set_session_model(model_id=self._model_id, session_id=acp_id)
-            except Exception:
-                logger.warning("set_session_model(%s) failed", self._model_id, exc_info=True)
+            await self._set_session_model(acp_id, self._model_id)
         return hermes_id
+
+    async def _set_session_model(self, acp_id: str, model_id: str) -> None:
+        """Switch the ACP session model via the raw ``session/set_model`` RPC.
+
+        The bundled agent-client-protocol SDK (0.9.0) does not expose
+        ``set_session_model`` on ClientSideConnection, but the Hermes ACP
+        server implements it; fall back to the raw wire method. Failures are
+        non-fatal (the server keeps its configured default model).
+        """
+        try:
+            conn = getattr(self._conn, "_conn", None)
+            if conn is None:
+                return
+            resolved = model_id
+            if ":" not in resolved and self._provider:
+                resolved = f"{self._provider}:{resolved}"
+            await conn.send_request(
+                "session/set_model",
+                {"sessionId": acp_id, "modelId": resolved},
+            )
+            logger.info("ACP session %s: model set to %s", acp_id, resolved)
+        except Exception:
+            logger.warning("set_session_model(%s) failed", model_id, exc_info=True)
 
     async def resume_session(self, hermes_session_id: str) -> str:
         """Resume an existing Hermes session by its Hermes-side id.
@@ -257,10 +277,23 @@ class ACPExtEngine:
             self._pending_permissions.pop(session_id, None)
             self._approval_map.pop(approval_id, None)
 
-        selected = verdict if verdict in option_ids else ("deny" if "deny" in option_ids else option_ids[0])
-        if selected == "deny":
-            return {"outcome": "cancelled"}
-        return {"outcome": "selected", "optionId": selected}
+        # Mobile verdicts (once|session|always|deny) map to ACP option ids
+        # (allow_once|allow_session|allow_always|deny|deny_always). The
+        # installed agent-client-protocol on the server side is 0.9.x, whose
+        # RequestPermissionResponse nests the outcome object:
+        #   {"outcome": {"outcome": "selected", "optionId": "allow_once"}}
+        _VERDICT_TO_OPTION = {
+            "once": "allow_once",
+            "session": "allow_session",
+            "always": "allow_always",
+            "deny": "deny",
+        }
+        option = _VERDICT_TO_OPTION.get(verdict, verdict)
+        if option not in option_ids:
+            option = "deny" if "deny" in option_ids else option_ids[0]
+        if option == "deny":
+            return {"outcome": {"outcome": "cancelled"}}
+        return {"outcome": {"outcome": "selected", "optionId": option}}
 
     def resolve_approval(self, approval_id: str, verdict: str) -> bool:
         """Resolve a pending approval by bridge-side approval id."""
@@ -308,6 +341,7 @@ class ACPExtEngine:
         """Forward ACP session updates to the chat-turn queue."""
         queue = self._turn_queues.get(session_id)
         if queue is None:
+            logger.debug("session_update for %s: no queue (turn_queues=%s)", session_id, list(self._turn_queues.keys()))
             return
         kind = getattr(update, "session_update", None)
         if kind == "usage_update":
