@@ -122,19 +122,26 @@ def _mobile_session_row(row: dict[str, Any]) -> dict[str, Any]:
         "title": title,
         "subtitle": subtitle,
         "updatedAt": _iso_ts(updated),
-        "status": "active" if row.get("is_active") else "idle",
+        # The iOS app's SessionStatus enum accepts idle|running|waitingApproval|
+        # failed|completed — map the dashboard's is_active boolean to those.
+        "status": "running" if row.get("is_active") else "idle",
         "pinned": bool(row.get("pinned")),
     }
 
 
 def _iso_ts(ts: Any) -> str:
-    """Best-effort ISO timestamp from a dashboard row (epoch int or iso str)."""
+    """Best-effort ISO timestamp from a dashboard row (epoch int or iso str).
+
+    The iOS app's ISO8601DateFormatter (.withInternetDateTime) only accepts
+    ``Z`` as the UTC designator — never ``+00:00`` — so normalize to ``Z``.
+    """
     if isinstance(ts, (int, float)) and ts > 0:
         import datetime
 
-        return datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc).isoformat()
+        dt = datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc)
+        return dt.isoformat(timespec="milliseconds").replace("+00:00", "Z")
     if isinstance(ts, str):
-        return ts
+        return ts.replace("+00:00", "Z")
     return ""
 
 
@@ -204,11 +211,11 @@ async def mobile_session_messages(session_id: str) -> dict[str, Any]:
             )
         messages.append(
             {
-                "id": m.get("id") or str(uuid.uuid4()),
+                "id": str(m.get("id") or uuid.uuid4()),
                 "role": role,
                 "text": text,
                 "toolCalls": _tool_calls_from_row(m),
-                "timestamp": m.get("created_at") or m.get("timestamp") or "",
+                "createdAt": _iso_ts(m.get("created_at") or m.get("timestamp") or m.get("started_at")),
             }
         )
     return {"messages": messages}
@@ -217,12 +224,22 @@ async def mobile_session_messages(session_id: str) -> dict[str, Any]:
 def _tool_calls_from_row(m: dict[str, Any]) -> list[dict[str, Any]]:
     calls = []
     for tc in m.get("tool_calls") or []:
+        # The iOS app's HermesToolCall requires name/status/summary; status
+        # enum is queued|running|succeeded|failed|waitingApproval. The
+        # dashboard rows carry raw tool_calls with 'name'/'arguments' and an
+        # optional 'status' (or a command string in the 'command' field).
+        name = tc.get("name") or tc.get("tool_name") or "tool"
+        raw_status = str(tc.get("status") or "completed").lower()
+        status = raw_status if raw_status in ("queued", "running", "succeeded", "failed", "waitingApproval") else "succeeded"
+        arguments = tc.get("arguments") or tc.get("input") or ""
+        command = tc.get("command") or (json.dumps(arguments)[:300] if arguments else "")
         calls.append(
             {
-                "id": tc.get("id") or str(uuid.uuid4()),
-                "name": tc.get("name") or "tool",
-                "arguments": tc.get("arguments") or tc.get("input") or "",
-                "status": tc.get("status") or "completed",
+                "id": str(tc.get("id") or uuid.uuid4()),
+                "name": name,
+                "command": command,
+                "status": status,
+                "summary": name,
             }
         )
     return calls
@@ -331,9 +348,10 @@ def _mobile_msg(m: dict[str, Any]) -> dict[str, Any]:
     if isinstance(text, list):
         text = " ".join(b.get("text", "") for b in text if isinstance(b, dict) and b.get("type") == "text")
     return {
-        "id": m.get("id") or str(uuid.uuid4()),
+        "id": str(m.get("id") or uuid.uuid4()),
         "role": role,
         "text": text,
+        "createdAt": _iso_ts(m.get("created_at") or m.get("timestamp") or m.get("started_at")),
         "toolCalls": _tool_calls_from_row(m),
     }
 
@@ -370,11 +388,17 @@ async def mobile_models() -> dict[str, Any]:
         if not model_id:
             continue
         provider = r.get("provider") or model_id.split(":", 1)[0]
+        # The iOS app's HermesModel requires displayName + supportsVision/
+        # supportsTools; map from the dashboard row (or sensible defaults).
+        supports_vision = bool(r.get("supports_vision") or r.get("vision") or "vision" in model_id.lower())
         models.append(
             {
                 "id": model_id,
+                "displayName": r.get("name") or r.get("display_name") or model_id,
                 "provider": provider,
-                "name": r.get("name") or model_id,
+                "providerName": r.get("provider_name") or provider,
+                "supportsVision": supports_vision,
+                "supportsTools": True,
                 "description": r.get("description") or "",
             }
         )

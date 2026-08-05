@@ -159,7 +159,7 @@ def test_sessions_list(client):
     assert row["title"] == "Session réelle"
     assert "telegram" in row["subtitle"]
     assert row["pinned"] is False
-    assert row["status"] == "active"
+    assert row["status"] == "running"
 
 
 def test_session_messages_filtered(client):
@@ -169,6 +169,8 @@ def test_session_messages_filtered(client):
     assert len(messages) == 2
     assert messages[0]["role"] == "user"
     assert messages[0]["text"] == "salut"
+    assert isinstance(messages[0]["id"], str)
+    assert "createdAt" in messages[0]
     assert messages[1]["role"] == "assistant"
     assert messages[1]["text"] == "bonjour"
 
