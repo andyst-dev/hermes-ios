@@ -20,9 +20,12 @@ present the session bearer token.
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import logging
 import os
+import secrets
+import time
 import uuid
 from typing import Any, Optional
 
@@ -806,4 +809,91 @@ async def mobile_files_attach(path: str) -> dict[str, Any]:
         "path": os.path.relpath(full, home),
         "mimeType": mime or "application/octet-stream",
         "sizeBytes": size,
+    }
+
+
+# ---------------------------------------------------------------------------
+# QR pairing (onboarding: scan a Desktop QR, get the session token)
+# ---------------------------------------------------------------------------
+
+_PAIRING_TTL_SECONDS = 120
+_pairing_codes: dict[str, dict[str, Any]] = {}
+
+
+def _clean_pairings() -> None:
+    now = time.time()
+    for code, value in list(_pairing_codes.items()):
+        if float(value.get("expires_at") or 0) <= now:
+            _pairing_codes.pop(code, None)
+
+
+def _dashboard_session_token() -> str:
+    """The dashboard's own session token — the plugin runs inside it."""
+    try:
+        from hermes_cli import web_server as _ws
+
+        return getattr(_ws, "_SESSION_TOKEN", "") or os.environ.get("HERMES_DASHBOARD_SESSION_TOKEN", "")
+    except Exception:
+        return os.environ.get("HERMES_DASHBOARD_SESSION_TOKEN", "")
+
+
+@router.get("/pairing")
+async def mobile_pairing(profile: Optional[str] = None) -> dict[str, Any]:
+    """Generate a one-time pairing QR payload (120 s TTL).
+
+    The QR embeds the dashboard session token directly (the dashboard is
+    already authenticated when the QR is generated), so the iOS app can
+    connect without a public unauthenticated ``/pair`` endpoint — the
+    dashboard's auth middleware protects every ``/api/plugins/*`` route.
+    """
+    _clean_pairings()
+    code = secrets.token_urlsafe(18)
+    active_profile = (profile or os.environ.get("HERMES_PROFILE") or "default").strip() or "default"
+    base_url = os.environ.get("HERMES_MOBILE_PUBLIC_URL", "http://127.0.0.1:8765").rstrip("/")
+    token = _dashboard_session_token()
+    _pairing_codes[code] = {
+        "profile": active_profile,
+        "base_url": base_url,
+        "expires_at": time.time() + _PAIRING_TTL_SECONDS,
+    }
+    qr_payload = {
+        "type": "hermes-mobile-pairing",
+        "url": base_url,
+        "profile": active_profile,
+        # `code` kept for backward compat with the standalone bridge flow;
+        # `token` lets the app connect straight away.
+        "code": code,
+        "token": token,
+    }
+    return {
+        "url": base_url,
+        "profile": active_profile,
+        "code": code,
+        "token": token,
+        "expiresAt": _iso_ts(time.time() + _PAIRING_TTL_SECONDS),
+        "qrText": json.dumps(qr_payload, separators=(",", ":")),
+    }
+
+
+class _PairRequest(BaseModel):
+    code: str
+    deviceName: Optional[str] = "iPhone"
+
+
+@router.post("/pair")
+async def mobile_pair(body: _PairRequest) -> dict[str, Any]:
+    """Exchange a scanned one-time code for the dashboard session token."""
+    _clean_pairings()
+    code = (body.code or "").strip()
+    pairing = _pairing_codes.pop(code, None)
+    if not pairing:
+        raise HTTPException(status_code=404, detail="Pairing code expired")
+    token = _dashboard_session_token()
+    if not token:
+        raise HTTPException(status_code=500, detail="No dashboard session token available")
+    return {
+        "ok": True,
+        "url": pairing["base_url"],
+        "profile": pairing["profile"],
+        "token": token,
     }

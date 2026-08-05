@@ -254,6 +254,20 @@ struct ConnectView: View {
     private func pair(with qrText: String) async {
         do {
             let payload = try DesktopPairingPayload.parse(qrText)
+            // Plugin QRs embed the dashboard session token directly — no
+            // round-trip needed. Standalone-bridge QRs fall back to the
+            // code exchange below.
+            if let embeddedToken = payload.token, !embeddedToken.isEmpty {
+                host = payload.url.absoluteString
+                profile = payload.profile
+                token = embeddedToken
+                try KeychainStore.saveToken(embeddedToken)
+                UserDefaults.standard.set(host, forKey: "hermes.host")
+                UserDefaults.standard.set(profile, forKey: "hermes.profile")
+                tokenSaveError = nil
+                await store.connect(host: HermesHost(name: "Desktop Hermes", baseURL: payload.url, profile: payload.profile))
+                return
+            }
             let pairURL = payload.url.appending(path: "api").appending(path: "mobile").appending(path: "pair")
             var request = URLRequest(url: pairURL)
             request.httpMethod = "POST"
@@ -305,6 +319,10 @@ private struct DesktopPairingPayload: Decodable {
     let url: URL
     let profile: String
     let code: String
+    // Present on plugin QR payloads: the dashboard session token is embedded
+    // so the app can connect without a public /pair endpoint. Optional so
+    // standalone-bridge QRs (code-only) keep working.
+    var token: String?
 
     static func parse(_ raw: String) throws -> DesktopPairingPayload {
         guard let data = raw.data(using: .utf8) else { throw PairingError.failed("Invalid QR") }

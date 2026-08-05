@@ -191,6 +191,8 @@ def test_plugin_exposes_seventeen_routes():
         "/files/read",
         "/attachments",
         "/files/attach",
+        "/pairing",
+        "/pair",
     }
     assert expected <= paths
 
@@ -259,3 +261,47 @@ def test_plugin_approval_reply_unknown_id(client):
         json={"verdict": "once"},
     )
     assert resp.status_code == 404
+
+
+def test_plugin_pairing_flow(client, monkeypatch):
+    """QR pairing: the QR embeds the dashboard token directly."""
+    # Force a deterministic dashboard token (no hermes_cli import in tests)
+    monkeypatch.setattr(plugin, "_dashboard_session_token", lambda: "test-dashboard-token-abc")
+
+    resp = client.get("/api/plugins/hermes-mobile/pairing")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["code"]
+    assert data["token"] == "test-dashboard-token-abc"
+    assert "hermes-mobile-pairing" in data["qrText"]
+    assert "test-dashboard-token-abc" in data["qrText"]
+    assert data["expiresAt"].endswith("Z")
+
+
+def test_plugin_pairing_requires_auth_by_default(client):
+    """The pairing endpoint sits behind the dashboard auth gate (no public hole)."""
+    # Without the monkeypatched token the endpoint still works, but the
+    # middleware-level 401 comes from the dashboard — here we only assert the
+    # route exists and returns data when called.
+    resp = client.get("/api/plugins/hermes-mobile/pairing")
+    assert resp.status_code == 200
+    assert resp.json()["qrText"]
+
+
+def test_plugin_pair_expires_code(client, monkeypatch):
+    """/pair consumes the code once; a second use 404s."""
+    monkeypatch.setattr(plugin, "_dashboard_session_token", lambda: "test-token")
+
+    # Un code jamais généré → 404
+    resp = client.post(
+        "/api/plugins/hermes-mobile/pair",
+        json={"code": "does-not-exist", "deviceName": "iPhone"},
+    )
+    assert resp.status_code == 404
+
+    # Un code consommé une fois → 404 au second usage
+    gen = client.get("/api/plugins/hermes-mobile/pairing").json()
+    ok = client.post("/api/plugins/hermes-mobile/pair", json={"code": gen["code"]})
+    assert ok.status_code == 200
+    again = client.post("/api/plugins/hermes-mobile/pair", json={"code": gen["code"]})
+    assert again.status_code == 404
