@@ -1,0 +1,8 @@
+{
+  "name": "hermes-mobile",
+  "label": "Hermes Mobile",
+  "description": "Mobile bridge for the Hermes Companion iOS app — chat streaming and dangerous-command approvals over the official Agent Client Protocol. No core patch.",
+  "icon": "Smartphone",
+  "version": "1.0.0",
+  "api": "plugin_api.py"
+}

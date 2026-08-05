@@ -1,9 +1,15 @@
-"""FastAPI app exposing the mobile API consumed by the Hermes Companion iOS
-app, backed by the official Hermes ACP server + dashboard REST API.
+"""Mobile API consumed by the Hermes Companion iOS app, backed by the
+official Hermes ACP server + dashboard REST API.
 
-Contract kept identical to the original (fork-patched) bridge so the iOS app
-does not need to change: ``/api/mobile/*`` with SSE streaming chat and
-approval events.
+This module exposes :data:`mobile_router`, an ``APIRouter`` that can be
+mounted by either:
+
+- the standalone bridge (``python -m hermes_mobile_bridge.main``) under
+  ``/api/mobile``, or
+- the ``hermes-mobile`` dashboard plugin under
+  ``/api/plugins/hermes-mobile``.
+
+The same code path serves both; no Hermes core is patched either way.
 """
 
 from __future__ import annotations
@@ -15,7 +21,7 @@ import os
 import uuid
 from typing import Any, Optional
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -25,7 +31,7 @@ from .dashboard import DashboardClient
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("hermes_mobile_bridge")
 
-app = FastAPI(title="Hermes Mobile Bridge", version="0.1.0")
+mobile_router = APIRouter()
 
 # ---------------------------------------------------------------------------
 # Runtime state (injectable for tests)
@@ -159,13 +165,13 @@ async def _sse(events: list[dict[str, Any]]) -> StreamingResponse:
 # ---------------------------------------------------------------------------
 
 
-@app.get("/api/mobile/health")
+@mobile_router.get("/health")
 async def mobile_health() -> dict[str, Any]:
     dash = await _get_dashboard().health()
     return {"ok": bool(dash.get("ok")), "version": "0.19.1", "auth_required": False}
 
 
-@app.get("/api/mobile/capabilities")
+@mobile_router.get("/capabilities")
 async def mobile_capabilities() -> dict[str, Any]:
     try:
         sessions = await _get_dashboard().list_sessions(limit=1)
@@ -187,13 +193,13 @@ async def mobile_capabilities() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-@app.get("/api/mobile/sessions")
+@mobile_router.get("/sessions")
 async def mobile_sessions(source: str | None = None) -> dict[str, Any]:
     rows = await _get_dashboard().list_sessions(limit=100, source=source)
     return {"sessions": [_mobile_session_row(r) for r in rows]}
 
 
-@app.get("/api/mobile/sessions/{session_id}/messages")
+@mobile_router.get("/sessions/{session_id}/messages")
 async def mobile_session_messages(session_id: str) -> dict[str, Any]:
     try:
         raw = await _get_dashboard().get_session_messages(session_id)
@@ -245,14 +251,14 @@ def _tool_calls_from_row(m: dict[str, Any]) -> list[dict[str, Any]]:
     return calls
 
 
-@app.post("/api/mobile/new-chat")
+@mobile_router.post("/new-chat")
 async def mobile_new_chat(body: MobileNewChatRequest | None = None) -> dict[str, Any]:
     engine = _get_engine()
     hermes_id = await engine.new_session()
     return {"ok": True, "sessionID": hermes_id}
 
 
-@app.post("/api/mobile/stop")
+@mobile_router.post("/stop")
 async def mobile_stop(body: MobileStopRequest | None = None) -> dict[str, Any]:
     engine = _get_engine()
     sid = (body.sessionID if body else None) or engine._active_hermes_session
@@ -262,7 +268,7 @@ async def mobile_stop(body: MobileStopRequest | None = None) -> dict[str, Any]:
     return {"detail": "No running turn"}
 
 
-@app.post("/api/mobile/sessions/{session_id}/rename")
+@mobile_router.post("/sessions/{session_id}/rename")
 async def mobile_rename(session_id: str, body: MobileRenameRequest) -> dict[str, Any]:
     try:
         await _get_dashboard().patch_session(session_id, {"title": body.title})
@@ -271,7 +277,7 @@ async def mobile_rename(session_id: str, body: MobileRenameRequest) -> dict[str,
     return {"ok": True, "title": body.title}
 
 
-@app.post("/api/mobile/sessions/{session_id}/pin")
+@mobile_router.post("/sessions/{session_id}/pin")
 async def mobile_pin(session_id: str, body: MobilePinRequest | None = None) -> dict[str, Any]:
     pinned = body.pinned if body else True
     try:
@@ -281,7 +287,7 @@ async def mobile_pin(session_id: str, body: MobilePinRequest | None = None) -> d
     return {"ok": True, "pinned": pinned}
 
 
-@app.post("/api/mobile/sessions/{session_id}/archive")
+@mobile_router.post("/sessions/{session_id}/archive")
 async def mobile_archive(session_id: str, body: MobileArchiveRequest | None = None) -> dict[str, Any]:
     archived = body.archived if body else True
     try:
@@ -296,7 +302,7 @@ async def mobile_archive(session_id: str, body: MobileArchiveRequest | None = No
 # ---------------------------------------------------------------------------
 
 
-@app.post("/api/mobile/chat")
+@mobile_router.post("/chat")
 async def mobile_chat(body: MobileChatRequest) -> StreamingResponse:
     engine = _get_engine()
 
@@ -361,7 +367,7 @@ def _mobile_msg(m: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-@app.post("/api/mobile/approvals/{approval_id}/reply")
+@mobile_router.post("/approvals/{approval_id}/reply")
 async def mobile_approval_reply(approval_id: str, body: MobileReplyRequest) -> dict[str, Any]:
     if body.verdict not in ("once", "session", "always", "deny"):
         raise HTTPException(status_code=400, detail="verdict must be once|session|always|deny")
@@ -376,7 +382,7 @@ async def mobile_approval_reply(approval_id: str, body: MobileReplyRequest) -> d
 # ---------------------------------------------------------------------------
 
 
-@app.get("/api/mobile/models")
+@mobile_router.get("/models")
 async def mobile_models() -> dict[str, Any]:
     try:
         rows = await _get_dashboard().model_options()
@@ -405,7 +411,7 @@ async def mobile_models() -> dict[str, Any]:
     return {"models": models, "providers": sorted({m["provider"] for m in models})}
 
 
-@app.post("/api/mobile/model")
+@mobile_router.post("/model")
 async def mobile_model_set(body: MobileModelRequest) -> dict[str, Any]:
     try:
         result = await _get_dashboard().set_model(body.model)
@@ -414,7 +420,7 @@ async def mobile_model_set(body: MobileModelRequest) -> dict[str, Any]:
     return {"ok": True, "model": body.model, **result}
 
 
-@app.get("/api/mobile/files")
+@mobile_router.get("/files")
 async def mobile_files(path: str | None = None) -> dict[str, Any]:
     try:
         rows = await _get_dashboard().list_files(path)
@@ -423,7 +429,7 @@ async def mobile_files(path: str | None = None) -> dict[str, Any]:
     return {"files": rows, "path": path or ""}
 
 
-@app.get("/api/mobile/files/read")
+@mobile_router.get("/files/read")
 async def mobile_files_read(path: str) -> dict[str, Any]:
     try:
         result = await _get_dashboard().read_file(path)
@@ -437,12 +443,19 @@ async def mobile_files_read(path: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+def create_app() -> FastAPI:
+    """Build the standalone FastAPI app mounting the mobile router."""
+    application = FastAPI(title="Hermes Mobile Bridge", version="0.1.0")
+    application.include_router(mobile_router, prefix="/api/mobile")
+    return application
+
+
 def main() -> None:
     import uvicorn
 
     host = os.environ.get("HERMES_MOBILE_BRIDGE_HOST", "127.0.0.1")
     port = int(os.environ.get("HERMES_MOBILE_BRIDGE_PORT", "8766"))
-    uvicorn.run(app, host=host, port=port, log_level="info")
+    uvicorn.run(create_app(), host=host, port=port, log_level="info")
 
 
 if __name__ == "__main__":

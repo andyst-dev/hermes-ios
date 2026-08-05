@@ -331,7 +331,11 @@ actor HTTPHermesTransport: HermesTransport {
     }
 
     private func endpointURL(baseURL: URL, path: String, queryItems extra: [URLQueryItem] = []) -> URL {
-        let raw = path.split(separator: "/").reduce(baseURL) { partial, component in
+        // The mobile API is served by the hermes-mobile dashboard plugin
+        // (mounted at /api/plugins/hermes-mobile). Keep the path segments
+        // contract identical to the old standalone bridge.
+        let pluginPath = path.replacingOccurrences(of: "api/mobile/", with: "api/plugins/hermes-mobile/")
+        let raw = pluginPath.split(separator: "/").reduce(baseURL) { partial, component in
             partial.appending(path: String(component))
         }
         guard var components = URLComponents(url: raw, resolvingAgainstBaseURL: false) else { return raw }

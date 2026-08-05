@@ -136,7 +136,7 @@ def client(monkeypatch):
 
     from fastapi.testclient import TestClient
 
-    with TestClient(bridge_main.app) as test_client:
+    with TestClient(bridge_main.create_app()) as test_client:
         yield test_client
 
     bridge_main._reset_runtime_for_tests()
