@@ -93,6 +93,10 @@ class MobileModelRequest(BaseModel):
     model: str
 
 
+class MobileEffortRequest(BaseModel):
+    effort: str
+
+
 class MobileRenameRequest(BaseModel):
     title: str
 
@@ -418,6 +422,24 @@ async def mobile_model_set(body: MobileModelRequest) -> dict[str, Any]:
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Dashboard unreachable: {exc}") from exc
     return {"ok": True, "model": body.model, **result}
+
+
+@mobile_router.get("/model/effort")
+async def mobile_model_effort_get() -> dict[str, Any]:
+    try:
+        return await _get_dashboard().get_reasoning_effort()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Dashboard unreachable: {exc}") from exc
+
+
+@mobile_router.post("/model/effort")
+async def mobile_model_effort_set(body: MobileEffortRequest) -> dict[str, Any]:
+    try:
+        return await _get_dashboard().set_reasoning_effort(body.effort)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Dashboard unreachable: {exc}") from exc
 
 
 @mobile_router.get("/files")

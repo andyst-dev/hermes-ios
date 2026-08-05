@@ -26,6 +26,12 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
 
     func selectModel(provider: String, model: String) async throws {}
 
+    func fetchReasoningEffort() async throws -> HermesReasoningEffort {
+        HermesReasoningEffort(effort: "medium", options: HermesReasoningEffort.defaultOptions)
+    }
+
+    func setReasoningEffort(_ effort: String) async throws {}
+
     func newChat() async throws -> String {
         "mock-session-\(UUID().uuidString.prefix(8))"
     }

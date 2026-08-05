@@ -15,6 +15,7 @@ final class AppStore: ObservableObject {
     @Published var privacyMode = true
     @Published var pendingAttachments: [OutboundPrompt.Attachment] = []
     @Published var pendingApproval: ApprovalRequest?
+    @Published var reasoningEffort = HermesReasoningEffort(effort: "medium", options: HermesReasoningEffort.defaultOptions)
 
     private let client: HermesClient
 
@@ -47,6 +48,7 @@ final class AppStore: ObservableObject {
             connection = .connected(connectedHost)
             try await refreshSessions()
             try await refreshCapabilities()
+            await refreshReasoningEffort()
         } catch {
             connection = .failed(error.localizedDescription)
         }
@@ -92,6 +94,23 @@ final class AppStore: ObservableObject {
                 return copy
             }
         } catch {
+            messages.append(HermesMessage(id: UUID().uuidString, role: .system, text: error.localizedDescription, createdAt: .now, toolCalls: []))
+        }
+    }
+
+    func refreshReasoningEffort() async {
+        if let effort = try? await client.reasoningEffort() {
+            reasoningEffort = effort
+        }
+    }
+
+    func setReasoningEffort(_ effort: String) async {
+        let previous = reasoningEffort
+        reasoningEffort = HermesReasoningEffort(effort: effort, options: reasoningEffort.options)
+        do {
+            try await client.setReasoningEffort(effort)
+        } catch {
+            reasoningEffort = previous
             messages.append(HermesMessage(id: UUID().uuidString, role: .system, text: error.localizedDescription, createdAt: .now, toolCalls: []))
         }
     }

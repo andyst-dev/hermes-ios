@@ -57,6 +57,28 @@ actor HTTPHermesTransport: HermesTransport {
         let _: MobileModelSetResponse = try await post("api/mobile/model", body: HermesModelSelection(provider: provider, model: model))
     }
 
+    func fetchReasoningEffort() async throws -> HermesReasoningEffort {
+        struct EffortResponse: Decodable {
+            let effort: String
+            let options: [String]
+        }
+        let response: EffortResponse = try await get("api/mobile/model/effort")
+        return HermesReasoningEffort(
+            effort: response.effort,
+            options: response.options.isEmpty ? HermesReasoningEffort.defaultOptions : response.options
+        )
+    }
+
+    func setReasoningEffort(_ effort: String) async throws {
+        struct EffortBody: Encodable {
+            let effort: String
+        }
+        struct EffortResponse: Decodable {
+            let ok: Bool
+        }
+        let _: EffortResponse = try await post("api/mobile/model/effort", body: EffortBody(effort: effort))
+    }
+
     func send(_ prompt: OutboundPrompt, onApproval: @escaping @Sendable (ApprovalRequest) -> Void) async throws -> AsyncThrowingStream<HermesMessage, Error> {
         guard let baseURL else { throw HermesTransportError.notConnected }
         let body = try JSONEncoder().encode(prompt)

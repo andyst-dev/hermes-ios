@@ -112,6 +112,19 @@ struct HermesModelSelection: Codable, Equatable {
     var model: String
 }
 
+/// Reasoning-effort control for the agent (desktop's ``agent.reasoning_effort``).
+/// ``effort == "none"`` disables thinking; the rest are increasing levels.
+struct HermesReasoningEffort: Codable, Equatable {
+    var effort: String
+    var options: [String]
+
+    static let defaultOptions = [
+        "none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra",
+    ]
+
+    var thinkingEnabled: Bool { effort != "none" && !effort.isEmpty }
+}
+
 struct HermesProfile: Codable, Equatable, Identifiable {
     let id: String
     var displayName: String

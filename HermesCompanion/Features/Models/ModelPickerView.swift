@@ -22,6 +22,20 @@ struct ModelPickerView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     HermesMobileSearchField(placeholder: "Search models…", text: $query)
 
+                    ReasoningSection(
+                        effort: store.reasoningEffort,
+                        onToggle: { enabled in
+                            let current = store.reasoningEffort.effort
+                            let target = enabled
+                                ? (current == "none" || current.isEmpty ? "medium" : current)
+                                : "none"
+                            Task { await store.setReasoningEffort(target) }
+                        },
+                        onSelect: { level in
+                            Task { await store.setReasoningEffort(level) }
+                        }
+                    )
+
                     ForEach(groupedProviderNames, id: \.self) { provider in
                         HermesMobileSection(title: provider, icon: "server.rack", accent: HermesTheme.primary) {
                             VStack(alignment: .leading, spacing: 2) {
@@ -46,7 +60,10 @@ struct ModelPickerView: View {
                 .padding(.bottom, 28)
             }
         }
-        .task { try? await store.refreshCapabilities() }
+        .task {
+            try? await store.refreshCapabilities()
+            await store.refreshReasoningEffort()
+        }
     }
 
     private var activeSubtitle: String {
@@ -100,5 +117,82 @@ private struct ModelRow: View {
         .padding(.vertical, active ? 7 : 6)
         .background(active ? HermesTheme.userBubble : Color.clear, in: RoundedRectangle(cornerRadius: 3, style: .continuous))
         .contentShape(Rectangle())
+    }
+}
+
+/// Thinking + effort control, mirroring the desktop's reasoning picker.
+/// "none" disables thinking; the other levels raise the budget.
+private struct ReasoningSection: View {
+    let effort: HermesReasoningEffort
+    let onToggle: (Bool) -> Void
+    let onSelect: (String) -> Void
+
+    private var thinkingOn: Bool {
+        effort.thinkingEnabled
+    }
+
+    private var selectableLevels: [String] {
+        effort.options.filter { $0 != "none" }
+    }
+
+    var body: some View {
+        HermesMobileSection(title: "Reasoning", icon: "brain.head.profile", accent: HermesTheme.primary) {
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle(isOn: Binding(
+                    get: { thinkingOn },
+                    set: onToggle
+                )) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(thinkingOn ? HermesTheme.primary : HermesTheme.mutedForeground)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Thinking")
+                                .font(.system(size: 13.5, weight: .semibold))
+                                .foregroundStyle(HermesTheme.ink)
+                            Text(thinkingOn ? "thinking enabled" : "instant responses")
+                                .font(.system(size: 11))
+                                .foregroundStyle(HermesTheme.mutedForeground)
+                        }
+                    }
+                }
+                .tint(HermesTheme.primary)
+
+                if thinkingOn && !selectableLevels.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Effort")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(HermesTheme.mutedForeground)
+                            .textCase(.uppercase)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 6) {
+                                ForEach(selectableLevels, id: \.self) { level in
+                                    let selected = level == effort.effort
+                                    Button {
+                                        onSelect(level)
+                                    } label: {
+                                        Text(level)
+                                            .font(.system(size: 12, weight: selected ? .bold : .regular))
+                                            .foregroundStyle(selected ? HermesTheme.primaryForeground : HermesTheme.ink.opacity(0.75))
+                                            .padding(.horizontal, 11)
+                                            .padding(.vertical, 6)
+                                            .background(
+                                                selected ? HermesTheme.primary : HermesTheme.popover,
+                                                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            )
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                                    .stroke(selected ? Color.clear : HermesTheme.stroke, lineWidth: 1)
+                                            )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(4)
+        }
     }
 }

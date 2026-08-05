@@ -32,6 +32,14 @@ final class HermesClient: ObservableObject {
         try await transport.selectModel(provider: provider, model: model)
     }
 
+    func reasoningEffort() async throws -> HermesReasoningEffort {
+        try await transport.fetchReasoningEffort()
+    }
+
+    func setReasoningEffort(_ effort: String) async throws {
+        try await transport.setReasoningEffort(effort)
+    }
+
     func send(_ prompt: OutboundPrompt, onApproval: @escaping @Sendable (ApprovalRequest) -> Void) async throws -> AsyncThrowingStream<HermesMessage, Error> {
         try await transport.send(prompt, onApproval: onApproval)
     }

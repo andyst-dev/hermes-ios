@@ -397,6 +397,38 @@ class _DashboardProxy:
         resp.raise_for_status()
         return resp.json()
 
+    # -- reasoning effort ------------------------------------------------
+
+    EFFORT_OPTIONS = [
+        "none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra",
+    ]
+
+    async def get_reasoning_effort(self) -> dict[str, Any]:
+        """Read agent.reasoning_effort from the dashboard config."""
+        resp = await self._client.get(
+            f"{self._base}/api/config", headers=self._headers()
+        )
+        resp.raise_for_status()
+        config = resp.json()
+        agent = config.get("agent") or {}
+        current = agent.get("reasoning_effort") or ""
+        return {
+            "effort": current,
+            "options": list(self.EFFORT_OPTIONS),
+        }
+
+    async def set_reasoning_effort(self, effort: str) -> dict[str, Any]:
+        """Persist agent.reasoning_effort (deep-merge keeps everything else)."""
+        if effort not in self.EFFORT_OPTIONS:
+            raise ValueError(f"invalid effort: {effort}")
+        resp = await self._client.put(
+            f"{self._base}/api/config",
+            json={"config": {"agent": {"reasoning_effort": effort}}},
+            headers=self._headers(),
+        )
+        resp.raise_for_status()
+        return {"ok": True, "effort": effort}
+
 
 _engine: PluginACPEngine | None = None
 _dashboard: _DashboardProxy | None = None
@@ -509,6 +541,10 @@ class _ReplyRequest(BaseModel):
 class _ModelRequest(BaseModel):
     provider: Optional[str] = None
     model: str
+
+
+class _EffortRequest(BaseModel):
+    effort: str
 
 
 class _RenameRequest(BaseModel):
@@ -713,6 +749,24 @@ async def mobile_model_set(body: _ModelRequest) -> dict[str, Any]:
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Dashboard unreachable: {exc}") from exc
     return {"ok": True, "model": body.model, **result}
+
+
+@router.get("/model/effort")
+async def mobile_model_effort_get() -> dict[str, Any]:
+    try:
+        return await _get_dashboard().get_reasoning_effort()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Dashboard unreachable: {exc}") from exc
+
+
+@router.post("/model/effort")
+async def mobile_model_effort_set(body: _EffortRequest) -> dict[str, Any]:
+    try:
+        return await _get_dashboard().set_reasoning_effort(body.effort)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Dashboard unreachable: {exc}") from exc
 
 
 @router.get("/files")

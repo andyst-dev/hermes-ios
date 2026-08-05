@@ -136,3 +136,31 @@ class DashboardClient:
         )
         resp.raise_for_status()
         return resp.json()
+
+    # -- reasoning effort --------------------------------------------------
+
+    EFFORT_OPTIONS = [
+        "none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra",
+    ]
+
+    async def get_reasoning_effort(self) -> dict[str, Any]:
+        resp = await self._client.get(
+            f"{self.base_url}/api/config", headers=self._headers()
+        )
+        resp.raise_for_status()
+        agent = resp.json().get("agent") or {}
+        return {
+            "effort": agent.get("reasoning_effort") or "",
+            "options": list(self.EFFORT_OPTIONS),
+        }
+
+    async def set_reasoning_effort(self, effort: str) -> dict[str, Any]:
+        if effort not in self.EFFORT_OPTIONS:
+            raise ValueError(f"invalid effort: {effort}")
+        resp = await self._client.put(
+            f"{self.base_url}/api/config",
+            json={"config": {"agent": {"reasoning_effort": effort}}},
+            headers=self._headers(),
+        )
+        resp.raise_for_status()
+        return {"ok": True, "effort": effort}

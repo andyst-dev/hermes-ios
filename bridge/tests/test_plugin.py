@@ -90,9 +90,22 @@ class FakeDashboard:
         self._client = None
         self._base = "http://fake"
         self._token = ""
+        self.effort = "medium"
 
     async def health(self):
         return {"ok": True}
+
+    async def get_reasoning_effort(self):
+        return {
+            "effort": self.effort,
+            "options": ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"],
+        }
+
+    async def set_reasoning_effort(self, effort):
+        if effort not in ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]:
+            raise ValueError(f"invalid effort: {effort}")
+        self.effort = effort
+        return {"ok": True, "effort": effort}
 
     async def list_sessions(self, *, limit=100):
         return [
@@ -170,7 +183,6 @@ def _inject_fakes(monkeypatch):
     monkeypatch.setattr(plugin, "_get_dashboard", lambda: FakeDashboard())
     yield engine
 
-
 def test_plugin_exposes_seventeen_routes():
     paths = {r.path for r in plugin.router.routes}
     expected = {
@@ -187,6 +199,7 @@ def test_plugin_exposes_seventeen_routes():
         "/approvals/{approval_id}/reply",
         "/models",
         "/model",
+        "/model/effort",
         "/files",
         "/files/read",
         "/attachments",
@@ -253,6 +266,32 @@ def test_plugin_files_read_decodes(client):
     data = resp.json()
     assert data["content"] == "hello"
     assert data["truncated"] is False
+
+
+def test_plugin_model_effort_flow(client, monkeypatch):
+    """Reasoning effort: GET reads agent.reasoning_effort, POST persists it."""
+    # A stable instance so GET → POST → GET share state.
+    dashboard = FakeDashboard()
+    dashboard.effort = "high"
+    monkeypatch.setattr(plugin, "_get_dashboard", lambda: dashboard)
+
+    got = client.get("/api/plugins/hermes-mobile/model/effort").json()
+    assert got["effort"] == "high"
+    assert "medium" in got["options"]
+
+    set_resp = client.post(
+        "/api/plugins/hermes-mobile/model/effort", json={"effort": "low"}
+    )
+    assert set_resp.status_code == 200
+    assert dashboard.effort == "low"
+
+    got2 = client.get("/api/plugins/hermes-mobile/model/effort").json()
+    assert got2["effort"] == "low"
+
+    bad = client.post(
+        "/api/plugins/hermes-mobile/model/effort", json={"effort": "insane"}
+    )
+    assert bad.status_code == 400
 
 
 def test_plugin_approval_reply_unknown_id(client):
