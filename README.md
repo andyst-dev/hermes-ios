@@ -1,21 +1,23 @@
 # Hermes Companion for iOS
 
-Native SwiftUI companion app for Hermes Agent. The desktop/server instance keeps the real agent, tools, files, sessions, memory, and approvals; the iPhone/iPad app is a polished remote interface.
+Native SwiftUI companion app for [Hermes Agent](https://github.com/NousResearch/hermes-agent). The desktop/server instance keeps the real agent, tools, files, sessions, memory, and approvals; the iPhone/iPad app is a remote interface on top of the Hermes mobile API bridge.
 
 ## Status
 
-`v0.1` prototype: buildable SwiftUI app with mock transport and an API-ready architecture.
+Working remote client, not a mock. The app connects over HTTP to the Hermes dashboard mobile bridge, streams chat responses live, and routes dangerous-command approvals from the desktop to the phone.
 
-## Product direction
+## What works
 
-- iPhone-first chat surface with the Hermes Desktop Ember palette (orange on black)
-- iPad split layout inspired by Hermes Desktop
-- bundled Hermes desktop logo and Collapse display font for brand parity
-- session list, streaming chat, tool-call cards, composer, and settings
-- command palette plus a separate desktop-state inspector so advanced controls do not clutter chat
-- desktop parity targets: models, profiles, files/previews, tools, jobs, cron, approvals, and review/ship state
-- future QR pairing with a revocable token stored in Keychain
-- future HTTP/WebSocket transport to the Hermes dashboard/mobile API
+- **QR pairing** — scan the desktop pairing code once; the returned token lives in Keychain (`/api/mobile/pairing` + `/api/mobile/pair`). Manual host/profile/token is tucked under Advanced connection.
+- **Live streaming chat** — send a prompt and watch tokens stream via SSE (`POST /api/mobile/chat`, `Accept: text/event-stream`), then the authoritative transcript.
+- **Command approvals** — when a desktop tool run is flagged dangerous (`curl | bash`, hardline patterns), the phone shows an approval card with the exact command and the security-scan reason. Approve once / deny; the verdict is written back to the desktop subprocess. Timeout or disconnect fails closed to deny.
+- **Sessions** — real session list from the desktop DB, pull-to-refresh, search, source filters, pin/unpin + archive via swipe.
+- **Model picker** — lists only the user's authenticated providers (never the full catalog), switches the active model.
+- **Photo attachments** — pick from the photo library or from desktop-managed files; images upload to the bridge and reach the agent as `--image` inputs.
+- **Desktop files** — browse and preview text files managed by the desktop policy (sensitive paths hidden).
+- **Command palette** — new chat, continue last task, stop running turn, privacy mode, refresh.
+- **Inspector (per conversation)** — session metadata, tools actually used in this conversation, rename/archive.
+- **Markdown rendering** — code blocks, inline code, and monospace commands render properly in chat.
 
 ## Architecture
 
@@ -24,33 +26,50 @@ HermesCompanion
 ├── App                 # SwiftUI entry point
 ├── Core
 │   ├── Models          # Stable client-side contracts
-│   ├── Networking      # HermesTransport protocol + mock/API skeletons
+│   ├── Networking      # HermesTransport protocol + HTTP SSE transport + mock
 │   └── State           # AppStore orchestration
-├── DesignSystem        # Ember theme, brand typography, desktop-style panels
+├── DesignSystem        # Ember theme (#160800 / #ffd8b0 / #d97316), brand typography
 └── Features            # Connect, Sessions, Chat, Settings
 ```
 
-## Build
+- `HermesTransport` protocol keeps the app testable: production `HTTPHermesTransport`, `MockHermesTransport` for tests and demo launches (`HERMES_DEMO_CONNECTED=1`).
+- The app never executes shell commands locally and never stores provider secrets. The phone asks the desktop to act.
+- Mobile API contract: [`docs/mobile-api-contract.md`](docs/mobile-api-contract.md).
+
+## Build & run
 
 ```bash
 xcodegen generate
-xcodebuild -scheme HermesCompanion -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' build
+xcodebuild -scheme HermesCompanion -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
 ```
 
-## Backend contract
+Run the dashboard bridge (from the hermes-agent checkout that carries the mobile endpoints):
 
-The first mobile API draft lives in [`docs/mobile-api-contract.md`](docs/mobile-api-contract.md). It keeps iOS as a remote client: Hermes on the desktop/server owns tools, filesystem access, approvals, and model credentials.
+```bash
+python -m hermes_cli.main dashboard --host 127.0.0.1 --port 8765 --no-open --skip-build
+```
+
+Simulator launch with an injected token (development only — the value never leaves Keychain in normal use):
+
+```bash
+SIMCTL_CHILD_HERMES_DASHBOARD_SESSION_TOKEN="$(cat /tmp/hermes-dev-token.txt)" \
+SIMCTL_CHILD_HERMES_MOBILE_BASE_URL="http://127.0.0.1:8765" \
+xcrun simctl launch <UDID> dev.hermes.companion
+```
+
+The `127.0.0.1:8765` default in the code is the local simulator/desktop bridge; a physical iPhone needs LAN/Tailscale reachability plus pairing.
+
+## Tests
+
+```bash
+xcodegen generate
+xcodebuild -scheme HermesCompanion -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
+```
+
+Unit tests cover the SSE parser (deltas, transcripts, approval events, comment/empty frames), the store approval flow (publish + clear), session mutations against a stateful mock, and the JSON contract.
 
 ## Privacy rules
 
-- The iOS app should never store Hermes provider secrets.
-- Pairing tokens should live in Keychain once real pairing is wired.
-- Public screenshots should use privacy mode and avoid local paths, personal names, tokens, OAuth codes, or raw auth logs.
-- The phone asks the desktop/server Hermes to act; it does not execute shell commands locally.
-
-## Next milestones
-
-1. Define the Hermes mobile API contract (`/api/mobile/health`, sessions, messages, stop, streaming send).
-2. Add QR pairing and Keychain token storage.
-3. Replace `MockHermesTransport` with a WebSocket/HTTP transport.
-4. Add attachments, voice input, approval notifications, and Live Activities.
+- No Hermes provider secrets are stored on-device.
+- Pairing tokens live in Keychain only.
+- Screenshots use privacy mode; no local paths, personal names, tokens, or raw auth logs.
