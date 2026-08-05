@@ -22,18 +22,24 @@ Working remote client, not a mock. The app connects over HTTP to the Hermes dash
 ## Architecture
 
 ```text
-HermesCompanion
-├── App                 # SwiftUI entry point
-├── Core
-│   ├── Models          # Stable client-side contracts
-│   ├── Networking      # HermesTransport protocol + HTTP SSE transport + mock
-│   └── State           # AppStore orchestration
-├── DesignSystem        # Ember theme (#160800 / #ffd8b0 / #d97316), brand typography
-└── Features            # Connect, Sessions, Chat, Settings
+hermes-ios
+├── HermesCompanion       # SwiftUI app
+│   ├── App               # SwiftUI entry point
+│   ├── Core
+│   │   ├── Models        # Stable client-side contracts
+│   │   ├── Networking    # HermesTransport protocol + HTTP SSE transport + mock
+│   │   └── State         # AppStore orchestration
+│   ├── DesignSystem      # Ember theme (#160800 / #ffd8b0 / #d97316), brand typography
+│   └── Features          # Connect, Sessions, Chat, Settings
+├── bridge/               # Standalone backend bridge (FastAPI + ACP engine)
+│   ├── hermes_mobile_bridge/  # main.py (routes), acp_client.py (ACP), dashboard.py (proxy)
+│   └── tests/            # fake hermes-acp stdio server + mocked dashboard (11 tests)
+└── docs/                 # Mobile API contract
 ```
 
 - `HermesTransport` protocol keeps the app testable: production `HTTPHermesTransport`, `MockHermesTransport` for tests and demo launches (`HERMES_DEMO_CONNECTED=1`).
 - The app never executes shell commands locally and never stores provider secrets. The phone asks the desktop to act.
+- **No patched Hermes anywhere.** The bridge in `bridge/` talks to stock Hermes over its official surfaces: `hermes-acp` (Agent Client Protocol — the same one Zed/VS Code use) for live streaming + dangerous-command approvals, and the dashboard REST API for sessions/files/models.
 - Mobile API contract: [`docs/mobile-api-contract.md`](docs/mobile-api-contract.md).
 
 ## Build & run
@@ -43,30 +49,42 @@ xcodegen generate
 xcodebuild -scheme HermesCompanion -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
 ```
 
-Run the dashboard bridge (from the hermes-agent checkout that carries the mobile endpoints):
+Run the backend (requires a stock Hermes install with the ACP extra):
 
 ```bash
-python -m hermes_cli.main dashboard --host 127.0.0.1 --port 8765 --no-open --skip-build
+# 1. Official Hermes dashboard (sessions/files/models backend)
+hermes dashboard --host 127.0.0.1 --port 8765 --no-open
+
+# 2. The bridge (ships in this repo under bridge/)
+cd bridge
+python -m venv .venv && .venv/bin/pip install -e ".[dev]"
+export HERMES_DASHBOARD_SESSION_TOKEN="$(cat /tmp/hermes-dev-token.txt)"
+export HERMES_MOBILE_PROVIDER=deepseek HERMES_MOBILE_MODEL=deepseek-v4-flash  # optional
+.venv/bin/python -m hermes_mobile_bridge.main --host 127.0.0.1 --port 8766
 ```
 
 Simulator launch with an injected token (development only — the value never leaves Keychain in normal use):
 
 ```bash
 SIMCTL_CHILD_HERMES_DASHBOARD_SESSION_TOKEN="$(cat /tmp/hermes-dev-token.txt)" \
-SIMCTL_CHILD_HERMES_MOBILE_BASE_URL="http://127.0.0.1:8765" \
+SIMCTL_CHILD_HERMES_MOBILE_BASE_URL="http://127.0.0.1:8766" \
 xcrun simctl launch <UDID> dev.hermes.companion
 ```
 
-The `127.0.0.1:8765` default in the code is the local simulator/desktop bridge; a physical iPhone needs LAN/Tailscale reachability plus pairing.
+The `127.0.0.1:8766` bridge URL is the app's connection target; a physical iPhone needs LAN/Tailscale reachability plus pairing.
 
 ## Tests
 
 ```bash
+# iOS app
 xcodegen generate
 xcodebuild -scheme HermesCompanion -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
+
+# Bridge (deterministic: fake hermes-acp stdio server + mocked dashboard)
+cd bridge && .venv/bin/python -m pytest tests/ -q
 ```
 
-Unit tests cover the SSE parser (deltas, transcripts, approval events, comment/empty frames), the store approval flow (publish + clear), session mutations against a stateful mock, and the JSON contract.
+iOS unit tests cover the SSE parser (deltas, transcripts, approval events, comment/empty frames), the store approval flow (publish + clear), session mutations against a stateful mock, and the JSON contract. Bridge tests cover the ACP engine (streaming, approval once/deny/fail-closed, cancel) and the mobile API contract (health/sessions/messages/chat/approvals/models/files).
 
 ## Privacy rules
 
