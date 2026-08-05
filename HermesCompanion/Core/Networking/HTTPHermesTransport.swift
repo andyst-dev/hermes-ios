@@ -84,13 +84,7 @@ actor HTTPHermesTransport: HermesTransport {
                     var streamText = ""
                     for try await chunk in bytes {
                         buffer.append(chunk)
-                        // NOTE: never mutate `buffer` in place while a slice of it
-                        // is alive — Data stores small buffers inline and
-                        // removeSubrange on a shared inline buffer traps. Instead,
-                        // re-assign the un-consumed suffix (safe copy-on-write).
-                        while let range = buffer.range(of: Data("\n\n".utf8)) {
-                            let frame = buffer.subdata(in: buffer.startIndex..<range.lowerBound)
-                            buffer = buffer.subdata(in: range.upperBound..<buffer.endIndex)
+                        for frame in HTTPHermesTransport.extractFrames(from: &buffer) {
                             if let event = try HTTPHermesTransport.parseSSEEvent(frame) {
                                 switch event.kind {
                                 case .delta(let text):
@@ -156,6 +150,19 @@ actor HTTPHermesTransport: HermesTransport {
         guard (200..<300).contains(http.statusCode) else {
             throw HermesTransportError.server("Approval reply failed (HTTP \(http.statusCode))")
         }
+    }
+
+    /// Split a byte buffer on blank lines into complete SSE frames, leaving
+    /// the unconsumed suffix in `buffer`. Safe for tiny network chunks: the
+    /// suffix is re-assigned (copy-on-write) instead of mutated in place,
+    /// which traps when Data stores the buffer inline and a slice is alive.
+    static func extractFrames(from buffer: inout Data) -> [Data] {
+        var frames: [Data] = []
+        while let range = buffer.range(of: Data("\n\n".utf8)) {
+            frames.append(buffer.subdata(in: buffer.startIndex..<range.lowerBound))
+            buffer = buffer.subdata(in: range.upperBound..<buffer.endIndex)
+        }
+        return frames
     }
 
     /// Parse one SSE frame (bytes between blank lines) into a mobile chat event.

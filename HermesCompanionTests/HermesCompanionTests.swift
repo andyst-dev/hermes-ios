@@ -1,30 +1,6 @@
 import XCTest
 @testable import HermesCompanion
 
-/// Mock URLProtocol that streams an SSE body in tiny chunks — the exact
-/// condition that crashed the in-place Data mutation in the chat loop.
-private final class ChunkedSSEURLProtocol: URLProtocol {
-    nonisolated(unsafe) static var body: Data = Data()
-
-    override class func canInit(with request: URLRequest) -> Bool { true }
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
-
-    override func startLoading() {
-        let chunkSize = 3
-        let body = ChunkedSSEURLProtocol.body
-        var offset = 0
-        while offset < body.count {
-            let end = min(offset + chunkSize, body.count)
-            let slice = body.subdata(in: offset..<end)
-            client?.urlProtocol(self, didLoad: slice)
-            offset = end
-        }
-        client?.urlProtocolDidFinishLoading(self)
-    }
-
-    override func stopLoading() {}
-}
-
 @MainActor
 final class HermesCompanionTests: XCTestCase {
     func testMockTransportLoadsSessions() async throws {
@@ -177,31 +153,41 @@ final class HermesCompanionTests: XCTestCase {
         }
     }
 
-    func testSSEStreamingLoopSurvivesTinyChunks() async throws {
+    func testSSEStreamingLoopSurvivesTinyChunks() throws {
         // Regression test: the chat loop used to mutate its Data buffer
         // in place (removeSubrange) while slices were alive, which traps on
-        // inline small buffers. Stream a multi-frame SSE body in 3-byte
-        // chunks and assert every delta is delivered.
-        let config = URLSessionConfiguration.ephemeral
-        config.protocolClasses = [ChunkedSSEURLProtocol.self]
-        let session = URLSession(configuration: config)
-
-        ChunkedSSEURLProtocol.body = Data((
+        // inline small buffers. Feed a multi-frame SSE body in 3-byte chunks
+        // through extractFrames and assert every delta is delivered.
+        let body = Data((
             "data: {\"type\":\"delta\",\"text\":\"Bon\"}\n\n" +
             "data: {\"type\":\"delta\",\"text\":\"jour\"}\n\n" +
             "data: {\"type\":\"delta\",\"text\":\" !\"}\n\n" +
             "data: {\"type\":\"done\"}\n\n"
         ).utf8)
 
-        let transport = HTTPHermesTransport(urlSession: session, tokenProvider: { "t" })
-        _ = try await transport.connect(to: HermesHost(name: "T", baseURL: URL(string: "http://mock.local:8765")!, profile: "default"))
+        var buffer = Data()
+        var events: [SSEEvent] = []
+        var offset = 0
+        let chunkSize = 3
+        while offset < body.count {
+            let end = min(offset + chunkSize, body.count)
+            buffer.append(body.subdata(in: offset..<end))
+            for frame in HTTPHermesTransport.extractFrames(from: &buffer) {
+                if let event = try HTTPHermesTransport.parseSSEEvent(frame) {
+                    events.append(event)
+                }
+            }
+            offset = end
+        }
 
         var texts: [String] = []
-        let stream = try await transport.send(OutboundPrompt(sessionID: nil, text: "hi", attachments: []), onApproval: { _ in })
-        for try await message in stream {
-            texts.append(message.text)
+        for event in events {
+            if case .delta(let text) = event.kind {
+                texts.append(text)
+            }
         }
-        XCTAssertEqual(texts.last, "Bonjour !")
+        XCTAssertEqual(texts, ["Bon", "jour", " !"])
+        XCTAssertTrue(buffer.isEmpty, "buffer should be fully consumed")
     }
 
     func testSSEParserIgnoresCommentsAndEmptyFrames() throws {

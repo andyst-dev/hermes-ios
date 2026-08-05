@@ -25,7 +25,7 @@ The original mobile bridge (in the `feat/mobile-api-bridge` branch of the hermes
 hermes dashboard --host 127.0.0.1 --port 8765 --no-open
 
 # 2. Start the bridge
-export HERMES_DASHBOARD_SESSION_TOKEN="$(cat /tmp/hermes-dev-token.txt)"
+export HERMES_DASHBOARD_SESSION_TOKEN="<dashboard-session-token>"
 python -m hermes_mobile_bridge.main --host 127.0.0.1 --port 8766
 
 # 3. Point the iOS app at http://127.0.0.1:8766

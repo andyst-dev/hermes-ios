@@ -46,6 +46,7 @@ hermes-ios
 - The app never executes shell commands locally and never stores provider secrets. The phone asks the desktop to act.
 - **No patched Hermes anywhere.** The backend is a dashboard plugin (`plugin/`) that talks to stock Hermes over its official surfaces: `hermes-acp` (Agent Client Protocol — the same one Zed/VS Code use) for live streaming + dangerous-command approvals, and the dashboard REST API for sessions/files/models.
 - Mobile API contract: [`docs/mobile-api-contract.md`](docs/mobile-api-contract.md).
+- Visual proof of a dangerous-command approval card rendered in the app: [`docs/approval-card-ui.png`](docs/approval-card-ui.png) (real run — `rm -rf` flagged, phone asked, verdict applied).
 
 ## Build & run
 
