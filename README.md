@@ -10,8 +10,9 @@ Working remote client, not a mock. The app connects over HTTP to the Hermes dash
 
 - **QR pairing** — scan the desktop pairing code once; the returned token lives in Keychain (`/api/mobile/pairing` + `/api/mobile/pair`). Manual host/profile/token is tucked under Advanced connection.
 - **Live streaming chat** — send a prompt and watch tokens stream via SSE (`POST /api/mobile/chat`, `Accept: text/event-stream`), then the authoritative transcript.
+- **Collapsible Thinking block** — the agent's reasoning streams on a dedicated `thinking` SSE event (ACP `agent_thought_chunk`, never mixed into the answer) and renders in a collapsible pane, desktop parity. Persisted reasoning survives reloads.
 - **Command approvals** — when a desktop tool run is flagged dangerous (`curl | bash`, hardline patterns), the phone shows an approval card with the exact command and the security-scan reason. Approve once / deny; the verdict is written back to the desktop subprocess. Timeout or disconnect fails closed to deny.
-- **Sessions** — real session list from the desktop DB, pull-to-refresh, search, source filters, pin/unpin + archive via swipe.
+- **Sessions** — real session list from the desktop DB, pull-to-refresh, search, source filters (Desktop / CLI / Mobile / Telegram sections), pin/unpin + archive via swipe. ACP-created sessions read as "Mobile"; a turn that lands in a freshly minted session (unresumable conversation) is followed automatically so replies never vanish.
 - **Model picker** — lists only the user's authenticated providers (never the full catalog), switches the active model.
 - **Photo attachments** — pick from the photo library or from desktop-managed files; images upload to the bridge and reach the agent as `--image` inputs.
 - **Desktop files** — browse and preview text files managed by the desktop policy (sensitive paths hidden).
@@ -29,16 +30,16 @@ hermes-ios
 │   │   ├── Models        # Stable client-side contracts
 │   │   ├── Networking    # HermesTransport protocol + HTTP SSE transport + mock
 │   │   └── State         # AppStore orchestration
-│   ├── DesignSystem      # Ember theme (#160800 / #ffd8b0 / #d97316), brand typography
+│   ├── DesignSystem      # Ember theme (#0d0400 / #ffd8b0 / #d97316), brand typography
 │   └── Features          # Connect, Sessions, Chat, Settings
 ├── plugin/               # Dashboard plugin (installs into stock Hermes)
 │   ├── plugin.yaml
 │   └── dashboard/
 │       ├── manifest.json
-│       └── plugin_api.py # 17 mobile routes, ACP engine, dashboard proxy
+│       └── plugin_api.py # 21 mobile routes, ACP engine, dashboard proxy
 ├── bridge/               # Standalone backend bridge (same code as plugin, dev server)
 │   ├── hermes_mobile_bridge/  # main.py (routes), acp_client.py (ACP), dashboard.py (proxy)
-│   └── tests/            # fake hermes-acp stdio server + mocked dashboard (19 tests)
+│   └── tests/            # fake hermes-acp stdio server + mocked dashboard (26 tests)
 └── docs/                 # Mobile API contract
 ```
 
@@ -98,7 +99,7 @@ xcodebuild -scheme HermesCompanion -destination 'platform=iOS Simulator,name=iPh
 cd bridge && .venv/bin/python -m pytest tests/ -q
 ```
 
-iOS unit tests cover the SSE parser (deltas, transcripts, approval events, comment/empty frames), the store approval flow (publish + clear), session mutations against a stateful mock, and the JSON contract. Backend tests cover the ACP engine (streaming, approval once/deny/fail-closed, cancel), the standalone route contract, and the **dashboard plugin contract** (route set under `/api/plugins/hermes-mobile`, iOS JSON shapes: session status enum, message/model/tool-call fields, Z-suffixed dates, base64 file content).
+iOS unit tests cover the SSE parser (deltas, thinking, transcripts, approval events, comment/empty frames), the store approval flow (publish + clear), session mutations against a stateful mock, and the JSON contract. Backend tests cover the ACP engine (streaming, thinking vs delta separation, approval once/deny/fail-closed, cancel, session resume/adoption, stale-turn cancellation), the standalone route contract, and the **dashboard plugin contract** (route set under `/api/plugins/hermes-mobile`, iOS JSON shapes: session status enum, message/model/tool-call fields, Z-suffixed dates, base64 file content).
 
 ## Privacy rules
 
