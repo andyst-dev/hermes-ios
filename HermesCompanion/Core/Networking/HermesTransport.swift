@@ -10,6 +10,10 @@ protocol HermesTransport: Sendable {
     func fetchReasoningEffort() async throws -> HermesReasoningEffort
     func setReasoningEffort(_ effort: String) async throws
     func send(_ prompt: OutboundPrompt, onApproval: @escaping @Sendable (ApprovalRequest) -> Void) async throws -> AsyncThrowingStream<HermesMessage, Error>
+    /// The session id the last chat turn actually landed in. Differs from the
+    /// requested id when the backend had to create a fresh session (e.g. the
+    /// conversation was never ACP-persisted, like one created on Desktop).
+    func lastTranscriptSessionID() async -> String?
     func approve(approvalID: String, verdict: String) async throws
     func newChat() async throws -> String
     func stop(sessionID: String) async throws

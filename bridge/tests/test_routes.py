@@ -42,6 +42,9 @@ class FakeEngine:
         self._active_hermes_session = hermes_session_id
         return hermes_session_id
 
+    async def cancel_active_turn(self):
+        self.cancelled_turns = getattr(self, "cancelled_turns", 0) + 1
+
     def subscribe(self, hermes_session_id):
         import asyncio
 

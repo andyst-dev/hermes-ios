@@ -107,5 +107,9 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
 
     func approve(approvalID: String, verdict: String) async throws {}
 
+    func lastTranscriptSessionID() async -> String? {
+        nil
+    }
+
     func stop(sessionID: String) async throws {}
 }

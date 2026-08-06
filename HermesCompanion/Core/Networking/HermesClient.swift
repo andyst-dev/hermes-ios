@@ -44,6 +44,10 @@ final class HermesClient: ObservableObject {
         try await transport.send(prompt, onApproval: onApproval)
     }
 
+    func lastTranscriptSessionID() async -> String? {
+        await transport.lastTranscriptSessionID()
+    }
+
     func approve(approvalID: String, verdict: String) async throws {
         try await transport.approve(approvalID: approvalID, verdict: verdict)
     }

@@ -25,8 +25,15 @@ enum HermesTheme {
     static let green = Color(red: 0.384, green: 0.765, blue: 0.478)
 
     // Pluto brown: the warm tan of the dwarf planet's surface (New Horizons).
-    static let pluto = Color(red: 0.690, green: 0.506, blue: 0.310)            // #b0814f
+    // Kept deliberately deep/dark so the switch reads as part of the Ember
+    // background instead of a light slab.
+    static let pluto = Color(red: 0.490, green: 0.322, blue: 0.161)            // #7d5229
     static let plutoThumb = Color(red: 0.918, green: 0.851, blue: 0.745)       // #ead9be
+
+    // Composer send arrow: ready = warm cream (darker than foreground so it
+    // never reads as white); empty = deep brown (darker than mutedForeground).
+    static let sendReady = Color(red: 0.851, green: 0.659, blue: 0.471)        // #d9a878
+    static let sendIdle = Color(red: 0.420, green: 0.290, blue: 0.180)         // #6b4a2e
 
     // Legacy aliases used by feature views.
     static let ink = foreground

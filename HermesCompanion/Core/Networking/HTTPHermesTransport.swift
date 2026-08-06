@@ -7,6 +7,7 @@ actor HTTPHermesTransport: HermesTransport {
     private var baseURL: URL?
     private var profile: String = "default"
     private let decoder: JSONDecoder
+    private var transcriptSessionID: String?
 
     init(urlSession: URLSession = .shared, tokenProvider: @escaping @Sendable () -> String?) {
         self.urlSession = urlSession
@@ -84,7 +85,11 @@ actor HTTPHermesTransport: HermesTransport {
         let body = try JSONEncoder().encode(prompt)
         var request = URLRequest(url: endpointURL(baseURL: baseURL, path: "api/mobile/chat"))
         request.httpMethod = "POST"
-        request.timeoutInterval = 600
+        // Inactivity timeout: a healthy turn streams deltas regularly, so 90s
+        // of silence means the server turn wedged (stuck approval, parallel
+        // prompt) — bail out instead of leaving the send button stuck on
+        // "stop" forever.
+        request.timeoutInterval = 90
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         request.httpBody = body
@@ -104,26 +109,61 @@ actor HTTPHermesTransport: HermesTransport {
                     var buffer = Data()
                     var streamID: String?
                     var streamText = ""
+                    var streamThinking = ""
+
+                    func yieldAssistant(id: String) {
+                        continuation.yield(HermesMessage(
+                            id: id, role: .assistant, text: streamText,
+                            createdAt: .now, toolCalls: [],
+                            thinking: streamThinking.isEmpty ? nil : streamThinking
+                        ))
+                    }
+
+                    /// Single event handler shared by the frame loop and the
+                    /// trailing-frame path. Returns true on `.done`.
+                    func handleEvent(_ event: SSEEvent) throws -> Bool {
+                        switch event.kind {
+                        case .thinking(let text):
+                            let id = streamID ?? "stream-\(UUID().uuidString)"
+                            streamID = id
+                            streamThinking += text
+                            yieldAssistant(id: id)
+                        case .delta(let text):
+                            let id = streamID ?? "stream-\(UUID().uuidString)"
+                            streamID = id
+                            streamText += text
+                            yieldAssistant(id: id)
+                        case .transcript(let sessionID, let messages):
+                            // The transcript replays the WHOLE conversation
+                            // with DB ids. Yielding it duplicates messages the
+                            // store already shows with local/stream ids, so
+                            // only record the resolved session id here; the
+                            // store re-fetches the canonical messages when the
+                            // stream ends.
+                            if let sessionID {
+                                transcriptSessionID = sessionID
+                            }
+                            _ = messages
+                        case .approval(let id, let command, let description):
+                            onApproval(ApprovalRequest(id: id, command: command, description: description))
+                        case .error(let detail):
+                            throw HermesTransportError.server(detail)
+                        case .done:
+                            return true
+                        }
+                        return false
+                    }
+
                     for try await chunk in bytes {
                         buffer.append(chunk)
                         for frame in HTTPHermesTransport.extractFrames(from: &buffer) {
                             if let event = try HTTPHermesTransport.parseSSEEvent(frame) {
-                                switch event.kind {
-                                case .delta(let text):
-                                    let id = streamID ?? "stream-\(UUID().uuidString)"
-                                    streamID = id
-                                    streamText += text
-                                    continuation.yield(HermesMessage(id: id, role: .assistant, text: streamText, createdAt: .now, toolCalls: []))
-                                case .transcript(let sessionID, let messages):
-                                    _ = sessionID
-                                    for message in messages where message.isTranscriptVisible {
-                                        continuation.yield(message)
-                                    }
-                                case .approval(let id, let command, let description):
-                                    onApproval(ApprovalRequest(id: id, command: command, description: description))
-                                case .error(let detail):
-                                    throw HermesTransportError.server(detail)
-                                case .done:
+                                if try handleEvent(event) {
+                                    // CRITICAL: finish() must be called here.
+                                    // A bare `return` exits the Task but the
+                                    // AsyncThrowingStream stays open forever,
+                                    // leaving the send button stuck on "stop".
+                                    continuation.finish()
                                     return
                                 }
                             }
@@ -131,23 +171,7 @@ actor HTTPHermesTransport: HermesTransport {
                     }
                     // Trailing frame without final blank line.
                     if !buffer.isEmpty, let event = try HTTPHermesTransport.parseSSEEvent(buffer) {
-                        switch event.kind {
-                        case .delta(let text):
-                            let id = streamID ?? "stream-\(UUID().uuidString)"
-                            streamID = id
-                            streamText += text
-                            continuation.yield(HermesMessage(id: id, role: .assistant, text: streamText, createdAt: .now, toolCalls: []))
-                        case .transcript(_, let messages):
-                            for message in messages where message.isTranscriptVisible {
-                                continuation.yield(message)
-                            }
-                        case .approval(let id, let command, let description):
-                            onApproval(ApprovalRequest(id: id, command: command, description: description))
-                        case .error(let detail):
-                            throw HermesTransportError.server(detail)
-                        case .done:
-                            break
-                        }
+                        _ = try handleEvent(event)
                     }
                     continuation.finish()
                 } catch {
@@ -155,6 +179,10 @@ actor HTTPHermesTransport: HermesTransport {
                 }
             }
         }
+    }
+
+    func lastTranscriptSessionID() async -> String? {
+        transcriptSessionID
     }
 
     func approve(approvalID: String, verdict: String) async throws {
@@ -212,6 +240,9 @@ actor HTTPHermesTransport: HermesTransport {
         case "delta":
             guard let text = dict["text"] as? String else { return nil }
             return SSEEvent(kind: .delta(text))
+        case "thinking":
+            guard let text = dict["text"] as? String else { return nil }
+            return SSEEvent(kind: .thinking(text))
         case "transcript":
             let sessionID = dict["sessionID"] as? String
             var messages: [HermesMessage] = []
@@ -384,6 +415,7 @@ actor HTTPHermesTransport: HermesTransport {
 
 enum SSEEventKind {
     case delta(String)
+    case thinking(String)
     case transcript(String?, [HermesMessage])
     case approval(String, String, String)
     case error(String)

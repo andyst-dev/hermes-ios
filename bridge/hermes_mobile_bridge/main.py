@@ -118,7 +118,10 @@ def _mobile_session_row(row: dict[str, Any]) -> dict[str, Any]:
     """Adapt a dashboard session row to the mobile shape."""
     sid = row.get("id") or row.get("session_id") or ""
     title = row.get("title") or row.get("name") or "Untitled"
-    source = row.get("source") or "unknown"
+    raw_source = (row.get("source") or "unknown").lower()
+    # ACP sessions (created through the mobile plugin/bridge) read as
+    # "mobile" for the user — the wire source stays what the DB says.
+    source = "mobile" if raw_source == "acp" else raw_source
     profile = row.get("profile") or "default"
     model = row.get("model") or ""
     updated = row.get("updated_at") or row.get("last_active") or row.get("started_at") or 0
@@ -136,6 +139,7 @@ def _mobile_session_row(row: dict[str, Any]) -> dict[str, Any]:
         # failed|completed — map the dashboard's is_active boolean to those.
         "status": "running" if row.get("is_active") else "idle",
         "pinned": bool(row.get("pinned")),
+        "source": source,
     }
 
 
@@ -214,20 +218,7 @@ async def mobile_session_messages(session_id: str) -> dict[str, Any]:
         role = m.get("role")
         if role not in ("user", "assistant"):
             continue
-        text = m.get("content") or m.get("text") or ""
-        if isinstance(text, list):  # content blocks
-            text = " ".join(
-                b.get("text", "") for b in text if isinstance(b, dict) and b.get("type") == "text"
-            )
-        messages.append(
-            {
-                "id": str(m.get("id") or uuid.uuid4()),
-                "role": role,
-                "text": text,
-                "toolCalls": _tool_calls_from_row(m),
-                "createdAt": _iso_ts(m.get("created_at") or m.get("timestamp") or m.get("started_at")),
-            }
-        )
+        messages.append(_mobile_msg(m))
     return {"messages": messages}
 
 
@@ -309,6 +300,10 @@ async def mobile_archive(session_id: str, body: MobileArchiveRequest | None = No
 @mobile_router.post("/chat")
 async def mobile_chat(body: MobileChatRequest) -> StreamingResponse:
     engine = _get_engine()
+    # One in-flight prompt per ACP connection: abort any turn left running
+    # by a previous (possibly relaunched) client before starting a new one,
+    # or the two prompts wedge the connection forever.
+    await engine.cancel_active_turn()
 
     hermes_session_id = body.sessionID
     if hermes_session_id:
@@ -319,8 +314,11 @@ async def mobile_chat(body: MobileChatRequest) -> StreamingResponse:
     queue = engine.subscribe(hermes_session_id)
 
     async def stream_events():
+        task: asyncio.Task | None = None
         try:
             task = asyncio.create_task(engine.prompt(hermes_session_id, body.text))
+            engine._active_turn = task
+            engine._turn_session = hermes_session_id
             # Forward live events until the prompt RPC completes and the
             # queue is drained.
             while not task.done() or not queue.empty():
@@ -331,6 +329,8 @@ async def mobile_chat(body: MobileChatRequest) -> StreamingResponse:
                 kind = item.get("kind")
                 if kind == "delta":
                     yield f"data: {json.dumps({'type': 'delta', 'text': item.get('text', '')}, ensure_ascii=False)}\n\n"
+                elif kind == "thinking":
+                    yield f"data: {json.dumps({'type': 'thinking', 'text': item.get('text', '')}, ensure_ascii=False)}\n\n"
                 elif item.get("type") == "approval":
                     yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
                 elif kind == "tool":
@@ -348,6 +348,12 @@ async def mobile_chat(body: MobileChatRequest) -> StreamingResponse:
             yield f"data: {json.dumps({'type': 'error', 'detail': str(exc)[:500]})}\n\n"
         finally:
             engine.unsubscribe(hermes_session_id)
+            # Only clear the active-turn marker when the prompt really
+            # finished. If the CLIENT closed the stream mid-turn, the server
+            # turn keeps running and must stay cancelable by the next /chat.
+            if task is not None and engine._active_turn is task and task.done():
+                engine._active_turn = None
+                engine._turn_session = None
 
     return StreamingResponse(stream_events(), media_type="text/event-stream")
 
@@ -357,13 +363,19 @@ def _mobile_msg(m: dict[str, Any]) -> dict[str, Any]:
     text = m.get("content") or m.get("text") or ""
     if isinstance(text, list):
         text = " ".join(b.get("text", "") for b in text if isinstance(b, dict) and b.get("type") == "text")
-    return {
+    msg = {
         "id": str(m.get("id") or uuid.uuid4()),
         "role": role,
         "text": text,
         "createdAt": _iso_ts(m.get("created_at") or m.get("timestamp") or m.get("started_at")),
         "toolCalls": _tool_calls_from_row(m),
     }
+    # Desktop parity: persisted reasoning travels in its own field so the
+    # app can show the collapsible thinking pane even after the turn.
+    reasoning = m.get("reasoning_content") or m.get("reasoning")
+    if isinstance(reasoning, str) and reasoning.strip():
+        msg["thinking"] = reasoning
+    return msg
 
 
 # ---------------------------------------------------------------------------

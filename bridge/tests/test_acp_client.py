@@ -30,6 +30,7 @@ def emit(obj):
     sys.stdout.flush()
 
 sessions = {}
+hermes_ids = {}
 next_tool_id = [0]
 pending_prompt = {"id": None, "sid": None}
 
@@ -58,19 +59,53 @@ for line in sys.stdin:
         }})
     elif method == "session/new":
         sid = str(uuid.uuid4())
+        hermes_id = "20260805_fake_" + sid[:8]
         sessions[sid] = {"history": []}
+        hermes_ids[hermes_id] = sid
         emit({"jsonrpc": "2.0", "id": msg_id, "result": {
             "sessionId": sid,
             "_meta": {"hermes": {"sessionProvenance": {
-                "currentHermesSessionId": "20260805_fake_" + sid[:8],
+                "currentHermesSessionId": hermes_id,
                 "acpSessionId": sid,
             }}},
         }})
+    elif method == "session/resume":
+        sid = msg["params"]["sessionId"]
+        model_state = {"current_model_id": "deepseek/deepseek-v4-flash", "available_models": []}
+        mode_state = {"current_mode_id": "default", "available_modes": []}
+        if sid in sessions or sid in hermes_ids:
+            # Known ACP session -> restored under the requested id (this is
+            # what real hermes-acp does when it finds the session in the
+            # shared SessionDB via acp_adapter/session.py::_restore).
+            emit({"jsonrpc": "2.0", "id": msg_id, "result": {
+                "models": model_state, "modes": mode_state,
+                "_meta": {"hermes": {"sessionProvenance": {
+                    "currentHermesSessionId": sid,
+                    "acpSessionId": sid,
+                }}},
+            }})
+        else:
+            # Unknown id -> real hermes-acp mints a FRESH session, so the
+            # returned hermes id differs from the requested one.
+            new_sid = str(uuid.uuid4())
+            sessions[new_sid] = {"history": []}
+            emit({"jsonrpc": "2.0", "id": msg_id, "result": {
+                "models": model_state, "modes": mode_state,
+                "_meta": {"hermes": {"sessionProvenance": {
+                    "currentHermesSessionId": "20260805_fake_" + new_sid[:8],
+                    "acpSessionId": new_sid,
+                }}},
+            }})
     elif method == "session/prompt":
         sid = msg["params"]["sessionId"]
         text = msg["params"]["prompt"][0]["text"]
-        # Stream chunks first, respond with stopReason LAST (the real
-        # hermes-acp streams deltas then completes the RPC).
+        # Real hermes-acp streams thinking first (agent_thought_chunk),
+        # then message deltas, then completes the RPC with stopReason LAST.
+        emit({"jsonrpc": "2.0", "method": "session/update", "params": {
+            "sessionId": sid,
+            "update": {"sessionUpdate": "agent_thought_chunk",
+                       "content": {"type": "text", "text": "Laisse-moi réfléchir..."}},
+        }})
         for chunk in ["Bonjour", " depuis", " le", " mobile"]:
             emit({"jsonrpc": "2.0", "method": "session/update", "params": {
                 "sessionId": sid,
@@ -166,6 +201,41 @@ async def test_new_session_and_streaming(fake_acp_path):
 
 
 @pytest.mark.asyncio
+async def test_thinking_streams_separately(fake_acp_path):
+    """agent_thought_chunk must surface as a 'thinking' event, never as a
+    delta (answer text) - otherwise the app streams the reasoning into the
+    reply, unlike Desktop where it sits in a collapsible pane."""
+    engine = _make_engine(fake_acp_path)
+    await engine.start()
+    try:
+        hermes_id = await engine.new_session()
+        queue = engine.subscribe(hermes_id)
+
+        task = asyncio.create_task(engine.prompt(hermes_id, "dis bonjour"))
+        thinking = []
+        deltas = []
+        while not task.done() or not queue.empty():
+            try:
+                item = await asyncio.wait_for(queue.get(), timeout=1.0)
+            except asyncio.TimeoutError:
+                continue
+            if item.get("kind") == "thinking":
+                thinking.append(item["text"])
+            elif item.get("kind") == "delta":
+                deltas.append(item["text"])
+        await task
+
+        assert thinking == ["Laisse-moi réfléchir..."]
+        # The thinking text must not leak into the answer stream.
+        joined = "".join(deltas)
+        assert "réfléchir" not in joined
+        assert "Bonjour" in joined
+    finally:
+        engine.unsubscribe(hermes_id)
+        await engine.stop()
+
+
+@pytest.mark.asyncio
 async def test_dangerous_command_approval_flow(fake_acp_path):
     engine = _make_engine(fake_acp_path)
     await engine.start()
@@ -248,4 +318,43 @@ async def test_cancel(fake_acp_path):
         assert "cancelled" in item.get("text", "")
     finally:
         engine.unsubscribe(hermes_id)
+        await engine.stop()
+
+
+@pytest.mark.asyncio
+async def test_resume_session_restores_unknown_hermes_id(fake_acp_path):
+    """After a dashboard restart the in-memory map is empty, but the ACP
+    server restores the persisted conversation from the shared SessionDB by
+    the hermes id — so resuming must NOT mint a fresh conversation."""
+    engine = _make_engine(fake_acp_path)
+    try:
+        first = await engine.new_session()
+
+        # Simulate a dashboard/bridge restart: the map is gone, the
+        # conversation itself still exists server-side (persisted SessionDB).
+        engine._session_map.clear()
+        engine._reverse_map.clear()
+
+        resumed = await engine.resume_session(first)
+        assert resumed == first, "resume must restore the SAME conversation"
+        assert engine._session_map.get(first) == first
+        assert engine._active_hermes_session == first
+    finally:
+        await engine.stop()
+
+
+@pytest.mark.asyncio
+async def test_resume_session_adopts_fresh_session_when_unknown(fake_acp_path):
+    """A conversation the server never ACP-persisted (e.g. created on
+    Desktop/Telegram) cannot be restored — the server mints a fresh session
+    with a different id, and the engine must adopt it so the turn stays
+    coherent instead of pretending the requested id was resumed."""
+    engine = _make_engine(fake_acp_path)
+    try:
+        requested = "20260805_desktop_conversation"
+        adopted = await engine.resume_session(requested)
+        assert adopted != requested
+        assert engine._session_map.get(adopted) == adopted
+        assert engine._active_hermes_session == adopted
+    finally:
         await engine.stop()

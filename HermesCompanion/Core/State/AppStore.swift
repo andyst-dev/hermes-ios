@@ -155,6 +155,19 @@ final class AppStore: ObservableObject {
                 }
             }
             try? await refreshSessions()
+            if let resolved = await client.lastTranscriptSessionID(), resolved != selectedSessionID {
+                // The backend could not resume the requested conversation and
+                // landed the turn in a fresh session instead. Follow it so the
+                // reply stays visible in the right chat instead of vanishing.
+                selectedSessionID = resolved
+            }
+            // Canonical transcript: the stream only carried live deltas with
+            // local ids. Reload from the backend so the chat shows the real
+            // rows (DB ids, final tool calls, no duplicates).
+            if let sessionID = selectedSessionID,
+               let fresh = try? await client.messages(sessionID: sessionID) {
+                messages = fresh
+            }
         } catch {
             messages.append(HermesMessage(id: UUID().uuidString, role: .system, text: error.localizedDescription, createdAt: .now, toolCalls: []))
         }

@@ -153,6 +153,23 @@ final class HermesCompanionTests: XCTestCase {
         }
     }
 
+    func testSSEParserHandlesThinkingEvent() throws {
+        let thinkingFrame = try XCTUnwrap(try HTTPHermesTransport.parseSSEEvent(Data("data: {\"type\":\"thinking\",\"text\":\"Laisse-moi réfléchir...\"}\n\n".utf8)))
+        guard case .thinking(let text) = thinkingFrame.kind else {
+            XCTFail("expected thinking")
+            return
+        }
+        XCTAssertEqual(text, "Laisse-moi réfléchir...")
+
+        // Thinking must never be mistaken for a delta (answer text).
+        let deltaFrame = try XCTUnwrap(try HTTPHermesTransport.parseSSEEvent(Data("data: {\"type\":\"delta\",\"text\":\"Réponse\"}\n\n".utf8)))
+        guard case .delta(let deltaText) = deltaFrame.kind else {
+            XCTFail("expected delta")
+            return
+        }
+        XCTAssertEqual(deltaText, "Réponse")
+    }
+
     func testSSEStreamingLoopSurvivesTinyChunks() throws {
         // Regression test: the chat loop used to mutate its Data buffer
         // in place (removeSubrange) while slices were alive, which traps on

@@ -98,6 +98,9 @@ class ACPExtEngine:
         self._pending_permissions: dict[str, asyncio.Future] = {}
         # approval id -> acp uuid (bridge-side approval ids)
         self._approval_map: dict[str, str] = {}
+        # The prompt task currently in flight (one per ACP connection).
+        self._active_turn: asyncio.Task | None = None
+        self._turn_session: str | None = None
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -180,18 +183,43 @@ class ACPExtEngine:
     async def resume_session(self, hermes_session_id: str) -> str:
         """Resume an existing Hermes session by its Hermes-side id.
 
-        ACP sessions are keyed by the ACP uuid; we only know how to resume
-        sessions this bridge created. If unknown, a fresh ACP session is
-        created and the caller decides whether to use it.
+        Sessions this bridge created in this process are in ``_session_map``
+        and resume by their ACP uuid. An UNKNOWN id does not mean a fresh
+        conversation though: the ACP server restores previously persisted ACP
+        sessions from the shared SessionDB by this very id
+        (``acp_adapter/session.py::_restore``), so after a dashboard restart
+        the same conversation is still resumable. Try ``session/resume`` with
+        the hermes id itself first, and only adopt a fresh session when the
+        server really minted one (its returned hermes id differs from the
+        requested one - e.g. a conversation that was never ACP-persisted,
+        like one created on Desktop/Telegram).
         """
         await self.start()
-        acp_id = self._session_map.get(hermes_session_id)
-        if acp_id is None:
-            return await self.new_session(hermes_session_id)
         assert self._conn is not None
-        await self._conn.resume_session(cwd=self._cwd, session_id=acp_id, mcp_servers=[])
-        self._active_hermes_session = hermes_session_id
-        return hermes_session_id
+        acp_id = self._session_map.get(hermes_session_id)
+        if acp_id is not None:
+            await self._conn.resume_session(cwd=self._cwd, session_id=acp_id, mcp_servers=[])
+            self._active_hermes_session = hermes_session_id
+            return hermes_session_id
+
+        resp = await self._conn.resume_session(cwd=self._cwd, session_id=hermes_session_id, mcp_servers=[])
+        restored = self._hermes_id_from_meta(resp)
+        if restored == hermes_session_id:
+            # The server restored the conversation from SessionDB under the
+            # requested id - notifications will carry this id, so map it to
+            # itself (notifications arrive keyed by the hermes id).
+            self._session_map[hermes_session_id] = hermes_session_id
+            self._reverse_map[hermes_session_id] = hermes_session_id
+            self._active_hermes_session = hermes_session_id
+            return hermes_session_id
+
+        # The server could not restore that conversation and created a fresh
+        # session instead - adopt it so the rest of the turn stays coherent.
+        new_id = restored or hermes_session_id
+        self._session_map[new_id] = new_id
+        self._reverse_map[new_id] = new_id
+        self._active_hermes_session = new_id
+        return new_id
 
     # -- chat --------------------------------------------------------------
 
@@ -240,6 +268,46 @@ class ACPExtEngine:
         except Exception:
             logger.debug("acp cancel failed", exc_info=True)
 
+    async def cancel_active_turn(self) -> None:
+        """Abort any turn still in flight on the shared ACP connection.
+
+        The SDK supports ONE in-flight prompt per connection: if the app is
+        relaunched mid-turn (the old stream dies but the server turn keeps
+        running) and a new prompt is sent, the two prompts wedge the
+        connection forever — the server turn never finishes and the new one
+        never starts. Before starting a fresh turn, resolve pending
+        approvals as denied (so a tool call blocked on permission unblocks)
+        and cancel the old prompt task.
+        """
+        if self._active_turn is None:
+            return
+        # Unblock any tool call waiting on a phone approval verdict.
+        for session_id in list(self._pending_permissions):
+            future = self._pending_permissions[session_id]
+            if not future.done():
+                future.set_result("deny")
+        if self._conn is not None and self._turn_session is not None:
+            acp_id = self._session_map.get(self._turn_session)
+            if acp_id is not None:
+                try:
+                    await self._conn.cancel(session_id=acp_id)
+                except Exception:
+                    logger.debug("acp cancel of stale turn failed", exc_info=True)
+        task = self._active_turn
+        try:
+            await asyncio.wait_for(task, timeout=10)
+        except asyncio.TimeoutError:
+            task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):
+                pass
+        except Exception:
+            pass
+        if self._active_turn is task:
+            self._active_turn = None
+            self._turn_session = None
+
     # -- permissions -------------------------------------------------------
 
     async def _on_request_permission(
@@ -270,9 +338,9 @@ class ACPExtEngine:
         future: asyncio.Future = asyncio.get_running_loop().create_future()
         self._pending_permissions[session_id] = future
         try:
-            verdict = await asyncio.wait_for(future, timeout=600)
+            verdict = await asyncio.wait_for(future, timeout=60)
         except asyncio.TimeoutError:
-            verdict = "deny"  # fail closed
+            verdict = "deny"  # fail closed — never let a turn wedge forever
         finally:
             self._pending_permissions.pop(session_id, None)
             self._approval_map.pop(approval_id, None)
@@ -348,7 +416,13 @@ class ACPExtEngine:
             return
         content = getattr(update, "content", None)
         text = getattr(content, "text", None) if content is not None else None
-        if isinstance(text, str) and text:
+        if kind == "agent_thought_chunk" and isinstance(text, str) and text:
+            # Thinking/reasoning deltas must NOT be streamed as answer text.
+            # ACP separates them (agent_thought_chunk vs agent_message_chunk);
+            # forward them as a dedicated event so clients can render a
+            # collapsible thinking block instead of polluting the reply.
+            await queue.put({"kind": "thinking", "text": text})
+        elif isinstance(text, str) and text:
             await queue.put({"kind": "delta", "text": text})
         elif kind in ("tool_call_start", "tool_call_progress"):
             await queue.put({"kind": "tool", "text": str(update)[:300]})

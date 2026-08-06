@@ -38,6 +38,9 @@ struct HermesMessage: Codable, Equatable, Identifiable {
     var text: String
     var createdAt: Date
     var toolCalls: [HermesToolCall]
+    /// Reasoning/thinking text, streamed separately from the answer.
+    /// Optional so transcripts (which never carry it) decode cleanly.
+    var thinking: String? = nil
 
     enum Role: String, Codable {
         case user

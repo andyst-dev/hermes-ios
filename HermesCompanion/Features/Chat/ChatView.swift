@@ -156,6 +156,9 @@ private struct ResponseBlock: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if let thinking = message.thinking, !thinking.isEmpty {
+                ThinkingBlock(text: thinking)
+            }
             if !message.text.isEmpty {
                 MarkdownMessageText(message.text, baseSize: 15, textColor: textColor)
             }
@@ -168,6 +171,59 @@ private struct ResponseBlock: View {
 
     private var textColor: Color {
         message.role == .system ? HermesTheme.red : HermesTheme.ink
+    }
+}
+
+/// Collapsible reasoning block. The thinking streams here, separate from the
+/// answer, so the reply stays concise - expand to read it, like on Desktop.
+private struct ThinkingBlock: View {
+    let text: String
+    @State private var expanded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    expanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 7) {
+                    Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                    Image(systemName: "brain.head.profile")
+                        .font(.system(size: 11, weight: .medium))
+                    Text("Thinking")
+                        .font(.system(size: 12, weight: .semibold))
+                        .textCase(.uppercase)
+                        .kerning(0.8)
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(HermesTheme.mutedForeground)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(HermesTheme.card, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .stroke(HermesTheme.border, lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
+
+            if expanded {
+                Text(text)
+                    .font(.system(size: 13))
+                    .foregroundStyle(HermesTheme.mutedForeground)
+                    .lineSpacing(3)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(HermesTheme.background.opacity(0.55), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .stroke(HermesTheme.border.opacity(0.6), lineWidth: 1)
+                    )
+            }
+        }
     }
 }
 
@@ -393,7 +449,7 @@ private struct ComposerView: View {
                         .frame(width: 28, height: 28)
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(HermesTheme.primary)
+                .foregroundStyle(HermesTheme.sendReady)
                 .accessibilityLabel("Add attachment")
 
                 TextField("Ask Hermes…", text: $store.composerText, axis: .vertical)
@@ -461,9 +517,10 @@ private struct ComposerView: View {
 
     private var sendForeground: Color {
         let canSend = !store.composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !store.pendingAttachments.isEmpty
-        if store.isStreaming { return HermesTheme.foreground }
-        // Empty → muted brown; ready to send → bright beige.
-        return canSend ? HermesTheme.foreground : HermesTheme.mutedForeground
+        if store.isStreaming { return HermesTheme.sendReady }
+        // Empty → deep brown (clearly idle); ready to send → warm cream,
+        // deliberately darker than the near-white foreground.
+        return canSend ? HermesTheme.sendReady : HermesTheme.sendIdle
     }
 }
 

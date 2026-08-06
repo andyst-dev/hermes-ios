@@ -11,31 +11,37 @@ struct SessionListView: View {
         VStack(spacing: 0) {
             MobileSessionsHeader(showingSettings: $showingSettings, onNewSession: openNewSession, onOpenCommands: onOpenCommands)
             ScrollView(showsIndicators: false) {
-                let regularSessions = visibleSessions(excluding: "telegram")
+                let allFilter = store.selectedSourceFilter == "all"
+                let desktopSessions = visibleSessions(only: "desktop")
+                let cliSessions = visibleSessions(only: "cli")
+                let mobileSessions = visibleSessions(only: "mobile")
                 let telegramSessions = visibleSessions(only: "telegram")
-                let hasResults = !regularSessions.isEmpty || !telegramSessions.isEmpty
+                let hasResults = allFilter
+                    ? !desktopSessions.isEmpty || !cliSessions.isEmpty || !mobileSessions.isEmpty || !telegramSessions.isEmpty
+                    : !visibleSessions().isEmpty
 
                 VStack(alignment: .leading, spacing: 18) {
                     MobileQuickFilters()
                     SidebarSearchField(text: $searchText)
-                    if store.selectedSourceFilter == "all" {
+                    if allFilter {
                         PinnedSection(sessions: pinnedSessions)
-                    }
-                    if shouldShowRegularSection(sessions: regularSessions) {
+                        if !desktopSessions.isEmpty {
+                            SessionSourceSection(title: "Desktop", icon: "macwindow", sessions: desktopSessions, searchText: searchText, onSessionSelected: onSessionSelected)
+                        }
+                        if !cliSessions.isEmpty {
+                            SessionSourceSection(title: "CLI", icon: "terminal", sessions: cliSessions, searchText: searchText, onSessionSelected: onSessionSelected)
+                        }
+                        if !mobileSessions.isEmpty {
+                            SessionSourceSection(title: "Mobile", icon: "iphone", sessions: mobileSessions, searchText: searchText, onSessionSelected: onSessionSelected)
+                        }
+                        if !telegramSessions.isEmpty {
+                            SessionSourceSection(title: "Telegram", icon: "paperplane.circle.fill", accent: Color(red: 0.180, green: 0.620, blue: 0.920), sessions: telegramSessions, searchText: searchText, onSessionSelected: onSessionSelected)
+                        }
+                    } else {
                         SessionSourceSection(
                             title: regularSectionTitle,
                             icon: regularSectionIcon,
-                            sessions: regularSessions,
-                            searchText: searchText,
-                            onSessionSelected: onSessionSelected
-                        )
-                    }
-                    if shouldShowTelegramSection(sessions: telegramSessions) {
-                        SessionSourceSection(
-                            title: "Telegram",
-                            icon: "paperplane.circle.fill",
-                            accent: Color(red: 0.180, green: 0.620, blue: 0.920),
-                            sessions: telegramSessions,
+                            sessions: visibleSessions(),
                             searchText: searchText,
                             onSessionSelected: onSessionSelected
                         )
@@ -61,36 +67,24 @@ struct SessionListView: View {
     private var selectedFilter: String { store.selectedSourceFilter.lowercased() }
 
     private var regularSectionTitle: String {
-        switch selectedFilter {
-        case "desktop": "Desktop"
-        case "cli": "CLI"
-        default: "Sessions"
-        }
+        SessionSource.displayName(selectedFilter)
     }
 
     private var regularSectionIcon: String {
-        switch selectedFilter {
-        case "desktop": "macwindow"
-        case "cli": "terminal"
-        default: "checkerboard.rectangle"
-        }
+        SessionSource.icon(selectedFilter)
     }
 
-    private func shouldShowRegularSection(sessions: [HermesSession]) -> Bool {
-        selectedFilter != "telegram" && !sessions.isEmpty
-    }
-
-    private func shouldShowTelegramSection(sessions: [HermesSession]) -> Bool {
-        (selectedFilter == "all" || selectedFilter == "telegram") && !sessions.isEmpty
-    }
-
-    private func visibleSessions(only source: String? = nil, excluding excludedSource: String? = nil) -> [HermesSession] {
+    private func visibleSessions(only source: String? = nil) -> [HermesSession] {
         store.sessions.filter { session in
-            let sessionSource = (session.source ?? "desktop").lowercased()
+            // Normalize the wire name: sessions created through the mobile
+            // plugin/bridge read as "acp" from the DB (and used to be sent
+            // as-is). Treat them as "mobile" everywhere, like the backend
+            // now does, so filtering works against older dashboards too.
+            let rawSource = (session.source ?? "desktop").lowercased()
+            let sessionSource = rawSource == "acp" ? "mobile" : rawSource
             let selectedSource = store.selectedSourceFilter.lowercased()
             if selectedSource != "all", sessionSource != selectedSource { return false }
             if let source, sessionSource != source { return false }
-            if let excludedSource, sessionSource == excludedSource { return false }
             guard !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return true }
             let needle = searchText.lowercased()
             return session.title.lowercased().contains(needle) || session.subtitle.lowercased().contains(needle)
@@ -187,20 +181,36 @@ private struct MobileQuickFilters: View {
     }
 
     private func label(for source: String) -> String {
+        SessionSource.displayName(source)
+    }
+
+    private func icon(for source: String) -> String {
+        SessionSource.icon(source)
+    }
+}
+
+/// Single source of truth for how a session source renders in the UI.
+/// "acp" is the wire name for sessions created through the mobile
+/// plugin/bridge; both it and "mobile" read as "Mobile" for the user.
+enum SessionSource {
+    static func displayName(_ source: String) -> String {
         switch source {
         case "all": "All"
         case "telegram": "Telegram"
         case "desktop": "Desktop"
         case "cli": "CLI"
+        case "acp", "mobile": "Mobile"
         default: source.capitalized
         }
     }
 
-    private func icon(for source: String) -> String {
+    static func icon(_ source: String) -> String {
         switch source {
         case "telegram": "paperplane.circle.fill"
         case "desktop": "macwindow"
         case "cli": "terminal"
+        case "acp", "mobile": "iphone"
+        case "all": "checkerboard.rectangle"
         default: "bubble.left.and.bubble.right"
         }
     }
