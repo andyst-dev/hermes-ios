@@ -24,6 +24,10 @@ enum HermesTheme {
     static let destructive = Color(red: 0.769, green: 0.188, blue: 0.063)      // #c43010
     static let green = Color(red: 0.384, green: 0.765, blue: 0.478)
 
+    // Pluto brown: the warm tan of the dwarf planet's surface (New Horizons).
+    static let pluto = Color(red: 0.690, green: 0.506, blue: 0.310)            // #b0814f
+    static let plutoThumb = Color(red: 0.918, green: 0.851, blue: 0.745)       // #ead9be
+
     // Legacy aliases used by feature views.
     static let ink = foreground
     static let chrome = background
@@ -74,6 +78,42 @@ struct StatusDot: View {
             .fill(color)
             .frame(width: 8, height: 8)
             .overlay(Circle().stroke(HermesTheme.background.opacity(0.9), lineWidth: 1))
+    }
+}
+
+/// Pluto toggle: warm Pluto-brown track with a cream thumb.
+/// Replaces the default iOS switch (gray capsule + white thumb), which reads
+/// as a blank/white slab on the Ember background. Shared by every toggle in
+/// the app so they all look identical.
+struct PlutoToggleStyle: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 10) {
+            configuration.label
+            Spacer(minLength: 0)
+            Button {
+                withAnimation(.snappy(duration: 0.18)) {
+                    configuration.isOn.toggle()
+                }
+            } label: {
+                ZStack(alignment: configuration.isOn ? .trailing : .leading) {
+                    Capsule()
+                        .fill(configuration.isOn ? HermesTheme.pluto : HermesTheme.muted)
+                        .overlay(
+                            Capsule().stroke(
+                                configuration.isOn ? HermesTheme.pluto.opacity(0.85) : HermesTheme.border,
+                                lineWidth: 1
+                            )
+                        )
+                    Circle()
+                        .fill(configuration.isOn ? HermesTheme.plutoThumb : HermesTheme.mutedForeground)
+                        .frame(width: 22, height: 22)
+                        .padding(3)
+                }
+                .frame(width: 46, height: 28)
+            }
+            .buttonStyle(.plain)
+            .accessibilityValue(configuration.isOn ? "1" : "0")
+        }
     }
 }
 

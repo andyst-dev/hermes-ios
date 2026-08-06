@@ -156,7 +156,7 @@ private struct ReasoningSection: View {
                         }
                     }
                 }
-                .tint(HermesTheme.primary)
+                .toggleStyle(PlutoToggleStyle())
 
                 if thinkingOn && !selectableLevels.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {

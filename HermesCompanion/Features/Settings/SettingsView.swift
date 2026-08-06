@@ -54,7 +54,7 @@ struct SettingsView: View {
                             Spacer()
                             Toggle("", isOn: $store.privacyMode)
                                 .labelsHidden()
-                                .tint(HermesTheme.ring)
+                                .toggleStyle(PlutoToggleStyle())
                         }
                         .padding(.horizontal, 10)
                         .padding(.vertical, 7)
