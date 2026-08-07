@@ -17,6 +17,20 @@ struct ConnectView: View {
                 VStack(alignment: .leading, spacing: 26) {
                     onboardingHero
 
+                    HermesMobileSection(title: "First, install the plugin", icon: "puzzlepiece.extension.fill", accent: HermesTheme.primary) {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("The Mac needs the Hermes Mobile plugin before pairing. Run this once in a terminal on the Mac:")
+                                .font(.system(size: 12.5, weight: .medium))
+                                .foregroundStyle(HermesTheme.mutedForeground)
+                                .fixedSize(horizontal: false, vertical: true)
+                            pluginInstallCard
+                            Text("Then start the Hermes dashboard — the pairing QR lives there. Stock Hermes, no patches, no VPN.")
+                                .font(.system(size: 11.5))
+                                .foregroundStyle(HermesTheme.mutedForeground)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+
                     HermesMobileSection(title: "Ask Hermes", icon: "quote.bubble.fill", accent: HermesTheme.primary) {
                         VStack(alignment: .leading, spacing: 16) {
                             Text("On your Mac, open Hermes Desktop and say:")
@@ -154,6 +168,17 @@ struct ConnectView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(HermesTheme.userBubble, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(HermesTheme.userBubbleBorder, lineWidth: 1))
+    }
+
+    private var pluginInstallCard: some View {
+        Text("hermes plugins install andyst-dev/hermes-ios/plugin --enable")
+            .font(.system(size: 13, weight: .semibold, design: .monospaced))
+            .foregroundStyle(HermesTheme.ink)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 15)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(HermesTheme.card.opacity(0.58), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(HermesTheme.stroke, lineWidth: 1))
     }
 
     private var pairingPrompt: String {
