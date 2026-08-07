@@ -409,11 +409,12 @@ def test_plugin_tunnel_start_stop_flow(client, monkeypatch):
     assert data["provider"] == "cloudflared"
     assert data["publicUrl"] == "https://abc123.trycloudflare.com"
 
-    # The tunnel hostname must be allowlisted on the app state so the
-    # dashboard's Host-header guard lets requests through (DNS-rebinding
-    # defence stays intact: exact hostname, no wildcard).
-    allowed = client.app.state.allowed_hosts
-    assert "abc123.trycloudflare.com" in allowed
+    # A plugin-owned reverse proxy is listening on an ephemeral loopback
+    # port; cloudflared points at it and it rewrites the Host header back to
+    # loopback, so the core Host-header guard never sees the public hostname.
+    proxy = plugin._tunnel_proxy
+    assert proxy is not None
+    assert proxy.port > 0
 
     status = client.get("/api/plugins/hermes-mobile/tunnel/status").json()
     assert status["active"] is True
@@ -422,8 +423,8 @@ def test_plugin_tunnel_start_stop_flow(client, monkeypatch):
     stop = client.post("/api/plugins/hermes-mobile/tunnel/stop").json()
     assert stop["stopped"] is True
     assert client.get("/api/plugins/hermes-mobile/tunnel/status").json()["active"] is False
-    # Hostname removed from the allowlist once the tunnel is closed.
-    assert "abc123.trycloudflare.com" not in client.app.state.allowed_hosts
+    # Proxy torn down once the tunnel is closed.
+    assert plugin._tunnel_proxy is None
 
 
 def test_plugin_pairing_prefers_tunnel_url(client, monkeypatch):
@@ -440,3 +441,52 @@ def test_plugin_pairing_prefers_tunnel_url(client, monkeypatch):
     client.post("/api/plugins/hermes-mobile/tunnel/stop")
     pairing = client.get("/api/plugins/hermes-mobile/pairing").json()
     assert pairing["url"] == "http://127.0.0.1:8765"
+
+
+def test_tunnel_proxy_rewrites_host_header():
+    """The reverse proxy rewrites the Host header back to the target's
+    loopback address — the core Host-header guard never sees the public
+    tunnel hostname (this is what makes the feature core-patch-free)."""
+
+    async def run() -> None:
+        import asyncio
+
+        received: dict[str, str] = {}
+
+        async def target_handler(reader, writer):
+            await reader.readline()  # request line
+            while True:
+                line = await reader.readline()
+                if line in (b"\r\n", b"\n", b""):
+                    break
+                name, _, value = line.decode("latin-1").partition(":")
+                received[name.strip().lower()] = value.strip()
+            writer.write(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok")
+            await writer.drain()
+            writer.close()
+
+        target = await asyncio.start_server(target_handler, "127.0.0.1", 0)
+        assert target.sockets
+        tport = target.sockets[0].getsockname()[1]
+        proxy = plugin._TunnelProxy(f"http://127.0.0.1:{tport}")
+        pport = await proxy.start()
+        try:
+            reader, writer = await asyncio.open_connection("127.0.0.1", pport)
+            writer.write(
+                b"GET /api/plugins/hermes-mobile/health HTTP/1.1\r\n"
+                b"Host: evil.trycloudflare.com\r\n\r\n"
+            )
+            await writer.drain()
+            response = await reader.read(64)
+            writer.close()
+        finally:
+            await proxy.stop()
+            target.close()
+            await target.wait_closed()
+
+        assert received.get("host") == f"127.0.0.1:{tport}"
+        assert b"200 OK" in response
+
+    import asyncio
+
+    asyncio.run(run())

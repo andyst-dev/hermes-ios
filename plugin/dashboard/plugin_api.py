@@ -32,7 +32,7 @@ import time
 import uuid
 from typing import Any, Optional
 
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from urllib.parse import urlparse
@@ -1077,6 +1077,7 @@ _TUNNEL_URL_RE = re.compile(
 )
 
 _tunnel_proc: Optional["asyncio.subprocess.Process"] = None
+_tunnel_proxy: Optional[_TunnelProxy] = None
 _tunnel_url: str = ""
 _tunnel_provider: str = ""
 _tunnel_error: str = ""
@@ -1150,44 +1151,110 @@ async def _spawn_tunnel(
     )
 
 
-def _tunnel_hostname(public_url: str) -> str:
-    """``https://abc.trycloudflare.com`` -> ``abc.trycloudflare.com`` (lowercased)."""
-    return (urlparse(public_url).netloc or public_url).lower()
+class _TunnelProxy:
+    """Minimal HTTP/1.1 reverse proxy — the tunnel's local entry point.
+
+    cloudflared/ngrok forward the public HTTPS traffic here; the proxy
+    rewrites the Host header back to the dashboard's loopback address so the
+    core Host-header guard (DNS-rebinding defence) never sees a foreign
+    hostname. Everything lives in the plugin: no core patch needed.
+    """
+
+    def __init__(self, target: str) -> None:
+        self._target = target.rstrip("/")
+        self._server: Optional[asyncio.AbstractServer] = None
+        self._client: Optional[Any] = None
+        self.port: int = 0
+
+    async def start(self) -> int:
+        import httpx
+
+        self._client = httpx.AsyncClient(
+            # No read timeout: SSE chat streams run until the turn ends.
+            timeout=httpx.Timeout(connect=10.0, read=None, write=None, pool=10.0)
+        )
+        self._server = await asyncio.start_server(self._handle, "127.0.0.1", 0)
+        assert self._server.sockets
+        self.port = self._server.sockets[0].getsockname()[1]
+        return self.port
+
+    async def stop(self) -> None:
+        server: Optional[asyncio.AbstractServer] = self._server
+        self._server = None
+        if server is not None:
+            server.close()
+            await server.wait_closed()
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None
+
+    async def _handle(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
+        try:
+            await self._relay(reader, writer)
+        except Exception:  # pragma: no cover — proxy must never take the plugin down
+            logger.debug("proxy relay error", exc_info=True)
+        finally:
+            try:
+                writer.close()
+            except Exception:
+                pass
+
+    async def _relay(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
+        request_line = await reader.readline()
+        if not request_line:
+            return
+        parts = request_line.decode("latin-1").strip().split(" ", 2)
+        if len(parts) != 3:
+            return
+        method, raw_path, _version = parts
+        headers: dict[str, str] = {}
+        while True:
+            line = await reader.readline()
+            if line in (b"\r\n", b"\n", b""):
+                break
+            name, _, value = line.decode("latin-1").partition(":")
+            headers[name.strip().lower()] = value.strip()
+        content_length = int(headers.get("content-length", "0") or 0)
+        body = await reader.readexactly(content_length) if content_length else b""
+
+        client = self._client
+        if client is None:
+            return
+        up_headers = {
+            k: v
+            for k, v in headers.items()
+            if k not in ("host", "content-length", "connection", "keep-alive")
+        }
+        up_headers["host"] = urlparse(self._target).netloc
+        up_headers["x-forwarded-host"] = headers.get("host", "")
+        up_headers["x-forwarded-proto"] = "https"
+        async with client.stream(method, self._target + raw_path, headers=up_headers, content=body) as resp:
+            status_line = f"HTTP/1.1 {resp.status_code} {resp.reason_phrase or ''}\r\n"
+            writer.write(status_line.encode("latin-1"))
+            for key, value in resp.headers.items():
+                if key.lower() in ("transfer-encoding", "connection", "keep-alive"):
+                    continue
+                writer.write(f"{key}: {value}\r\n".encode("latin-1"))
+            writer.write(b"\r\n")
+            await writer.drain()
+            async for chunk in resp.aiter_raw():
+                writer.write(chunk)
+                await writer.drain()
 
 
-def _register_tunnel_host(request: Optional[Request], public_url: str) -> None:
-    """Let the tunnel hostname through the dashboard's Host-header guard."""
-    if request is None:
-        return
-    try:
-        state = request.app.state
-        allowed: set[str] = set(getattr(state, "allowed_hosts", frozenset()) or ())
-        allowed.add(_tunnel_hostname(public_url))
-        state.allowed_hosts = frozenset(allowed)
-    except Exception:  # pragma: no cover — never break pairing for this
-        logger.warning("could not register tunnel hostname", exc_info=True)
-
-
-def _unregister_tunnel_host(request: Optional[Request], public_url: str) -> None:
-    if request is None:
-        return
-    try:
-        state = request.app.state
-        allowed: set[str] = set(getattr(state, "allowed_hosts", frozenset()) or ())
-        allowed.discard(_tunnel_hostname(public_url))
-        state.allowed_hosts = frozenset(allowed)
-    except Exception:  # pragma: no cover
-        logger.warning("could not unregister tunnel hostname", exc_info=True)
-
-
-async def _cleanup_tunnel(request: Optional[Request] = None) -> None:
-    global _tunnel_proc, _tunnel_url, _tunnel_provider, _tunnel_error
+async def _cleanup_tunnel() -> None:
+    global _tunnel_proc, _tunnel_url, _tunnel_provider, _tunnel_error, _tunnel_proxy
     proc, _tunnel_proc = _tunnel_proc, None
-    old_url, _tunnel_url = _tunnel_url, ""
+    proxy, _tunnel_proxy = _tunnel_proxy, None
+    _tunnel_url = ""
     _tunnel_provider = ""
     _tunnel_error = ""
-    if old_url:
-        _unregister_tunnel_host(request, old_url)
+    if proxy is not None:
+        await proxy.stop()
     if proc is None or proc.returncode is not None:
         return
     try:
@@ -1226,10 +1293,15 @@ async def mobile_tunnel_status() -> dict[str, Any]:
 
 
 @router.post("/tunnel/start")
-async def mobile_tunnel_start(request: Request) -> dict[str, Any]:
+async def mobile_tunnel_start() -> dict[str, Any]:
     """Open a public HTTPS tunnel to this dashboard. Fail-closed: 400 if no
-    tunnel binary is installed, 502 if the binary never published a URL."""
-    global _tunnel_proc, _tunnel_provider, _tunnel_url, _tunnel_error
+    tunnel binary is installed, 502 if the binary never published a URL.
+
+    The tunnel points at a plugin-owned reverse proxy (``_TunnelProxy``) that
+    rewrites the Host header back to loopback, so the dashboard's core
+    Host-header guard never sees the public hostname — no core patch needed.
+    """
+    global _tunnel_proc, _tunnel_provider, _tunnel_url, _tunnel_error, _tunnel_proxy
     if _tunnel_proc is not None:
         if _tunnel_proc.returncode is None:
             return {
@@ -1238,7 +1310,7 @@ async def mobile_tunnel_start(request: Request) -> dict[str, Any]:
                 "provider": _tunnel_provider,
                 "publicUrl": _tunnel_url,
             }
-        await _cleanup_tunnel(request)  # stale/exited process
+        await _cleanup_tunnel()  # stale/exited process
     bin_path = _find_tunnel_bin()
     if not bin_path:
         raise HTTPException(
@@ -1249,28 +1321,37 @@ async def mobile_tunnel_start(request: Request) -> dict[str, Any]:
                 "need no account) or 'brew install ngrok'."
             ),
         )
-    local_url = _local_dashboard_url()
+    proxy = _TunnelProxy(_local_dashboard_url())
     try:
-        provider, proc, public_url = await _spawn_tunnel(bin_path, local_url)
+        proxy_port = await proxy.start()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Could not start local proxy: {exc}"
+        ) from exc
+    try:
+        provider, proc, public_url = await _spawn_tunnel(
+            bin_path, f"http://127.0.0.1:{proxy_port}"
+        )
     except TunnelStartError as exc:
+        await proxy.stop()
         _tunnel_error = str(exc)
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     _tunnel_proc = proc
+    _tunnel_proxy = proxy
     _tunnel_provider = provider
     _tunnel_url = public_url
     _tunnel_error = ""
-    _register_tunnel_host(request, public_url)
     return {
         "ok": True,
         "active": True,
         "provider": provider,
         "publicUrl": public_url,
-        "localUrl": local_url,
+        "proxyPort": proxy_port,
     }
 
 
 @router.post("/tunnel/stop")
-async def mobile_tunnel_stop(request: Request) -> dict[str, Any]:
+async def mobile_tunnel_stop() -> dict[str, Any]:
     was_active = _tunnel_proc is not None and _tunnel_proc.returncode is None
-    await _cleanup_tunnel(request)
+    await _cleanup_tunnel()
     return {"ok": True, "stopped": was_active}
