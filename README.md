@@ -40,7 +40,7 @@ hermes-ios
 │       └── plugin_api.py # 24 mobile routes, ACP engine, dashboard proxy, remote tunnel
 ├── bridge/               # Standalone backend bridge (same code as plugin, dev server)
 │   ├── hermes_mobile_bridge/  # main.py (routes), acp_client.py (ACP), dashboard.py (proxy)
-│   └── tests/            # fake hermes-acp stdio server + mocked dashboard (30 tests)
+│   └── tests/            # fake hermes-acp stdio server + mocked dashboard (31 tests)
 └── docs/                 # Mobile API contract
 ```
 
@@ -67,6 +67,13 @@ hermes plugins install andyst-dev/hermes-ios/plugin --enable
 hermes dashboard --host 127.0.0.1 --port 8765 --no-open
 ```
 
+For remote pairing (out of LAN), the tunnel needs one binary — cloudflared
+recommended, no account needed:
+
+```bash
+brew install cloudflared   # or: brew install ngrok
+```
+
 The plugin mounts the mobile API at `/api/plugins/hermes-mobile/*` inside the
 dashboard process — no separate server. For development, the standalone bridge
 also ships under `bridge/` (same code, run as its own server on port 8766):
@@ -87,7 +94,7 @@ SIMCTL_CHILD_HERMES_MOBILE_BASE_URL="http://127.0.0.1:8766" \
 xcrun simctl launch <UDID> dev.hermes.companion
 ```
 
-The `127.0.0.1:8766` bridge URL is the app's connection target; a physical iPhone needs LAN/Tailscale reachability plus pairing.
+The `127.0.0.1:8766` bridge URL is the app's connection target; a physical iPhone pairs over the LAN (`scripts/lan-dashboard.sh` puts the Mac's IP in the QR) or from anywhere via the remote tunnel (`POST /tunnel/start` — no VPN, no Tailscale, nothing to install on the phone).
 
 ## Tests
 
@@ -100,7 +107,7 @@ xcodebuild -scheme HermesCompanion -destination 'platform=iOS Simulator,name=iPh
 cd bridge && .venv/bin/python -m pytest tests/ -q
 ```
 
-iOS unit tests cover the SSE parser (deltas, thinking, transcripts, approval events, comment/empty frames), the store approval flow (publish + clear), session mutations against a stateful mock, and the JSON contract. Backend tests cover the ACP engine (streaming, thinking vs delta separation, approval once/deny/fail-closed, cancel, session resume/adoption, stale-turn cancellation), the standalone route contract, and the **dashboard plugin contract** (route set under `/api/plugins/hermes-mobile`, iOS JSON shapes: session status enum, message/model/tool-call fields, Z-suffixed dates, base64 file content).
+iOS unit tests cover the SSE parser (deltas, thinking, transcripts, approval events, comment/empty frames), the store approval flow (publish + clear), session mutations against a stateful mock, and the JSON contract. Backend tests cover the ACP engine (streaming, thinking vs delta separation, approval once/deny/fail-closed, cancel, session resume/adoption, stale-turn cancellation), the standalone route contract, the **dashboard plugin contract** (route set under `/api/plugins/hermes-mobile`, iOS JSON shapes: session status enum, message/model/tool-call fields, Z-suffixed dates, base64 file content), and the **remote tunnel** (start/stop/status lifecycle, missing-binary fail-closed, pairing QR preferring the public URL, and the reverse proxy's Host-header rewrite proven end-to-end).
 
 ## Privacy rules
 
