@@ -17,6 +17,8 @@ final class AppStore: ObservableObject {
     @Published var pendingApproval: ApprovalRequest?
     @Published var reasoningEffort = HermesReasoningEffort(effort: "medium", options: HermesReasoningEffort.defaultOptions)
     @Published var tunnelStatus = HermesTunnelStatus(ok: true, active: false, provider: "", publicUrl: "", localUrl: "", error: "")
+    @Published var cronJobs: [HermesCronJob] = []
+    @Published var cronUnavailable = false
 
     private let client: HermesClient
 
@@ -258,6 +260,62 @@ final class AppStore: ObservableObject {
             tunnelStatus = HermesTunnelStatus(ok: true, active: false, provider: "", publicUrl: "", localUrl: "", error: "")
         } catch {
             tunnelStatus = HermesTunnelStatus(ok: false, active: false, provider: "", publicUrl: "", localUrl: "", error: error.localizedDescription)
+        }
+    }
+
+    // -- cron jobs --------------------------------------------------------
+
+    func refreshCron() async {
+        guard case .connected = connection else { return }
+        do {
+            cronJobs = try await client.cronJobs()
+            cronUnavailable = false
+        } catch {
+            // Only the plugin backend ships cron routes (the standalone
+            // bridge does not) — degrade to an empty, flagged list.
+            cronJobs = []
+            cronUnavailable = true
+        }
+    }
+
+    func cronPause(jobID: String) async {
+        do {
+            let updated = try await client.cronPause(jobID: jobID)
+            replaceCronJob(updated)
+        } catch {}
+    }
+
+    func cronResume(jobID: String) async {
+        do {
+            let updated = try await client.cronResume(jobID: jobID)
+            replaceCronJob(updated)
+        } catch {}
+    }
+
+    func cronRun(jobID: String) async {
+        do {
+            let updated = try await client.cronRun(jobID: jobID)
+            replaceCronJob(updated)
+        } catch {}
+    }
+
+    func cronRemove(jobID: String) async {
+        do {
+            try await client.cronRemove(jobID: jobID)
+            cronJobs.removeAll { $0.id == jobID }
+        } catch {}
+    }
+
+    /// Thin passthrough so CronJobsView can load a job's execution history.
+    func cronExecutions(jobID: String) async throws -> [HermesCronExecution] {
+        try await client.cronExecutions(jobID: jobID)
+    }
+
+    private func replaceCronJob(_ job: HermesCronJob) {
+        if let index = cronJobs.firstIndex(where: { $0.id == job.id }) {
+            cronJobs[index] = job
+        } else {
+            cronJobs.append(job)
         }
     }
 

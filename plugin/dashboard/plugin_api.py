@@ -1361,3 +1361,121 @@ async def mobile_tunnel_stop() -> dict[str, Any]:
     was_active = _tunnel_proc is not None and _tunnel_proc.returncode is None
     await _cleanup_tunnel()
     return {"ok": True, "stopped": was_active}
+
+
+# ---------------------------------------------------------------------------
+# Cron jobs — read + control the gateway's scheduled jobs from the phone.
+# Runs inside the dashboard process, so it talks to the same cron store the
+# desktop ticker uses (no CLI round-trip). The bridge (dev server) does not
+# ship these routes; the iOS app degrades gracefully when they 404.
+# ---------------------------------------------------------------------------
+
+
+def _cron_job_row(job: dict[str, Any]) -> dict[str, Any]:
+    latest = job.get("latest_execution") or {}
+    return {
+        "id": job.get("id", ""),
+        "name": job.get("name", ""),
+        "prompt": job.get("prompt", ""),
+        "schedule": job.get("schedule", ""),
+        "scheduleDisplay": job.get("schedule_display", ""),
+        "state": job.get("state", "scheduled" if job.get("enabled", True) else "paused"),
+        "enabled": bool(job.get("enabled", True)),
+        "nextRunAt": job.get("next_run_at"),
+        "lastRunAt": job.get("last_run_at"),
+        "deliver": job.get("deliver", ""),
+        "skills": job.get("skills") or [],
+        "latestExecution": {
+            "id": latest.get("id", ""),
+            "status": latest.get("status", ""),
+            "startedAt": latest.get("started_at"),
+            "finishedAt": latest.get("finished_at"),
+        },
+    }
+
+
+def _load_cron_jobs() -> Any:
+    try:
+        from cron import jobs as cron_jobs
+
+        return cron_jobs
+    except Exception as exc:  # pragma: no cover — only when cron is unreachable
+        raise HTTPException(status_code=502, detail=f"Cron store unavailable: {exc}") from exc
+
+
+@router.get("/cron")
+async def mobile_cron_list() -> dict[str, Any]:
+    cron_jobs = _load_cron_jobs()
+    try:
+        rows = cron_jobs.list_jobs(include_disabled=True)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Cron store unavailable: {exc}") from exc
+    return {"ok": True, "jobs": [_cron_job_row(j) for j in rows]}
+
+
+@router.get("/cron/{job_id}/executions")
+async def mobile_cron_executions(job_id: str) -> dict[str, Any]:
+    try:
+        from cron.executions import list_executions
+
+        rows = list_executions(job_id=job_id, limit=20)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Cron store unavailable: {exc}") from exc
+    if not rows:
+        raise HTTPException(status_code=404, detail=f"No executions for job {job_id}")
+    return {
+        "ok": True,
+        "executions": [
+            {
+                "id": e.get("id", ""),
+                "status": e.get("status", ""),
+                "startedAt": e.get("started_at"),
+                "finishedAt": e.get("finished_at"),
+                "summary": e.get("summary", ""),
+            }
+            for e in rows
+        ],
+    }
+
+
+async def _cron_job_action(job_id: str, action: str) -> dict[str, Any]:
+    cron_jobs = _load_cron_jobs()
+    try:
+        if action == "pause":
+            job = cron_jobs.pause_job(job_id)
+        elif action == "resume":
+            job = cron_jobs.resume_job(job_id)
+        elif action == "run":
+            job = cron_jobs.trigger_job(job_id)
+        elif action == "remove":
+            removed = cron_jobs.remove_job(job_id)
+            return {"ok": True, "removed": bool(removed), "id": job_id}
+        else:  # pragma: no cover
+            raise HTTPException(status_code=400, detail=f"Unknown action {action}")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Cron action failed: {exc}") from exc
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Unknown cron job {job_id}")
+    return {"ok": True, "job": _cron_job_row(job)}
+
+
+@router.post("/cron/{job_id}/pause")
+async def mobile_cron_pause(job_id: str) -> dict[str, Any]:
+    return await _cron_job_action(job_id, "pause")
+
+
+@router.post("/cron/{job_id}/resume")
+async def mobile_cron_resume(job_id: str) -> dict[str, Any]:
+    return await _cron_job_action(job_id, "resume")
+
+
+@router.post("/cron/{job_id}/run")
+async def mobile_cron_run(job_id: str) -> dict[str, Any]:
+    return await _cron_job_action(job_id, "run")
+
+
+@router.post("/cron/{job_id}/remove")
+async def mobile_cron_remove(job_id: str) -> dict[str, Any]:
+    return await _cron_job_action(job_id, "remove")

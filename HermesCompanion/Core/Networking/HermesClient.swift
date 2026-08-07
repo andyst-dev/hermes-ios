@@ -99,4 +99,28 @@ final class HermesClient: ObservableObject {
     func tunnelStop() async throws {
         try await transport.tunnelStop()
     }
+
+    func cronJobs() async throws -> [HermesCronJob] {
+        try await transport.fetchCronJobs()
+    }
+
+    func cronExecutions(jobID: String) async throws -> [HermesCronExecution] {
+        try await transport.fetchCronExecutions(jobID: jobID)
+    }
+
+    func cronPause(jobID: String) async throws -> HermesCronJob {
+        try await transport.cronPause(jobID: jobID)
+    }
+
+    func cronResume(jobID: String) async throws -> HermesCronJob {
+        try await transport.cronResume(jobID: jobID)
+    }
+
+    func cronRun(jobID: String) async throws -> HermesCronJob {
+        try await transport.cronRun(jobID: jobID)
+    }
+
+    func cronRemove(jobID: String) async throws {
+        try await transport.cronRemove(jobID: jobID)
+    }
 }

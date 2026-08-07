@@ -503,3 +503,87 @@ def test_tunnel_proxy_rewrites_host_header():
     import asyncio
 
     asyncio.run(run())
+
+
+# ---------------------------------------------------------------------------
+# Cron job routes (gateway cron store, exposed by the plugin only)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def cron_stub(monkeypatch):
+    """Stub the gateway's ``cron`` package so the plugin routes run without
+    hermes-agent on the test sys.path."""
+    import sys
+    import types
+
+    fake_job = {
+        "id": "job1",
+        "name": "Daily briefing",
+        "prompt": "Summarize the news",
+        "schedule": "0 9 * * *",
+        "schedule_display": "every day at 09:00",
+        "state": "scheduled",
+        "enabled": True,
+        "next_run_at": "2026-08-09T09:00:00+02:00",
+        "last_run_at": None,
+        "deliver": "telegram:Home",
+        "skills": [],
+        "latest_execution": {"id": "ex1", "status": "completed", "started_at": "2026-08-08T08:00:00+02:00", "finished_at": "2026-08-08T08:01:00+02:00"},
+    }
+
+    def paused(job_id, reason=None):
+        if job_id != "job1":
+            return None
+        return {**fake_job, "enabled": False, "state": "paused"}
+
+    def resumed(job_id):
+        if job_id != "job1":
+            return None
+        return {**fake_job, "enabled": True, "state": "scheduled"}
+
+    def triggered(job_id):
+        if job_id != "job1":
+            return None
+        return {**fake_job, "state": "running"}
+
+    fake_cron = types.ModuleType("cron")
+    fake_cron_jobs = types.ModuleType("cron.jobs")
+    setattr(fake_cron_jobs, "list_jobs", lambda include_disabled=False: [dict(fake_job)])
+    setattr(fake_cron_jobs, "pause_job", paused)
+    setattr(fake_cron_jobs, "resume_job", resumed)
+    setattr(fake_cron_jobs, "trigger_job", triggered)
+    setattr(fake_cron_jobs, "remove_job", lambda job_id: job_id == "job1")
+    setattr(fake_cron, "jobs", fake_cron_jobs)
+    monkeypatch.setitem(sys.modules, "cron", fake_cron)
+    monkeypatch.setitem(sys.modules, "cron.jobs", fake_cron_jobs)
+    return fake_cron_jobs
+
+
+def test_plugin_cron_list_and_actions(client, cron_stub):
+    listing = client.get("/api/plugins/hermes-mobile/cron")
+    assert listing.status_code == 200
+    jobs = listing.json()["jobs"]
+    assert len(jobs) == 1
+    assert jobs[0]["id"] == "job1"
+    assert jobs[0]["scheduleDisplay"] == "every day at 09:00"
+    assert jobs[0]["latestExecution"]["status"] == "completed"
+
+    paused = client.post("/api/plugins/hermes-mobile/cron/job1/pause")
+    assert paused.status_code == 200
+    assert paused.json()["job"]["state"] == "paused"
+
+    resumed = client.post("/api/plugins/hermes-mobile/cron/job1/resume")
+    assert resumed.json()["job"]["enabled"] is True
+
+    ran = client.post("/api/plugins/hermes-mobile/cron/job1/run")
+    assert ran.json()["job"]["state"] == "running"
+
+    removed = client.post("/api/plugins/hermes-mobile/cron/job1/remove")
+    assert removed.json()["removed"] is True
+
+
+def test_plugin_cron_unknown_job_404(client, cron_stub):
+    resp = client.post("/api/plugins/hermes-mobile/cron/ghost/pause")
+    assert resp.status_code == 404
+    assert "Unknown cron job" in resp.json()["detail"]

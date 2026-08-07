@@ -29,6 +29,14 @@ protocol HermesTransport: Sendable {
     func tunnelStatus() async throws -> HermesTunnelStatus
     func tunnelStart() async throws -> HermesTunnelStatus
     func tunnelStop() async throws
+    /// Gateway scheduled jobs: list, control (pause/resume/run/remove) and
+    /// per-job execution history.
+    func fetchCronJobs() async throws -> [HermesCronJob]
+    func fetchCronExecutions(jobID: String) async throws -> [HermesCronExecution]
+    func cronPause(jobID: String) async throws -> HermesCronJob
+    func cronResume(jobID: String) async throws -> HermesCronJob
+    func cronRun(jobID: String) async throws -> HermesCronJob
+    func cronRemove(jobID: String) async throws
 }
 
 enum HermesTransportError: Error, LocalizedError {

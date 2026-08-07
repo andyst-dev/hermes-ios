@@ -12,6 +12,7 @@
 		192E8C22095A31D8296A9FB3 /* CommandPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF817F24DDC187E7EB511900 /* CommandPaletteView.swift */; };
 		2C3601D636E637CEB80AB084 /* ConnectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50C05059C56AC8B54ABC5F3A /* ConnectView.swift */; };
 		3997B012E29E2AF3DFCC55A2 /* HermesMobileChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2647EEA774508A3B4E265577 /* HermesMobileChrome.swift */; };
+		43CD510C1D0303BA1058E2D1 /* CronJobsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40E50055BBEEC9801545330B /* CronJobsView.swift */; };
 		4A6BCE064C87F1DDF6F1FD19 /* FilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 381D91433351994202DB41EA /* FilesView.swift */; };
 		4B4AF3B3F33E742893D44901 /* HermesModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB54ED8BDAFA6616791A3EAD /* HermesModels.swift */; };
 		55F17EC5D159F2EAC6C7EB7E /* PairingQRCodeScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9731219EC46C17B43EF0CF0 /* PairingQRCodeScanner.swift */; };
@@ -55,6 +56,7 @@
 		2EA7DEF8ED8453262DFAA6D2 /* HermesCompanionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesCompanionTests.swift; sourceTree = "<group>"; };
 		381D91433351994202DB41EA /* FilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesView.swift; sourceTree = "<group>"; };
 		389DD64335F98D57BF8E1B67 /* Collapse-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Collapse-Bold.ttf"; sourceTree = "<group>"; };
+		40E50055BBEEC9801545330B /* CronJobsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CronJobsView.swift; sourceTree = "<group>"; };
 		45A26AE0A0B6C0BA9CD7EBB8 /* Collapse-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Collapse-Regular.ttf"; sourceTree = "<group>"; };
 		50C05059C56AC8B54ABC5F3A /* ConnectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectView.swift; sourceTree = "<group>"; };
 		5E37458716472E19A8BFE529 /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
@@ -80,6 +82,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
+		096E2491557DF40E7B6963BE /* Cron */ = {
+			isa = PBXGroup;
+			children = (
+				40E50055BBEEC9801545330B /* CronJobsView.swift */,
+			);
+			path = Cron;
+			sourceTree = "<group>";
+		};
 		11837295F178EE209F6DF923 /* Chat */ = {
 			isa = PBXGroup;
 			children = (
@@ -140,6 +150,7 @@
 				11837295F178EE209F6DF923 /* Chat */,
 				8F5A351DA0D64578E7DC3500 /* Commands */,
 				8525269557322C22650057B0 /* Connect */,
+				096E2491557DF40E7B6963BE /* Cron */,
 				11B403B309ABD00252B11B98 /* Files */,
 				74C7425BD4F02ECEDE5892B0 /* Inspector */,
 				A7979E16D9C1E373F712ABDB /* Models */,
@@ -392,6 +403,7 @@
 				560A6394F4F2E25F6F0FF4D3 /* ChatView.swift in Sources */,
 				192E8C22095A31D8296A9FB3 /* CommandPaletteView.swift in Sources */,
 				2C3601D636E637CEB80AB084 /* ConnectView.swift in Sources */,
+				43CD510C1D0303BA1058E2D1 /* CronJobsView.swift in Sources */,
 				6D01578DF95E6B15AB3E3DF2 /* DesktopFilePickerView.swift in Sources */,
 				4A6BCE064C87F1DDF6F1FD19 /* FilesView.swift in Sources */,
 				D9A00A08371D965C06A38A25 /* HTTPHermesTransport.swift in Sources */,

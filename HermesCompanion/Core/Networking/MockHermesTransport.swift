@@ -129,4 +129,58 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
     }
 
     func tunnelStop() async throws {}
+
+    func fetchCronJobs() async throws -> [HermesCronJob] {
+        [
+            HermesCronJob(
+                id: "daily-briefing",
+                name: "Daily briefing",
+                prompt: "Summarize the top headlines and my unread sessions",
+                schedule: "0 9 * * *",
+                scheduleDisplay: "every day at 09:00",
+                state: "scheduled",
+                enabled: true,
+                nextRunAt: "2026-08-09T09:00:00+02:00",
+                lastRunAt: "2026-08-08T09:00:00+02:00",
+                deliver: "telegram:Home",
+                skills: [],
+                latestExecution: HermesCronExecution(id: "ex9", status: "completed", startedAt: "2026-08-08T09:00:00+02:00", finishedAt: "2026-08-08T09:00:42+02:00", summary: "Delivered to telegram:Home")
+            ),
+            HermesCronJob(
+                id: "nightly-backup",
+                name: "Nightly repo backup",
+                prompt: "Commit and push all local repo changes",
+                schedule: "0 2 * * *",
+                scheduleDisplay: "every day at 02:00",
+                state: "paused",
+                enabled: false,
+                nextRunAt: nil,
+                lastRunAt: "2026-08-06T02:00:00+02:00",
+                deliver: "local",
+                skills: ["github-delivery-hygiene"],
+                latestExecution: nil
+            ),
+        ]
+    }
+
+    func fetchCronExecutions(jobID: String) async throws -> [HermesCronExecution] {
+        [
+            HermesCronExecution(id: "ex9", status: "completed", startedAt: "2026-08-08T09:00:00+02:00", finishedAt: "2026-08-08T09:00:42+02:00", summary: "Delivered to telegram:Home"),
+            HermesCronExecution(id: "ex8", status: "completed", startedAt: "2026-08-07T09:00:00+02:00", finishedAt: "2026-08-07T09:00:55+02:00", summary: "Delivered to telegram:Home"),
+        ]
+    }
+
+    func cronPause(jobID: String) async throws -> HermesCronJob {
+        HermesCronJob(id: jobID, name: "Paused job", prompt: "", schedule: "", scheduleDisplay: "paused", state: "paused", enabled: false, nextRunAt: nil, lastRunAt: nil, deliver: "", skills: [], latestExecution: nil)
+    }
+
+    func cronResume(jobID: String) async throws -> HermesCronJob {
+        HermesCronJob(id: jobID, name: "Resumed job", prompt: "", schedule: "", scheduleDisplay: "scheduled", state: "scheduled", enabled: true, nextRunAt: nil, lastRunAt: nil, deliver: "", skills: [], latestExecution: nil)
+    }
+
+    func cronRun(jobID: String) async throws -> HermesCronJob {
+        HermesCronJob(id: jobID, name: "Triggered job", prompt: "", schedule: "", scheduleDisplay: "running", state: "running", enabled: true, nextRunAt: nil, lastRunAt: nil, deliver: "", skills: [], latestExecution: nil)
+    }
+
+    func cronRemove(jobID: String) async throws {}
 }

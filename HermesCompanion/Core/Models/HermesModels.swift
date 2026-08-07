@@ -224,3 +224,51 @@ struct HermesTunnelStatus: Codable, Equatable {
     let localUrl: String
     let error: String
 }
+
+/// A scheduled cron job on the gateway.
+struct HermesCronJob: Codable, Equatable, Identifiable {
+    let id: String
+    let name: String
+    let prompt: String
+    let schedule: String
+    let scheduleDisplay: String
+    let state: String
+    let enabled: Bool
+    let nextRunAt: String?
+    let lastRunAt: String?
+    let deliver: String
+    let skills: [String]
+    let latestExecution: HermesCronExecution?
+
+    var isPaused: Bool {
+        state == "paused" || !enabled
+    }
+
+    var stateLabel: String {
+        switch state {
+        case "running": "Running now"
+        case "paused": "Paused"
+        case "completed": "Completed"
+        case "failed": "Failed"
+        default: "Scheduled"
+        }
+    }
+}
+
+struct HermesCronExecution: Codable, Equatable, Identifiable {
+    let id: String
+    let status: String
+    let startedAt: String?
+    let finishedAt: String?
+    let summary: String?
+
+    var statusLabel: String {
+        switch status {
+        case "running": "Running"
+        case "completed": "Completed"
+        case "failed": "Failed"
+        case "skipped": "Skipped"
+        default: status.isEmpty ? "—" : status.capitalized
+        }
+    }
+}

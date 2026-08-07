@@ -333,6 +333,41 @@ actor HTTPHermesTransport: HermesTransport {
         let _: MobileSessionActionResponse = try await post("api/mobile/tunnel/stop", body: EmptyBody())
     }
 
+    func fetchCronJobs() async throws -> [HermesCronJob] {
+        struct CronListResponse: Decodable {
+            let jobs: [HermesCronJob]
+        }
+        let response: CronListResponse = try await get("api/mobile/cron")
+        return response.jobs
+    }
+
+    func fetchCronExecutions(jobID: String) async throws -> [HermesCronExecution] {
+        struct CronExecutionsResponse: Decodable {
+            let executions: [HermesCronExecution]
+        }
+        let response: CronExecutionsResponse = try await get("api/mobile/cron/\(jobID)/executions")
+        return response.executions
+    }
+
+    func cronPause(jobID: String) async throws -> HermesCronJob {
+        let response: MobileCronActionResponse = try await post("api/mobile/cron/\(jobID)/pause", body: EmptyBody())
+        return response.job
+    }
+
+    func cronResume(jobID: String) async throws -> HermesCronJob {
+        let response: MobileCronActionResponse = try await post("api/mobile/cron/\(jobID)/resume", body: EmptyBody())
+        return response.job
+    }
+
+    func cronRun(jobID: String) async throws -> HermesCronJob {
+        let response: MobileCronActionResponse = try await post("api/mobile/cron/\(jobID)/run", body: EmptyBody())
+        return response.job
+    }
+
+    func cronRemove(jobID: String) async throws {
+        let _: MobileSessionActionResponse = try await post("api/mobile/cron/\(jobID)/remove", body: EmptyBody())
+    }
+
     func uploadAttachment(fileURL: URL) async throws -> String {
         guard let baseURL else { throw HermesTransportError.notConnected }
         let data = try Data(contentsOf: fileURL)
@@ -491,4 +526,8 @@ private struct MobileDesktopFileAttachmentRequest: Encodable {
 
 private struct MobileSessionActionResponse: Decodable {
     let ok: Bool
+}
+
+private struct MobileCronActionResponse: Decodable {
+    let job: HermesCronJob
 }
