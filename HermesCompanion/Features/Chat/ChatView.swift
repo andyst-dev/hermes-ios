@@ -389,6 +389,7 @@ private struct ToolCallCard: View {
 
 private struct ComposerView: View {
     @EnvironmentObject private var store: AppStore
+    @StateObject private var voice = VoiceTranscriber()
     @State private var showingPhotoPicker = false
     @State private var showingDesktopFiles = false
     @State private var showingFilesImporter = false
@@ -458,6 +459,27 @@ private struct ComposerView: View {
                     .foregroundStyle(HermesTheme.ink)
                     .textInputAutocapitalization(.sentences)
                     .frame(minHeight: 28, alignment: .center)
+
+                Button {
+                    if voice.isRecording {
+                        voice.stop()
+                    } else {
+                        voice.start { text in
+                            if store.composerText.isEmpty {
+                                store.composerText = text
+                            } else {
+                                store.composerText += " " + text
+                            }
+                        }
+                    }
+                } label: {
+                    Image(systemName: voice.isRecording ? "stop.circle.fill" : "mic.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(width: 28, height: 28)
+                        .foregroundStyle(voice.isRecording ? HermesTheme.red : HermesTheme.sendReady)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Voice input")
 
                 Button {
                     Task { await store.sendComposer() }

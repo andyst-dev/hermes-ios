@@ -214,3 +214,13 @@ struct HermesCapabilitySnapshot: Codable, Equatable {
     var approvals: [HermesApproval]
     var tools: [String]
 }
+
+/// Remote tunnel state (cloudflared quick tunnel / ngrok — no VPN).
+struct HermesTunnelStatus: Codable, Equatable {
+    let ok: Bool
+    let active: Bool
+    let provider: String
+    let publicUrl: String
+    let localUrl: String
+    let error: String
+}

@@ -321,6 +321,18 @@ actor HTTPHermesTransport: HermesTransport {
         try await post("api/mobile/files/attach", body: MobileDesktopFileAttachmentRequest(path: path))
     }
 
+    func tunnelStatus() async throws -> HermesTunnelStatus {
+        try await get("api/mobile/tunnel/status")
+    }
+
+    func tunnelStart() async throws -> HermesTunnelStatus {
+        try await post("api/mobile/tunnel/start", body: EmptyBody())
+    }
+
+    func tunnelStop() async throws {
+        let _: MobileSessionActionResponse = try await post("api/mobile/tunnel/stop", body: EmptyBody())
+    }
+
     func uploadAttachment(fileURL: URL) async throws -> String {
         guard let baseURL else { throw HermesTransportError.notConnected }
         let data = try Data(contentsOf: fileURL)

@@ -39,6 +39,7 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         NSCameraUsageDescription: Hermes uses the camera to scan a Desktop pairing QR when you choose to connect.
         NSMicrophoneUsageDescription: Hermes can record voice prompts when you choose voice input.
+        NSSpeechRecognitionUsageDescription: Hermes transcribes your voice prompt on-device when you use voice input.
         NSPhotoLibraryUsageDescription: Hermes can attach selected images to prompts.
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true

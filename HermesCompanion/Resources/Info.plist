@@ -29,6 +29,8 @@
 	<string>Hermes uses the camera to scan a Desktop pairing QR when you choose to connect.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Hermes can record voice prompts when you choose voice input.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Hermes transcribes your voice prompt on-device when you use voice input.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Hermes can attach selected images to prompts.</string>
 	<key>UILaunchScreen</key>

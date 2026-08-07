@@ -252,3 +252,74 @@ def test_rename_pin_archive(client):
     archived = client.post("/api/mobile/sessions/20260805_real/archive", json={"archived": True})
     assert archived.status_code == 200
     assert archived.json()["archived"] is True
+
+
+# ---------------------------------------------------------------------------
+# Remote tunnel routes (cloudflared / ngrok — no VPN, no Tailscale)
+# ---------------------------------------------------------------------------
+
+
+class _FakeTunnelProc:
+    """Minimal stand-in for asyncio.subprocess.Process (terminate/wait/kill)."""
+
+    def __init__(self) -> None:
+        self.returncode = None
+
+    def terminate(self) -> None:
+        self.returncode = -15
+
+    def kill(self) -> None:
+        self.returncode = -9
+
+    async def wait(self) -> int:
+        return self.returncode or 0
+
+
+async def _fake_spawn(bin_path: str, local_url: str):
+    return ("cloudflared", _FakeTunnelProc(), "https://abc123.trycloudflare.com")
+
+
+def test_bridge_tunnel_status_idle(client):
+    client.post("/api/mobile/tunnel/stop")  # clean state
+    resp = client.get("/api/mobile/tunnel/status")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ok"] is True
+    assert data["active"] is False
+    assert data["publicUrl"] == ""
+    assert data["localUrl"] == "http://127.0.0.1:8766"
+
+
+def test_bridge_tunnel_start_missing_binary(client, monkeypatch):
+    client.post("/api/mobile/tunnel/stop")
+    monkeypatch.setattr(bridge_main, "_find_tunnel_bin", lambda: None)
+    resp = client.post("/api/mobile/tunnel/start")
+    assert resp.status_code == 400
+    assert "cloudflared" in resp.json()["detail"]
+
+
+def test_bridge_tunnel_start_stop_flow(client, monkeypatch):
+    client.post("/api/mobile/tunnel/stop")
+    monkeypatch.setattr(bridge_main, "_find_tunnel_bin", lambda: "/usr/local/bin/cloudflared")
+    monkeypatch.setattr(bridge_main, "_spawn_tunnel", _fake_spawn)
+
+    resp = client.post("/api/mobile/tunnel/start")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ok"] is True
+    assert data["active"] is True
+    assert data["provider"] == "cloudflared"
+    assert data["publicUrl"] == "https://abc123.trycloudflare.com"
+
+    # A bridge-owned reverse proxy is listening on an ephemeral loopback port.
+    proxy = bridge_main._tunnel_proxy
+    assert proxy is not None
+    assert proxy.port > 0
+
+    status = client.get("/api/mobile/tunnel/status").json()
+    assert status["active"] is True
+
+    stop = client.post("/api/mobile/tunnel/stop").json()
+    assert stop["stopped"] is True
+    assert bridge_main._tunnel_proxy is None
+    assert client.get("/api/mobile/tunnel/status").json()["active"] is False

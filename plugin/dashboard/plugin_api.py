@@ -1232,7 +1232,13 @@ class _TunnelProxy:
         up_headers["host"] = urlparse(self._target).netloc
         up_headers["x-forwarded-host"] = headers.get("host", "")
         up_headers["x-forwarded-proto"] = "https"
-        async with client.stream(method, self._target + raw_path, headers=up_headers, content=body) as resp:
+        # The iOS app speaks /api/mobile/*; the dashboard serves the plugin
+        # under /api/plugins/hermes-mobile/* — map so the tunnel serves the
+        # app as-is (web UI paths pass through untouched).
+        up_path = raw_path
+        if up_path.startswith("/api/mobile/"):
+            up_path = "/api/plugins/hermes-mobile/" + up_path[len("/api/mobile/") :]
+        async with client.stream(method, self._target + up_path, headers=up_headers, content=body) as resp:
             status_line = f"HTTP/1.1 {resp.status_code} {resp.reason_phrase or ''}\r\n"
             writer.write(status_line.encode("latin-1"))
             for key, value in resp.headers.items():

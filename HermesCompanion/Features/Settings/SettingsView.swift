@@ -37,6 +37,39 @@ struct SettingsView: View {
                         }
                     }
 
+                    HermesMobileSection(title: "Remote access", icon: "network", accent: HermesTheme.primary) {
+                        HermesMobileRow(
+                            title: store.tunnelStatus.active ? "Tunnel active" : "Tunnel off",
+                            subtitle: store.tunnelStatus.active
+                                ? store.tunnelStatus.publicUrl
+                                : "Pair from anywhere — no VPN",
+                            icon: "globe",
+                            accent: store.tunnelStatus.active ? HermesTheme.green : HermesTheme.mutedForeground
+                        )
+                        if !store.tunnelStatus.error.isEmpty {
+                            Text(store.tunnelStatus.error)
+                                .font(.system(size: 11))
+                                .foregroundStyle(HermesTheme.red)
+                                .padding(.horizontal, 10)
+                        }
+                        if store.tunnelStatus.active {
+                            SettingsButtonRow(title: "Copy public URL", subtitle: "Pair from anywhere with this link", icon: "doc.on.doc", accent: HermesTheme.green) {
+                                UIPasteboard.general.string = store.tunnelStatus.publicUrl
+                                actionStatus = "Public URL copied."
+                            }
+                            SettingsButtonRow(title: "Stop remote access", subtitle: "Close the tunnel", icon: "xmark.circle", accent: HermesTheme.warm) {
+                                Task { await store.stopTunnel() }
+                            }
+                        } else {
+                            SettingsButtonRow(title: "Start remote access", subtitle: "Open a public HTTPS tunnel (cloudflared)", icon: "globe.europe.africa.fill", accent: HermesTheme.primary) {
+                                Task { await store.startTunnel() }
+                            }
+                        }
+                    }
+                    .onAppear {
+                        Task { await store.refreshTunnelStatus() }
+                    }
+
                     HermesMobileSection(title: "Privacy", icon: "eye.slash", accent: HermesTheme.warm) {
                         HStack(spacing: 10) {
                             Image(systemName: "eye.slash")

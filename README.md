@@ -17,7 +17,8 @@ Working remote client, not a mock. The app connects over HTTP to the Hermes dash
 - **Photo attachments** — pick from the photo library or from desktop-managed files; images upload to the bridge and reach the agent as `--image` inputs.
 - **Desktop files** — browse and preview text files managed by the desktop policy (sensitive paths hidden).
 - **Command palette** — new chat, continue last task, stop running turn, privacy mode, refresh.
-- **Remote tunnel (no VPN, no Tailscale)** — `POST /tunnel/start` opens an outbound HTTPS tunnel (cloudflared quick tunnel, no account; ngrok fallback) and the pairing QR embeds the public URL, so a real iPhone can pair from anywhere. `GET /tunnel/status` / `POST /tunnel/stop` manage it. The tunnel points at a plugin-owned reverse proxy that rewrites the Host header back to loopback, so the core Host-header guard (DNS-rebinding defence) never sees the public hostname — **no core patch needed**. The session token still protects every route.
+- **Remote tunnel (no VPN, no Tailscale)** — `POST /tunnel/start` opens an outbound HTTPS tunnel (cloudflared quick tunnel, no account; ngrok fallback) and the pairing QR embeds the public URL, so a real iPhone can pair from anywhere. `GET /tunnel/status` / `POST /tunnel/stop` manage it — and Settings has a **Remote access** section to start/stop it straight from the phone and copy the public URL. The tunnel points at a plugin-owned reverse proxy that rewrites the Host header back to loopback (and maps `/api/mobile/*` onto the plugin mount point), so the core Host-header guard (DNS-rebinding defence) never sees the public hostname — **no core patch needed**. The session token still protects every route.
+- **Voice input** — tap the mic in the composer and speak; dictation runs on-device (SFSpeechRecognizer) and lands in the composer as typed text. No backend change, works offline.
 - **Inspector (per conversation)** — session metadata, tools actually used in this conversation, rename/archive.
 - **Markdown rendering** — code blocks, inline code, and monospace commands render properly in chat.
 
@@ -40,7 +41,7 @@ hermes-ios
 │       └── plugin_api.py # 24 mobile routes, ACP engine, dashboard proxy, remote tunnel
 ├── bridge/               # Standalone backend bridge (same code as plugin, dev server)
 │   ├── hermes_mobile_bridge/  # main.py (routes), acp_client.py (ACP), dashboard.py (proxy)
-│   └── tests/            # fake hermes-acp stdio server + mocked dashboard (31 tests)
+│   └── tests/            # fake hermes-acp stdio server + mocked dashboard (34 tests)
 └── docs/                 # Mobile API contract
 ```
 

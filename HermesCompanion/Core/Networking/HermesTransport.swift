@@ -24,6 +24,11 @@ protocol HermesTransport: Sendable {
     func archiveSession(id: String) async throws
     func uploadAttachment(fileURL: URL) async throws -> String
     func attachDesktopFile(path: String) async throws -> HermesDesktopAttachment
+    /// Remote access tunnel (cloudflared quick tunnel / ngrok) — lets the
+    /// iPhone reach the desktop from outside the LAN, no VPN.
+    func tunnelStatus() async throws -> HermesTunnelStatus
+    func tunnelStart() async throws -> HermesTunnelStatus
+    func tunnelStop() async throws
 }
 
 enum HermesTransportError: Error, LocalizedError {

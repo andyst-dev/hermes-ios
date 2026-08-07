@@ -112,4 +112,21 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
     }
 
     func stop(sessionID: String) async throws {}
+
+    func tunnelStatus() async throws -> HermesTunnelStatus {
+        HermesTunnelStatus(ok: true, active: false, provider: "", publicUrl: "", localUrl: "http://127.0.0.1:8765", error: "")
+    }
+
+    func tunnelStart() async throws -> HermesTunnelStatus {
+        HermesTunnelStatus(
+            ok: true,
+            active: true,
+            provider: "cloudflared",
+            publicUrl: "https://demo-mock.trycloudflare.com",
+            localUrl: "http://127.0.0.1:8765",
+            error: ""
+        )
+    }
+
+    func tunnelStop() async throws {}
 }

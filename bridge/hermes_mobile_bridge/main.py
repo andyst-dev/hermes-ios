@@ -15,11 +15,16 @@ The same code path serves both; no Hermes core is patched either way.
 from __future__ import annotations
 
 import asyncio
+import atexit
 import json
 import logging
 import os
+import re
+import shutil
+import time
 import uuid
 from typing import Any, Optional
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -503,6 +508,289 @@ async def mobile_files_read(path: str) -> dict[str, Any]:
     if truncated:
         content = content[:200_000]
     return {"name": name, "content": content, "truncated": truncated}
+
+
+# ---------------------------------------------------------------------------
+# Remote tunnel (Cloudflare quick tunnel / ngrok) — outbound HTTPS, no VPN.
+#
+# Lets the iPhone reach the bridge from outside the LAN without Tailscale or
+# port-forwarding. The tunnel points at a bridge-owned reverse proxy that
+# forwards back to this bridge on loopback — the bridge has no Host-header
+# guard, so no header rewriting is needed here.
+# ---------------------------------------------------------------------------
+
+_TUNNEL_URL_RE = re.compile(
+    r"https://[a-z0-9-]+\.(?:trycloudflare\.com|ngrok-free\.app|ngrok\.app|ngrok\.io)"
+)
+
+_tunnel_proc: Optional["asyncio.subprocess.Process"] = None
+_tunnel_proxy: Optional["_TunnelProxy"] = None
+_tunnel_url: str = ""
+_tunnel_provider: str = ""
+_tunnel_error: str = ""
+
+
+def _find_tunnel_bin() -> Optional[str]:
+    """cloudflared preferred (quick tunnels need no account); ngrok fallback."""
+    override = os.environ.get("HERMES_MOBILE_TUNNEL_BIN", "").strip()
+    if override:
+        return override if shutil.which(override) else None
+    for name in ("cloudflared", "ngrok"):
+        if shutil.which(name):
+            return name
+    return None
+
+
+def _local_bridge_url() -> str:
+    return os.environ.get("HERMES_MOBILE_BRIDGE_URL", "http://127.0.0.1:8766").rstrip("/")
+
+
+class TunnelStartError(RuntimeError):
+    """Tunnel binary started but never published a public URL."""
+
+
+class _TunnelProxy:
+    """Minimal HTTP/1.1 reverse proxy — the tunnel's local entry point.
+
+    cloudflared/ngrok forward the public HTTPS traffic here; the proxy
+    forwards it back to this bridge on loopback. Everything lives in the
+    bridge: no core patch needed.
+    """
+
+    def __init__(self, target: str) -> None:
+        self._target = target.rstrip("/")
+        self._server: Optional[asyncio.AbstractServer] = None
+        self._client: Optional[Any] = None
+        self.port: int = 0
+
+    async def start(self) -> int:
+        import httpx
+
+        # No read timeout: SSE chat streams run until the turn ends.
+        self._client = httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=10.0, read=None, write=None, pool=10.0)
+        )
+        self._server = await asyncio.start_server(self._handle, "127.0.0.1", 0)
+        assert self._server.sockets
+        self.port = self._server.sockets[0].getsockname()[1]
+        return self.port
+
+    async def stop(self) -> None:
+        server: Optional[asyncio.AbstractServer] = self._server
+        self._server = None
+        if server is not None:
+            server.close()
+            await server.wait_closed()
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None
+
+    async def _handle(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
+        try:
+            await self._relay(reader, writer)
+        except Exception:  # pragma: no cover — proxy must never take the bridge down
+            logger.debug("proxy relay error", exc_info=True)
+        finally:
+            try:
+                writer.close()
+            except Exception:
+                pass
+
+    async def _relay(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
+        request_line = await reader.readline()
+        if not request_line:
+            return
+        parts = request_line.decode("latin-1").strip().split(" ", 2)
+        if len(parts) != 3:
+            return
+        method, raw_path, _version = parts
+        headers: dict[str, str] = {}
+        while True:
+            line = await reader.readline()
+            if line in (b"\r\n", b"\n", b""):
+                break
+            name, _, value = line.decode("latin-1").partition(":")
+            headers[name.strip().lower()] = value.strip()
+        content_length = int(headers.get("content-length", "0") or 0)
+        body = await reader.readexactly(content_length) if content_length else b""
+
+        client = self._client
+        if client is None:
+            return
+        up_headers = {
+            k: v
+            for k, v in headers.items()
+            if k not in ("host", "content-length", "connection", "keep-alive")
+        }
+        up_headers["host"] = urlparse(self._target).netloc
+        up_headers["x-forwarded-host"] = headers.get("host", "")
+        up_headers["x-forwarded-proto"] = "https"
+        async with client.stream(method, self._target + raw_path, headers=up_headers, content=body) as resp:
+            status_line = f"HTTP/1.1 {resp.status_code} {resp.reason_phrase or ''}\r\n"
+            writer.write(status_line.encode("latin-1"))
+            for key, value in resp.headers.items():
+                if key.lower() in ("transfer-encoding", "connection", "keep-alive"):
+                    continue
+                writer.write(f"{key}: {value}\r\n".encode("latin-1"))
+            writer.write(b"\r\n")
+            await writer.drain()
+            async for chunk in resp.aiter_raw():
+                writer.write(chunk)
+                await writer.drain()
+
+
+async def _spawn_tunnel(
+    bin_path: str, local_url: str
+) -> tuple[str, "asyncio.subprocess.Process", str]:
+    """Spawn the tunnel process and wait for its public URL."""
+    provider = os.path.basename(bin_path)
+    if provider == "ngrok":
+        cmd = [bin_path, "http", local_url, "--log=stdout"]
+    else:  # cloudflared — no account, no config, random trycloudflare URL
+        cmd = [bin_path, "tunnel", "--url", local_url, "--no-autoupdate"]
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+    )
+    stdout = proc.stdout
+    assert stdout is not None  # we always pass stdout=PIPE above
+    seen: list[str] = []
+    deadline = time.monotonic() + 30.0
+    try:
+        while time.monotonic() < deadline:
+            try:
+                raw = await asyncio.wait_for(stdout.readline(), timeout=3.0)
+            except asyncio.TimeoutError:
+                continue  # still waiting for the URL, keep polling
+            if not raw:
+                break  # process exited before publishing a URL
+            text = raw.decode(errors="replace").strip()
+            seen.append(text)
+            match = _TUNNEL_URL_RE.search(text)
+            if match:
+                return provider, proc, match.group(0)
+    except Exception:
+        pass
+    # Failure: kill and report what the binary said.
+    try:
+        proc.kill()
+    except Exception:
+        pass
+    tail = " | ".join(seen[-4:]) or "(no output)"
+    raise TunnelStartError(
+        f"Tunnel ({provider}) never published a public URL within 30s. Output: {tail[:300]}"
+    )
+
+
+async def _cleanup_tunnel() -> None:
+    global _tunnel_proc, _tunnel_url, _tunnel_provider, _tunnel_error, _tunnel_proxy
+    proc, _tunnel_proc = _tunnel_proc, None
+    proxy, _tunnel_proxy = _tunnel_proxy, None
+    _tunnel_url = ""
+    _tunnel_provider = ""
+    _tunnel_error = ""
+    if proxy is not None:
+        await proxy.stop()
+    if proc is None or proc.returncode is not None:
+        return
+    try:
+        proc.terminate()
+        await asyncio.wait_for(proc.wait(), timeout=5.0)
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+
+
+def _atexit_kill_tunnel() -> None:
+    proc = globals().get("_tunnel_proc")
+    if proc is not None and getattr(proc, "returncode", 0) is None:
+        try:
+            proc.terminate()
+        except Exception:
+            pass
+
+
+atexit.register(_atexit_kill_tunnel)
+
+
+@mobile_router.get("/tunnel/status")
+async def mobile_tunnel_status() -> dict[str, Any]:
+    active = _tunnel_proc is not None and _tunnel_proc.returncode is None
+    return {
+        "ok": True,
+        "active": active,
+        "provider": _tunnel_provider if active else "",
+        "publicUrl": _tunnel_url if active else "",
+        "localUrl": _local_bridge_url(),
+        "error": _tunnel_error if not active else "",
+    }
+
+
+@mobile_router.post("/tunnel/start")
+async def mobile_tunnel_start() -> dict[str, Any]:
+    """Open a public HTTPS tunnel to this bridge. Fail-closed: 400 if no
+    tunnel binary is installed, 502 if the binary never published a URL."""
+    global _tunnel_proc, _tunnel_provider, _tunnel_url, _tunnel_error, _tunnel_proxy
+    if _tunnel_proc is not None:
+        if _tunnel_proc.returncode is None:
+            return {
+                "ok": True,
+                "active": True,
+                "provider": _tunnel_provider,
+                "publicUrl": _tunnel_url,
+            }
+        await _cleanup_tunnel()  # stale/exited process
+    bin_path = _find_tunnel_bin()
+    if not bin_path:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "No tunnel binary found. Install one: "
+                "'brew install cloudflared' (recommended — quick tunnels "
+                "need no account) or 'brew install ngrok'."
+            ),
+        )
+    proxy = _TunnelProxy(_local_bridge_url())
+    try:
+        proxy_port = await proxy.start()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Could not start local proxy: {exc}"
+        ) from exc
+    try:
+        provider, proc, public_url = await _spawn_tunnel(
+            bin_path, f"http://127.0.0.1:{proxy_port}"
+        )
+    except TunnelStartError as exc:
+        await proxy.stop()
+        _tunnel_error = str(exc)
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    _tunnel_proc = proc
+    _tunnel_proxy = proxy
+    _tunnel_provider = provider
+    _tunnel_url = public_url
+    _tunnel_error = ""
+    return {
+        "ok": True,
+        "active": True,
+        "provider": provider,
+        "publicUrl": public_url,
+        "proxyPort": proxy_port,
+    }
+
+
+@mobile_router.post("/tunnel/stop")
+async def mobile_tunnel_stop() -> dict[str, Any]:
+    was_active = _tunnel_proc is not None and _tunnel_proc.returncode is None
+    await _cleanup_tunnel()
+    return {"ok": True, "stopped": was_active}
 
 
 # ---------------------------------------------------------------------------

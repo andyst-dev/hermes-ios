@@ -16,6 +16,7 @@ final class AppStore: ObservableObject {
     @Published var pendingAttachments: [OutboundPrompt.Attachment] = []
     @Published var pendingApproval: ApprovalRequest?
     @Published var reasoningEffort = HermesReasoningEffort(effort: "medium", options: HermesReasoningEffort.defaultOptions)
+    @Published var tunnelStatus = HermesTunnelStatus(ok: true, active: false, provider: "", publicUrl: "", localUrl: "", error: "")
 
     private let client: HermesClient
 
@@ -228,6 +229,35 @@ final class AppStore: ObservableObject {
             KeychainStore.deleteToken()
             UserDefaults.standard.removeObject(forKey: "hermes.host")
             UserDefaults.standard.removeObject(forKey: "hermes.profile")
+        }
+    }
+
+    // -- remote tunnel -------------------------------------------------
+
+    func refreshTunnelStatus() async {
+        guard case .connected = connection else { return }
+        do {
+            tunnelStatus = try await client.tunnelStatus()
+        } catch {
+            // Tunnel routes only exist on a current plugin/bridge — ignore
+            // when the backend predates them.
+        }
+    }
+
+    func startTunnel() async {
+        do {
+            tunnelStatus = try await client.tunnelStart()
+        } catch {
+            tunnelStatus = HermesTunnelStatus(ok: false, active: false, provider: "", publicUrl: "", localUrl: "", error: error.localizedDescription)
+        }
+    }
+
+    func stopTunnel() async {
+        do {
+            try await client.tunnelStop()
+            tunnelStatus = HermesTunnelStatus(ok: true, active: false, provider: "", publicUrl: "", localUrl: "", error: "")
+        } catch {
+            tunnelStatus = HermesTunnelStatus(ok: false, active: false, provider: "", publicUrl: "", localUrl: "", error: error.localizedDescription)
         }
     }
 

@@ -454,7 +454,8 @@ def test_tunnel_proxy_rewrites_host_header():
         received: dict[str, str] = {}
 
         async def target_handler(reader, writer):
-            await reader.readline()  # request line
+            line = await reader.readline()
+            received["path"] = line.decode("latin-1").strip().split(" ", 2)[1]
             while True:
                 line = await reader.readline()
                 if line in (b"\r\n", b"\n", b""):
@@ -471,13 +472,25 @@ def test_tunnel_proxy_rewrites_host_header():
         proxy = plugin._TunnelProxy(f"http://127.0.0.1:{tport}")
         pport = await proxy.start()
         try:
+            # 1) Foreign Host header is rewritten back to the target's loopback.
             reader, writer = await asyncio.open_connection("127.0.0.1", pport)
             writer.write(
                 b"GET /api/plugins/hermes-mobile/health HTTP/1.1\r\n"
                 b"Host: evil.trycloudflare.com\r\n\r\n"
             )
             await writer.drain()
-            response = await reader.read(64)
+            await reader.read(64)
+            writer.close()
+
+            # 2) The iOS app speaks /api/mobile/*; the proxy maps it onto the
+            #    plugin mount point so the tunnel serves the app as-is.
+            reader, writer = await asyncio.open_connection("127.0.0.1", pport)
+            writer.write(
+                b"GET /api/mobile/sessions HTTP/1.1\r\n"
+                b"Host: evil.trycloudflare.com\r\n\r\n"
+            )
+            await writer.drain()
+            await reader.read(64)
             writer.close()
         finally:
             await proxy.stop()
@@ -485,7 +498,7 @@ def test_tunnel_proxy_rewrites_host_header():
             await target.wait_closed()
 
         assert received.get("host") == f"127.0.0.1:{tport}"
-        assert b"200 OK" in response
+        assert received.get("path") == "/api/plugins/hermes-mobile/sessions"
 
     import asyncio
 

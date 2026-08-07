@@ -87,4 +87,16 @@ final class HermesClient: ObservableObject {
     func attachDesktopFile(path: String) async throws -> HermesDesktopAttachment {
         try await transport.attachDesktopFile(path: path)
     }
+
+    func tunnelStatus() async throws -> HermesTunnelStatus {
+        try await transport.tunnelStatus()
+    }
+
+    func tunnelStart() async throws -> HermesTunnelStatus {
+        try await transport.tunnelStart()
+    }
+
+    func tunnelStop() async throws {
+        try await transport.tunnelStop()
+    }
 }
