@@ -40,6 +40,11 @@ protocol HermesTransport: Sendable {
     /// Background-alert poll: approvals waiting for a phone verdict + cron
     /// runs that just finished (drives local notifications, no APNs).
     func fetchPendingNotifications() async throws -> HermesPendingNotifications
+    /// Skills catalog and persistent memory (read) + memory append.
+    func fetchSkills() async throws -> [HermesSkill]
+    func fetchSkill(name: String) async throws -> HermesSkill
+    func fetchMemory() async throws -> HermesMemory
+    func appendMemory(target: String, content: String) async throws -> [HermesMemoryEntry]
 }
 
 enum HermesTransportError: Error, LocalizedError {

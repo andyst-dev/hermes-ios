@@ -5,6 +5,7 @@ struct SettingsView: View {
     @State private var showingModels = false
     @State private var showingFiles = false
     @State private var showingCron = false
+    @State private var showingSkillsMemory = false
     @State private var showingForgetPairingAlert = false
     @State private var actionStatus: String?
 
@@ -31,6 +32,9 @@ struct SettingsView: View {
                         }
                         SettingsButtonRow(title: "Cron jobs", subtitle: "Scheduled gateway jobs", icon: "clock.badge.checkmark", accent: HermesTheme.primary) {
                             showingCron = true
+                        }
+                        SettingsButtonRow(title: "Skills & memory", subtitle: "Desktop agent skills and persistent memory", icon: "brain.head.profile", accent: HermesTheme.primary) {
+                            showingSkillsMemory = true
                         }
                         SettingsButtonRow(title: "Copy desktop URL", subtitle: copyURLSubtitle, icon: "doc.on.doc", accent: HermesTheme.mutedForeground) {
                             copyDesktopURL()
@@ -73,6 +77,7 @@ struct SettingsView: View {
                     .onAppear {
                         Task { await store.refreshTunnelStatus() }
                         Task { await store.refreshCron() }
+                        Task { await store.refreshSkillsMemory() }
                     }
 
                     HermesMobileSection(title: "Privacy", icon: "eye.slash", accent: HermesTheme.warm) {
@@ -133,6 +138,10 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showingCron) {
             CronJobsView()
+                .environmentObject(store)
+        }
+        .sheet(isPresented: $showingSkillsMemory) {
+            SkillsMemoryView()
                 .environmentObject(store)
         }
         .alert("Forget pairing?", isPresented: $showingForgetPairingAlert) {

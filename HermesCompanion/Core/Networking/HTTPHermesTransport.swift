@@ -372,6 +372,37 @@ actor HTTPHermesTransport: HermesTransport {
         try await get("api/mobile/notifications/pending", timeout: 20)
     }
 
+    func fetchSkills() async throws -> [HermesSkill] {
+        struct SkillsResponse: Decodable {
+            let skills: [HermesSkill]
+        }
+        let response: SkillsResponse = try await get("api/mobile/skills", timeout: 20)
+        return response.skills
+    }
+
+    func fetchSkill(name: String) async throws -> HermesSkill {
+        struct SkillResponse: Decodable {
+            let skill: HermesSkill
+        }
+        let response: SkillResponse = try await get("api/mobile/skills/\(name)", timeout: 20)
+        return response.skill
+    }
+
+    func fetchMemory() async throws -> HermesMemory {
+        try await get("api/mobile/memory", timeout: 20)
+    }
+
+    func appendMemory(target: String, content: String) async throws -> [HermesMemoryEntry] {
+        struct MemoryAppendResponse: Decodable {
+            let entries: [HermesMemoryEntry]
+        }
+        let response: MemoryAppendResponse = try await post(
+            "api/mobile/memory",
+            body: MobileMemoryAppendRequest(target: target, content: content)
+        )
+        return response.entries
+    }
+
     func uploadAttachment(fileURL: URL) async throws -> String {
         guard let baseURL else { throw HermesTransportError.notConnected }
         let data = try Data(contentsOf: fileURL)
@@ -534,4 +565,9 @@ private struct MobileSessionActionResponse: Decodable {
 
 private struct MobileCronActionResponse: Decodable {
     let job: HermesCronJob
+}
+
+private struct MobileMemoryAppendRequest: Encodable {
+    let target: String
+    let content: String
 }

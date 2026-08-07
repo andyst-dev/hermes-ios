@@ -19,6 +19,8 @@ final class AppStore: ObservableObject {
     @Published var tunnelStatus = HermesTunnelStatus(ok: true, active: false, provider: "", publicUrl: "", localUrl: "", error: "")
     @Published var cronJobs: [HermesCronJob] = []
     @Published var cronUnavailable = false
+    @Published var skills: [HermesSkill] = []
+    @Published var memory = HermesMemory(ok: true, memory: [], user: [])
 
     private let client: HermesClient
 
@@ -318,6 +320,35 @@ final class AppStore: ObservableObject {
     /// Thin passthrough so CronJobsView can load a job's execution history.
     func cronExecutions(jobID: String) async throws -> [HermesCronExecution] {
         try await client.cronExecutions(jobID: jobID)
+    }
+
+    // -- skills & memory ----------------------------------------------------
+
+    func refreshSkillsMemory() async {
+        guard case .connected = connection else { return }
+        do {
+            async let skillsPromise = client.skills()
+            async let memoryPromise = client.memory()
+            let (skillsResult, memoryResult) = try await (skillsPromise, memoryPromise)
+            skills = skillsResult
+            memory = memoryResult
+        } catch {}
+    }
+
+    func skillDetail(name: String) async -> HermesSkill? {
+        try? await client.skill(name: name)
+    }
+
+    @discardableResult
+    func memoryAppend(target: String, content: String) async -> Bool {
+        guard let entries = try? await client.memoryAppend(target: target, content: content) else { return false }
+        switch target {
+        case "user":
+            memory.user = entries
+        default:
+            memory.memory = entries
+        }
+        return true
     }
 
     private func replaceCronJob(_ job: HermesCronJob) {

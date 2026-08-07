@@ -300,3 +300,27 @@ struct HermesRecentCronRun: Codable, Equatable, Identifiable {
         status == "completed" || status == "failed"
     }
 }
+
+/// A desktop skill (SKILL.md with YAML frontmatter).
+struct HermesSkill: Codable, Equatable, Identifiable {
+    let name: String
+    let category: String
+    let description: String
+    let body: String?
+
+    var id: String { name }
+}
+
+/// One persistent-memory entry (agent notes or user profile).
+struct HermesMemoryEntry: Codable, Equatable, Identifiable {
+    let index: Int
+    let content: String
+
+    var id: Int { index }
+}
+
+struct HermesMemory: Codable, Equatable {
+    let ok: Bool
+    var memory: [HermesMemoryEntry]
+    var user: [HermesMemoryEntry]
+}

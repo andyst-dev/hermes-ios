@@ -30,6 +30,7 @@ import secrets
 import shutil
 import time
 import uuid
+from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
@@ -1533,3 +1534,126 @@ async def mobile_notifications_pending() -> dict[str, Any]:
         pass  # cron store unreachable — approvals still matter
 
     return {"ok": True, "approvals": approvals, "recentCron": recent_cron}
+
+
+# ---------------------------------------------------------------------------
+# Skills & memory — read-only skill catalog, memory read + append. Paths come
+# from HERMES_HOME (default ~/.hermes) so tests can point at a temp dir.
+# ---------------------------------------------------------------------------
+
+
+_SKILLS_ROOT: str | None = None
+_MEMORIES_DIR: str | None = None
+
+
+def _hermes_home_dir() -> Path:
+    return Path(os.environ.get("HERMES_HOME", str(Path.home() / ".hermes")))
+
+
+def _skills_root_dir() -> Path:
+    if _SKILLS_ROOT:
+        return Path(_SKILLS_ROOT)
+    return _hermes_home_dir() / "skills"
+
+
+def _memories_root_dir() -> Path:
+    if _MEMORIES_DIR:
+        return Path(_MEMORIES_DIR)
+    return _hermes_home_dir() / "memories"
+
+
+def _parse_skill_md(path: Path) -> dict[str, str] | None:
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    name = path.parent.name
+    description = ""
+    body = text
+    if text.startswith("---"):
+        parts = text.split("---", 2)
+        if len(parts) == 3:
+            frontmatter = parts[1]
+            body = parts[2].lstrip("\n")
+            for line in frontmatter.splitlines():
+                line = line.strip()
+                if line.startswith("name:") and not name:
+                    name = line.split(":", 1)[1].strip().strip("\"'")
+                elif line.startswith("description:"):
+                    description = line.split(":", 1)[1].strip().strip("\"'")
+    return {"name": name, "description": description, "body": body}
+
+
+def _iter_skills() -> list[dict[str, str]]:
+    root = _skills_root_dir()
+    if not root.is_dir():
+        return []
+    skills = []
+    for category_dir in sorted(p for p in root.iterdir() if p.is_dir()):
+        for skill_dir in sorted(p for p in category_dir.iterdir() if p.is_dir()):
+            md = skill_dir / "SKILL.md"
+            if not md.is_file():
+                continue
+            parsed = _parse_skill_md(md)
+            if parsed is not None:
+                parsed["category"] = category_dir.name
+                skills.append(parsed)
+    return skills
+
+
+def _parse_memory_file(path: Path) -> list[dict[str, Any]]:
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+    entries = [e.strip() for e in re.split(r"\n\s*§\s*\n", text) if e.strip()]
+    return [{"index": i, "content": e} for i, e in enumerate(entries)]
+
+
+@router.get("/skills")
+async def mobile_skills_list() -> dict[str, Any]:
+    return {"ok": True, "skills": _iter_skills()}
+
+
+@router.get("/skills/{skill_name}")
+async def mobile_skill_detail(skill_name: str) -> dict[str, Any]:
+    for skill in _iter_skills():
+        if skill["name"] == skill_name:
+            return {"ok": True, "skill": skill}
+    raise HTTPException(status_code=404, detail=f"Unknown skill {skill_name}")
+
+
+@router.get("/memory")
+async def mobile_memory_get() -> dict[str, Any]:
+    root = _memories_root_dir()
+    return {
+        "ok": True,
+        "memory": _parse_memory_file(root / "MEMORY.md"),
+        "user": _parse_memory_file(root / "USER.md"),
+    }
+
+
+class _MemoryRequest(BaseModel):
+    target: str  # "memory" (agent notes) or "user" (user profile)
+    content: str
+
+
+@router.post("/memory")
+async def mobile_memory_append(body: _MemoryRequest) -> dict[str, Any]:
+    if body.target not in ("memory", "user"):
+        raise HTTPException(status_code=400, detail="target must be memory|user")
+    content = body.content.strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="content is empty")
+    path = _memories_root_dir() / ("MEMORY.md" if body.target == "memory" else "USER.md")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        existing = path.read_text(encoding="utf-8", errors="replace") if path.exists() else ""
+        with open(path, "a", encoding="utf-8") as fh:
+            if existing.strip():
+                fh.write("\n§\n" + content + "\n")
+            else:
+                fh.write(content + "\n")
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Could not write memory: {exc}") from exc
+    return {"ok": True, "target": body.target, "entries": _parse_memory_file(path)}

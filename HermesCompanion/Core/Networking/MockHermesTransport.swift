@@ -193,4 +193,33 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
             ]
         )
     }
+
+    func fetchSkills() async throws -> [HermesSkill] {
+        [
+            HermesSkill(name: "github-workflows", category: "github", description: "Use when working with GitHub repositories end-to-end: auth, PRs, issues.", body: "---\nname: github-workflows\n---\n\n# GitHub workflows\nStep-by-step GitHub automation.\n"),
+            HermesSkill(name: "pixel-art", category: "creative", description: "Convert images into retro pixel art.", body: nil),
+            HermesSkill(name: "arxiv", category: "research", description: "Search arXiv papers by keyword, author, category, or ID.", body: nil),
+        ]
+    }
+
+    func fetchSkill(name: String) async throws -> HermesSkill {
+        HermesSkill(name: name, category: "demo", description: "Demo skill detail", body: "# \(name)\n\nFull body content from the desktop SKILL.md.\n")
+    }
+
+    func fetchMemory() async throws -> HermesMemory {
+        HermesMemory(
+            ok: true,
+            memory: [
+                HermesMemoryEntry(index: 0, content: "GitHub CLI is authenticated on this Mac as andyst-dev."),
+                HermesMemoryEntry(index: 1, content: "User prefers vetted, tested narrow PRs."),
+            ],
+            user: [
+                HermesMemoryEntry(index: 0, content: "User communicates in informal French."),
+            ]
+        )
+    }
+
+    func appendMemory(target: String, content: String) async throws -> [HermesMemoryEntry] {
+        [HermesMemoryEntry(index: 2, content: content)]
+    }
 }

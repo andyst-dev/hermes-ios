@@ -632,3 +632,53 @@ def test_plugin_notifications_pending(client, monkeypatch):
     assert data["approvals"][0]["command"] == "rm -rf /tmp/x"
     assert len(data["recentCron"]) == 1
     assert data["recentCron"][0]["status"] == "completed"
+
+
+def test_plugin_skills_list_and_detail(client, tmp_path, monkeypatch):
+    skill_dir = tmp_path / "research" / "arxiv"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text(
+        "---\nname: arxiv\ndescription: Search arXiv papers by keyword.\n---\n\n# Body\nFull content here.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(plugin, "_SKILLS_ROOT", str(tmp_path))
+
+    listing = client.get("/api/plugins/hermes-mobile/skills")
+    assert listing.status_code == 200
+    skills = listing.json()["skills"]
+    assert len(skills) == 1
+    assert skills[0]["name"] == "arxiv"
+    assert skills[0]["category"] == "research"
+    assert "Search arXiv" in skills[0]["description"]
+
+    detail = client.get("/api/plugins/hermes-mobile/skills/arxiv")
+    assert detail.status_code == 200
+    assert "Full content here" in detail.json()["skill"]["body"]
+
+    assert client.get("/api/plugins/hermes-mobile/skills/nope").status_code == 404
+
+
+def test_plugin_memory_get_and_append(client, tmp_path, monkeypatch):
+    mem = tmp_path / "memories"
+    mem.mkdir(parents=True)
+    (mem / "MEMORY.md").write_text("First note\n§\nSecond note\n", encoding="utf-8")
+    (mem / "USER.md").write_text("User fact\n", encoding="utf-8")
+    monkeypatch.setattr(plugin, "_MEMORIES_DIR", str(mem))
+
+    listing = client.get("/api/plugins/hermes-mobile/memory")
+    assert listing.status_code == 200
+    data = listing.json()
+    assert len(data["memory"]) == 2
+    assert data["memory"][0]["content"] == "First note"
+    assert len(data["user"]) == 1
+
+    appended = client.post(
+        "/api/plugins/hermes-mobile/memory",
+        json={"target": "memory", "content": "Third note"},
+    )
+    assert appended.status_code == 200
+    assert len(appended.json()["entries"]) == 3
+    assert appended.json()["entries"][2]["content"] == "Third note"
+
+    bad = client.post("/api/plugins/hermes-mobile/memory", json={"target": "wat", "content": "x"})
+    assert bad.status_code == 400

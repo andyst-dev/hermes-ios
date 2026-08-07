@@ -20,6 +20,7 @@ Working remote client, not a mock. The app connects over HTTP to the Hermes dash
 - **Remote tunnel (no VPN, no Tailscale)** — `POST /tunnel/start` opens an outbound HTTPS tunnel (cloudflared quick tunnel, no account; ngrok fallback) and the pairing QR embeds the public URL, so a real iPhone can pair from anywhere. `GET /tunnel/status` / `POST /tunnel/stop` manage it — and Settings has a **Remote access** section to start/stop it straight from the phone and copy the public URL. The tunnel points at a plugin-owned reverse proxy that rewrites the Host header back to loopback (and maps `/api/mobile/*` onto the plugin mount point), so the core Host-header guard (DNS-rebinding defence) never sees the public hostname — **no core patch needed**. The session token still protects every route.
 - **Cron jobs** — browse the gateway's scheduled jobs, expand a job for its prompt, delivery target and recent runs, then pause/resume, run now or remove it straight from Settings → Cron jobs.
 - **Alerts without APNs** — a Background App Refresh task polls `/notifications/pending` (approvals waiting for a phone verdict, cron runs that just finished) and fires local notifications; approvals are also surfaced in-app right after connecting. No Apple Developer paid account, no APNs key. Note: iOS schedules background refreshes opportunistically, so this is alerting within minutes, not instant push.
+- **Skills & memory** — Settings → Skills & memory lists the desktop's skills (tap one for its full SKILL.md), reads the agent's persistent memory and user profile, and appends new entries straight from the phone.
 - **Voice input** — tap the mic in the composer and speak; dictation runs on-device (SFSpeechRecognizer) and lands in the composer as typed text. No backend change, works offline.
 - **Inspector (per conversation)** — session metadata, tools actually used in this conversation, rename/archive.
 - **Markdown rendering** — code blocks, inline code, and monospace commands render properly in chat.
@@ -40,10 +41,10 @@ hermes-ios
 │   ├── plugin.yaml
 │   └── dashboard/
 │       ├── manifest.json
-│       └── plugin_api.py # 31 mobile routes, ACP engine, dashboard proxy, remote tunnel, cron, alerts
+│       └── plugin_api.py # 35 mobile routes, ACP engine, dashboard proxy, remote tunnel, cron, alerts, skills/memory
 ├── bridge/               # Standalone backend bridge (same code as plugin, dev server)
 │   ├── hermes_mobile_bridge/  # main.py (routes), acp_client.py (ACP), dashboard.py (proxy)
-│   └── tests/            # fake hermes-acp stdio server + mocked dashboard (37 tests)
+│   └── tests/            # fake hermes-acp stdio server + mocked dashboard (39 tests)
 └── docs/                 # Mobile API contract
 ```
 

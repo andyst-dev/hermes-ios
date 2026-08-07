@@ -127,4 +127,20 @@ final class HermesClient: ObservableObject {
     func pendingNotifications() async throws -> HermesPendingNotifications {
         try await transport.fetchPendingNotifications()
     }
+
+    func skills() async throws -> [HermesSkill] {
+        try await transport.fetchSkills()
+    }
+
+    func skill(name: String) async throws -> HermesSkill {
+        try await transport.fetchSkill(name: name)
+    }
+
+    func memory() async throws -> HermesMemory {
+        try await transport.fetchMemory()
+    }
+
+    func memoryAppend(target: String, content: String) async throws -> [HermesMemoryEntry] {
+        try await transport.appendMemory(target: target, content: content)
+    }
 }
