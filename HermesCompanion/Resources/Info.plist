@@ -33,6 +33,10 @@
 	<string>Hermes transcribes your voice prompt on-device when you use voice input.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Hermes can attach selected images to prompts.</string>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>dev.hermes.companion.pending</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>

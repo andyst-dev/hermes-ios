@@ -52,9 +52,18 @@ final class AppStore: ObservableObject {
             try await refreshSessions()
             try await refreshCapabilities()
             await refreshReasoningEffort()
+            await checkPendingApprovals()
         } catch {
             connection = .failed(error.localizedDescription)
         }
+    }
+
+    /// Foreground alert poll — surfaces an approval that arrived while the
+    /// app was closed (and keeps the local-notification dedup state warm).
+    func checkPendingApprovals() async {
+        guard case .connected = connection else { return }
+        guard let approval = await NotificationManager.shared.checkInForeground(using: client) else { return }
+        pendingApproval = ApprovalRequest(id: approval.id, command: approval.command, description: approval.command)
     }
 
     func refreshSessions() async throws {

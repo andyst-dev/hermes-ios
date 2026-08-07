@@ -41,6 +41,8 @@ targets:
         NSMicrophoneUsageDescription: Hermes can record voice prompts when you choose voice input.
         NSSpeechRecognitionUsageDescription: Hermes transcribes your voice prompt on-device when you use voice input.
         NSPhotoLibraryUsageDescription: Hermes can attach selected images to prompts.
+        BGTaskSchedulerPermittedIdentifiers:
+          - dev.hermes.companion.pending
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
   HermesCompanionTests:

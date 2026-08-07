@@ -123,4 +123,8 @@ final class HermesClient: ObservableObject {
     func cronRemove(jobID: String) async throws {
         try await transport.cronRemove(jobID: jobID)
     }
+
+    func pendingNotifications() async throws -> HermesPendingNotifications {
+        try await transport.fetchPendingNotifications()
+    }
 }

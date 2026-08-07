@@ -183,4 +183,14 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
     }
 
     func cronRemove(jobID: String) async throws {}
+
+    func fetchPendingNotifications() async throws -> HermesPendingNotifications {
+        HermesPendingNotifications(
+            ok: true,
+            approvals: [HermesPendingApproval(id: "appr-demo", sessionID: "sess-demo", command: "brew upgrade --all")],
+            recentCron: [
+                HermesRecentCronRun(jobID: "daily-briefing", status: "completed", claimedAt: "2026-08-08T08:00:00+02:00", finishedAt: "2026-08-08T08:00:30+02:00", summary: "Delivered to telegram:Home")
+            ]
+        )
+    }
 }

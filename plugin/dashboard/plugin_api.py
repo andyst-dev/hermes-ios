@@ -91,7 +91,7 @@ class PluginACPEngine:
         self._active_hermes_session: str | None = None
         self._turn_queues: dict[str, "asyncio.Queue[dict]"] = {}
         self._pending_permissions: dict[str, asyncio.Future] = {}
-        self._approval_map: dict[str, str] = {}
+        self._approval_map: dict[str, dict[str, str]] = {}
         self._active_turn: asyncio.Task | None = None
         self._turn_session: str | None = None
 
@@ -279,7 +279,10 @@ class PluginACPEngine:
         option_ids = [getattr(o, "option_id", None) for o in options]
         description = self._tool_call_description(tool_call)
         approval_id = str(uuid.uuid4())
-        self._approval_map[approval_id] = session_id
+        self._approval_map[approval_id] = {
+            "session_id": session_id,
+            "command": description,
+        }
 
         queue = self._turn_queues.get(session_id)
         if queue is not None:
@@ -316,14 +319,21 @@ class PluginACPEngine:
         return {"outcome": {"outcome": "selected", "optionId": option}}
 
     def resolve_approval(self, approval_id: str, verdict: str) -> bool:
-        acp_uuid = self._approval_map.pop(approval_id, None)
-        if acp_uuid is None:
+        details = self._approval_map.pop(approval_id, None)
+        if details is None:
             return False
+        acp_uuid = details["session_id"]
         future = self._pending_permissions.get(acp_uuid)
         if future is None or future.done():
             return False
         future.set_result(verdict)
         return True
+
+    def pending_approvals(self) -> dict[str, dict[str, str]]:
+        """Snapshot of approvals waiting for a phone verdict (for push/alert
+        polling). Keys are approval ids; values hold the session id and the
+        human-readable command that triggered the permission request."""
+        return {k: dict(v) for k, v in self._approval_map.items()}
 
     @staticmethod
     def _tool_call_description(tool_call: Any) -> str:
@@ -1479,3 +1489,47 @@ async def mobile_cron_run(job_id: str) -> dict[str, Any]:
 @router.post("/cron/{job_id}/remove")
 async def mobile_cron_remove(job_id: str) -> dict[str, Any]:
     return await _cron_job_action(job_id, "remove")
+
+
+# ---------------------------------------------------------------------------
+# Notifications — poll endpoint for background alerts. The iOS app runs a
+# Background App Refresh task that hits this and fires LOCAL notifications
+# (no APNs account needed): approvals waiting for a phone verdict, plus
+# cron executions that just finished.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/notifications/pending")
+async def mobile_notifications_pending() -> dict[str, Any]:
+    approvals: list[dict[str, Any]] = []
+    try:
+        engine = _get_engine()
+        for approval_id, details in engine.pending_approvals().items():
+            approvals.append(
+                {
+                    "id": approval_id,
+                    "sessionID": details.get("session_id", ""),
+                    "command": details.get("command", ""),
+                }
+            )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Approval state unavailable: {exc}") from exc
+
+    recent_cron: list[dict[str, Any]] = []
+    try:
+        from cron.executions import list_executions
+
+        for execution in list_executions(limit=10):
+            recent_cron.append(
+                {
+                    "jobID": execution.get("job_id", ""),
+                    "status": execution.get("status", ""),
+                    "claimedAt": execution.get("claimed_at"),
+                    "finishedAt": execution.get("finished_at"),
+                    "summary": execution.get("summary", ""),
+                }
+            )
+    except Exception:
+        pass  # cron store unreachable — approvals still matter
+
+    return {"ok": True, "approvals": approvals, "recentCron": recent_cron}

@@ -37,6 +37,7 @@ struct HermesCompanionApp: App {
                 ProcessInfo.processInfo.environment["HERMES_DASHBOARD_SESSION_TOKEN"] ?? KeychainStore.loadToken()
             })
         _store = StateObject(wrappedValue: AppStore(client: HermesClient(transport: transport)))
+        NotificationManager.shared.register()
     }
 
     var body: some Scene {
@@ -52,5 +53,12 @@ struct HermesCompanionApp: App {
                     }
                 }
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background {
+                NotificationManager.shared.scheduleBackgroundCheck()
+            }
+        }
     }
+
+    @Environment(\.scenePhase) private var scenePhase
 }

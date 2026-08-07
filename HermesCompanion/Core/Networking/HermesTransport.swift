@@ -37,6 +37,9 @@ protocol HermesTransport: Sendable {
     func cronResume(jobID: String) async throws -> HermesCronJob
     func cronRun(jobID: String) async throws -> HermesCronJob
     func cronRemove(jobID: String) async throws
+    /// Background-alert poll: approvals waiting for a phone verdict + cron
+    /// runs that just finished (drives local notifications, no APNs).
+    func fetchPendingNotifications() async throws -> HermesPendingNotifications
 }
 
 enum HermesTransportError: Error, LocalizedError {

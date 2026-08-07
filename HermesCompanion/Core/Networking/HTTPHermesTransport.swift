@@ -368,6 +368,10 @@ actor HTTPHermesTransport: HermesTransport {
         let _: MobileSessionActionResponse = try await post("api/mobile/cron/\(jobID)/remove", body: EmptyBody())
     }
 
+    func fetchPendingNotifications() async throws -> HermesPendingNotifications {
+        try await get("api/mobile/notifications/pending", timeout: 20)
+    }
+
     func uploadAttachment(fileURL: URL) async throws -> String {
         guard let baseURL else { throw HermesTransportError.notConnected }
         let data = try Data(contentsOf: fileURL)

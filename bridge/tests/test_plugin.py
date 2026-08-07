@@ -87,6 +87,9 @@ class FakeEngine:
         self.resolved.append((approval_id, verdict))
         return approval_id != "nope"
 
+    def pending_approvals(self):
+        return getattr(self, "_fake_pending", {})
+
 
 class FakeDashboard:
     def __init__(self) -> None:
@@ -587,3 +590,45 @@ def test_plugin_cron_unknown_job_404(client, cron_stub):
     resp = client.post("/api/plugins/hermes-mobile/cron/ghost/pause")
     assert resp.status_code == 404
     assert "Unknown cron job" in resp.json()["detail"]
+
+
+def test_plugin_notifications_pending(client, monkeypatch):
+    """Pending approvals surface through /notifications/pending, and cron
+    executions ride along when the cron store is reachable."""
+    engine = plugin._get_engine()
+    engine._fake_pending = {
+        "appr1": {"session_id": "sess-1", "command": "rm -rf /tmp/x"},
+        "appr2": {"session_id": "sess-2", "command": "git push"},
+    }
+
+    import sys
+    import types
+
+    fake_cron = types.ModuleType("cron")
+    fake_executions = types.ModuleType("cron.executions")
+    setattr(
+        fake_executions,
+        "list_executions",
+        lambda limit=50, **_: [
+            {
+                "job_id": "job1",
+                "status": "completed",
+                "claimed_at": "2026-08-08T08:00:00+02:00",
+                "finished_at": "2026-08-08T08:00:30+02:00",
+                "summary": "Delivered to telegram:Home",
+            }
+        ],
+    )
+    setattr(fake_cron, "executions", fake_executions)
+    monkeypatch.setitem(sys.modules, "cron", fake_cron)
+    monkeypatch.setitem(sys.modules, "cron.executions", fake_executions)
+
+    resp = client.get("/api/plugins/hermes-mobile/notifications/pending")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data["approvals"]) == 2
+    assert data["approvals"][0]["id"] == "appr1"
+    assert data["approvals"][0]["sessionID"] == "sess-1"
+    assert data["approvals"][0]["command"] == "rm -rf /tmp/x"
+    assert len(data["recentCron"]) == 1
+    assert data["recentCron"][0]["status"] == "completed"

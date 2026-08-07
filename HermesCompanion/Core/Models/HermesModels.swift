@@ -272,3 +272,31 @@ struct HermesCronExecution: Codable, Equatable, Identifiable {
         }
     }
 }
+
+/// What the background refresh polls: approvals waiting for a phone verdict
+/// plus cron executions that just finished.
+struct HermesPendingNotifications: Codable, Equatable {
+    let ok: Bool
+    let approvals: [HermesPendingApproval]
+    let recentCron: [HermesRecentCronRun]
+}
+
+struct HermesPendingApproval: Codable, Equatable, Identifiable {
+    let id: String
+    let sessionID: String
+    let command: String
+}
+
+struct HermesRecentCronRun: Codable, Equatable, Identifiable {
+    let jobID: String
+    let status: String
+    let claimedAt: String?
+    let finishedAt: String?
+    let summary: String?
+
+    var id: String { "\(jobID)-\(claimedAt ?? finishedAt ?? UUID().uuidString)" }
+
+    var isFinished: Bool {
+        status == "completed" || status == "failed"
+    }
+}
