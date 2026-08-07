@@ -209,6 +209,9 @@ def test_plugin_exposes_seventeen_routes():
         "/files/attach",
         "/pairing",
         "/pair",
+        "/tunnel/status",
+        "/tunnel/start",
+        "/tunnel/stop",
     }
     assert expected <= paths
 
@@ -347,3 +350,93 @@ def test_plugin_pair_expires_code(client, monkeypatch):
     assert ok.status_code == 200
     again = client.post("/api/plugins/hermes-mobile/pair", json={"code": gen["code"]})
     assert again.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Remote tunnel routes (cloudflared / ngrok — no VPN, no Tailscale)
+# ---------------------------------------------------------------------------
+
+
+class _FakeTunnelProc:
+    """Minimal stand-in for asyncio.subprocess.Process (terminate/wait/kill)."""
+
+    def __init__(self) -> None:
+        self.returncode = None
+
+    def terminate(self) -> None:
+        self.returncode = -15
+
+    def kill(self) -> None:
+        self.returncode = -9
+
+    async def wait(self) -> int:
+        return self.returncode or 0
+
+
+async def _fake_spawn(bin_path: str, local_url: str):
+    return ("cloudflared", _FakeTunnelProc(), "https://abc123.trycloudflare.com")
+
+
+def test_plugin_tunnel_status_idle(client):
+    client.post("/api/plugins/hermes-mobile/tunnel/stop")  # clean state
+    resp = client.get("/api/plugins/hermes-mobile/tunnel/status")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ok"] is True
+    assert data["active"] is False
+    assert data["publicUrl"] == ""
+    assert data["localUrl"] == "http://127.0.0.1:8765"
+
+
+def test_plugin_tunnel_start_missing_binary(client, monkeypatch):
+    client.post("/api/plugins/hermes-mobile/tunnel/stop")
+    monkeypatch.setattr(plugin, "_find_tunnel_bin", lambda: None)
+    resp = client.post("/api/plugins/hermes-mobile/tunnel/start")
+    assert resp.status_code == 400
+    assert "cloudflared" in resp.json()["detail"]
+
+
+def test_plugin_tunnel_start_stop_flow(client, monkeypatch):
+    client.post("/api/plugins/hermes-mobile/tunnel/stop")
+    monkeypatch.setattr(plugin, "_find_tunnel_bin", lambda: "/usr/local/bin/cloudflared")
+    monkeypatch.setattr(plugin, "_spawn_tunnel", _fake_spawn)
+
+    resp = client.post("/api/plugins/hermes-mobile/tunnel/start")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ok"] is True
+    assert data["active"] is True
+    assert data["provider"] == "cloudflared"
+    assert data["publicUrl"] == "https://abc123.trycloudflare.com"
+
+    # The tunnel hostname must be allowlisted on the app state so the
+    # dashboard's Host-header guard lets requests through (DNS-rebinding
+    # defence stays intact: exact hostname, no wildcard).
+    allowed = client.app.state.allowed_hosts
+    assert "abc123.trycloudflare.com" in allowed
+
+    status = client.get("/api/plugins/hermes-mobile/tunnel/status").json()
+    assert status["active"] is True
+    assert status["publicUrl"] == "https://abc123.trycloudflare.com"
+
+    stop = client.post("/api/plugins/hermes-mobile/tunnel/stop").json()
+    assert stop["stopped"] is True
+    assert client.get("/api/plugins/hermes-mobile/tunnel/status").json()["active"] is False
+    # Hostname removed from the allowlist once the tunnel is closed.
+    assert "abc123.trycloudflare.com" not in client.app.state.allowed_hosts
+
+
+def test_plugin_pairing_prefers_tunnel_url(client, monkeypatch):
+    """With a live tunnel the QR embeds the public URL, not localhost."""
+    client.post("/api/plugins/hermes-mobile/tunnel/stop")
+    monkeypatch.setattr(plugin, "_find_tunnel_bin", lambda: "/usr/local/bin/cloudflared")
+    monkeypatch.setattr(plugin, "_spawn_tunnel", _fake_spawn)
+
+    client.post("/api/plugins/hermes-mobile/tunnel/start")
+    pairing = client.get("/api/plugins/hermes-mobile/pairing").json()
+    assert pairing["url"] == "https://abc123.trycloudflare.com"
+    assert "https://abc123.trycloudflare.com" in pairing["qrText"]
+
+    client.post("/api/plugins/hermes-mobile/tunnel/stop")
+    pairing = client.get("/api/plugins/hermes-mobile/pairing").json()
+    assert pairing["url"] == "http://127.0.0.1:8765"

@@ -20,18 +20,22 @@ present the session bearer token.
 from __future__ import annotations
 
 import asyncio
+import atexit
 import base64
 import json
 import logging
 import os
+import re
 import secrets
+import shutil
 import time
 import uuid
 from typing import Any, Optional
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from urllib.parse import urlparse
 
 logger = logging.getLogger("hermes_mobile_plugin")
 
@@ -1005,7 +1009,11 @@ async def mobile_pairing(profile: Optional[str] = None) -> dict[str, Any]:
     _clean_pairings()
     code = secrets.token_urlsafe(18)
     active_profile = (profile or os.environ.get("HERMES_PROFILE") or "default").strip() or "default"
-    base_url = os.environ.get("HERMES_MOBILE_PUBLIC_URL", "http://127.0.0.1:8765").rstrip("/")
+    # Prefer the active remote tunnel URL (iPhone outside the LAN), then the
+    # explicit public URL override, then the localhost default (simulator).
+    base_url = _tunnel_url or os.environ.get(
+        "HERMES_MOBILE_PUBLIC_URL", "http://127.0.0.1:8765"
+    ).rstrip("/")
     token = _dashboard_session_token()
     _pairing_codes[code] = {
         "profile": active_profile,
@@ -1053,3 +1061,216 @@ async def mobile_pair(body: _PairRequest) -> dict[str, Any]:
         "profile": pairing["profile"],
         "token": token,
     }
+
+
+# ---------------------------------------------------------------------------
+# Remote tunnel (Cloudflare quick tunnel / ngrok) — outbound HTTPS, no VPN.
+#
+# Lets the iPhone reach the dashboard from outside the LAN without Tailscale
+# or port-forwarding: the dashboard opens an OUTBOUND HTTPS connection to
+# cloudflared/ngrok, which gives back a public URL. The iOS app connects to
+# that URL; the dashboard session-token auth still protects every route.
+# ---------------------------------------------------------------------------
+
+_TUNNEL_URL_RE = re.compile(
+    r"https://[a-z0-9-]+\.(?:trycloudflare\.com|ngrok-free\.app|ngrok\.app|ngrok\.io)"
+)
+
+_tunnel_proc: Optional["asyncio.subprocess.Process"] = None
+_tunnel_url: str = ""
+_tunnel_provider: str = ""
+_tunnel_error: str = ""
+
+
+def _find_tunnel_bin() -> Optional[str]:
+    """cloudflared preferred (quick tunnels need no account); ngrok fallback."""
+    override = os.environ.get("HERMES_MOBILE_TUNNEL_BIN", "").strip()
+    if override:
+        return override if shutil.which(override) else None
+    for name in ("cloudflared", "ngrok"):
+        if shutil.which(name):
+            return name
+    return None
+
+
+def _local_dashboard_url() -> str:
+    base = os.environ.get("HERMES_DASHBOARD_URL", "http://127.0.0.1:8765").rstrip("/")
+    return base if "://" in base else f"http://{base}"
+
+
+class TunnelStartError(RuntimeError):
+    """Tunnel binary started but never published a public URL."""
+
+
+async def _spawn_tunnel(
+    bin_path: str, local_url: str
+) -> tuple[str, "asyncio.subprocess.Process", str]:
+    """Spawn the tunnel process and wait for its public URL.
+
+    Returns ``(provider, process, public_url)``. Raises ``TunnelStartError``
+    (after killing the process) if no URL shows up within the timeout.
+    """
+    provider = os.path.basename(bin_path)
+    if provider == "ngrok":
+        cmd = [bin_path, "http", local_url, "--log=stdout"]
+    else:  # cloudflared — no account, no config, random trycloudflare URL
+        cmd = [bin_path, "tunnel", "--url", local_url, "--no-autoupdate"]
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+    )
+    stdout = proc.stdout
+    assert stdout is not None  # we always pass stdout=PIPE above
+    seen: list[str] = []
+    deadline = time.monotonic() + 30.0
+    try:
+        while time.monotonic() < deadline:
+            try:
+                raw = await asyncio.wait_for(stdout.readline(), timeout=3.0)
+            except asyncio.TimeoutError:
+                continue  # still waiting for the URL, keep polling
+            if not raw:
+                break  # process exited before publishing a URL
+            text = raw.decode(errors="replace").strip()
+            seen.append(text)
+            match = _TUNNEL_URL_RE.search(text)
+            if match:
+                return provider, proc, match.group(0)
+    except Exception:
+        pass
+    # Failure: kill and report what the binary said.
+    try:
+        proc.kill()
+    except Exception:
+        pass
+    tail = " | ".join(seen[-4:]) or "(no output)"
+    raise TunnelStartError(
+        f"Tunnel ({provider}) never published a public URL within 30s. Output: {tail[:300]}"
+    )
+
+
+def _tunnel_hostname(public_url: str) -> str:
+    """``https://abc.trycloudflare.com`` -> ``abc.trycloudflare.com`` (lowercased)."""
+    return (urlparse(public_url).netloc or public_url).lower()
+
+
+def _register_tunnel_host(request: Optional[Request], public_url: str) -> None:
+    """Let the tunnel hostname through the dashboard's Host-header guard."""
+    if request is None:
+        return
+    try:
+        state = request.app.state
+        allowed: set[str] = set(getattr(state, "allowed_hosts", frozenset()) or ())
+        allowed.add(_tunnel_hostname(public_url))
+        state.allowed_hosts = frozenset(allowed)
+    except Exception:  # pragma: no cover — never break pairing for this
+        logger.warning("could not register tunnel hostname", exc_info=True)
+
+
+def _unregister_tunnel_host(request: Optional[Request], public_url: str) -> None:
+    if request is None:
+        return
+    try:
+        state = request.app.state
+        allowed: set[str] = set(getattr(state, "allowed_hosts", frozenset()) or ())
+        allowed.discard(_tunnel_hostname(public_url))
+        state.allowed_hosts = frozenset(allowed)
+    except Exception:  # pragma: no cover
+        logger.warning("could not unregister tunnel hostname", exc_info=True)
+
+
+async def _cleanup_tunnel(request: Optional[Request] = None) -> None:
+    global _tunnel_proc, _tunnel_url, _tunnel_provider, _tunnel_error
+    proc, _tunnel_proc = _tunnel_proc, None
+    old_url, _tunnel_url = _tunnel_url, ""
+    _tunnel_provider = ""
+    _tunnel_error = ""
+    if old_url:
+        _unregister_tunnel_host(request, old_url)
+    if proc is None or proc.returncode is not None:
+        return
+    try:
+        proc.terminate()
+        await asyncio.wait_for(proc.wait(), timeout=5.0)
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+
+
+def _atexit_kill_tunnel() -> None:
+    proc = globals().get("_tunnel_proc")
+    if proc is not None and getattr(proc, "returncode", 0) is None:
+        try:
+            proc.terminate()
+        except Exception:
+            pass
+
+
+atexit.register(_atexit_kill_tunnel)
+
+
+@router.get("/tunnel/status")
+async def mobile_tunnel_status() -> dict[str, Any]:
+    active = _tunnel_proc is not None and _tunnel_proc.returncode is None
+    return {
+        "ok": True,
+        "active": active,
+        "provider": _tunnel_provider if active else "",
+        "publicUrl": _tunnel_url if active else "",
+        "localUrl": _local_dashboard_url(),
+        "error": _tunnel_error if not active else "",
+    }
+
+
+@router.post("/tunnel/start")
+async def mobile_tunnel_start(request: Request) -> dict[str, Any]:
+    """Open a public HTTPS tunnel to this dashboard. Fail-closed: 400 if no
+    tunnel binary is installed, 502 if the binary never published a URL."""
+    global _tunnel_proc, _tunnel_provider, _tunnel_url, _tunnel_error
+    if _tunnel_proc is not None:
+        if _tunnel_proc.returncode is None:
+            return {
+                "ok": True,
+                "active": True,
+                "provider": _tunnel_provider,
+                "publicUrl": _tunnel_url,
+            }
+        await _cleanup_tunnel(request)  # stale/exited process
+    bin_path = _find_tunnel_bin()
+    if not bin_path:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "No tunnel binary found. Install one: "
+                "'brew install cloudflared' (recommended — quick tunnels "
+                "need no account) or 'brew install ngrok'."
+            ),
+        )
+    local_url = _local_dashboard_url()
+    try:
+        provider, proc, public_url = await _spawn_tunnel(bin_path, local_url)
+    except TunnelStartError as exc:
+        _tunnel_error = str(exc)
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    _tunnel_proc = proc
+    _tunnel_provider = provider
+    _tunnel_url = public_url
+    _tunnel_error = ""
+    _register_tunnel_host(request, public_url)
+    return {
+        "ok": True,
+        "active": True,
+        "provider": provider,
+        "publicUrl": public_url,
+        "localUrl": local_url,
+    }
+
+
+@router.post("/tunnel/stop")
+async def mobile_tunnel_stop(request: Request) -> dict[str, Any]:
+    was_active = _tunnel_proc is not None and _tunnel_proc.returncode is None
+    await _cleanup_tunnel(request)
+    return {"ok": True, "stopped": was_active}

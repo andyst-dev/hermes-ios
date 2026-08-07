@@ -17,6 +17,7 @@ Working remote client, not a mock. The app connects over HTTP to the Hermes dash
 - **Photo attachments** — pick from the photo library or from desktop-managed files; images upload to the bridge and reach the agent as `--image` inputs.
 - **Desktop files** — browse and preview text files managed by the desktop policy (sensitive paths hidden).
 - **Command palette** — new chat, continue last task, stop running turn, privacy mode, refresh.
+- **Remote tunnel (no VPN, no Tailscale)** — `POST /tunnel/start` opens an outbound HTTPS tunnel (cloudflared quick tunnel, no account; ngrok fallback) and the pairing QR embeds the public URL, so a real iPhone can pair from anywhere. `GET /tunnel/status` / `POST /tunnel/stop` manage it. The tunnel hostname is allowlisted at runtime on the dashboard's Host-header guard (exact match only, removed on stop), and the session token still protects every route.
 - **Inspector (per conversation)** — session metadata, tools actually used in this conversation, rename/archive.
 - **Markdown rendering** — code blocks, inline code, and monospace commands render properly in chat.
 
@@ -36,10 +37,10 @@ hermes-ios
 │   ├── plugin.yaml
 │   └── dashboard/
 │       ├── manifest.json
-│       └── plugin_api.py # 21 mobile routes, ACP engine, dashboard proxy
+│       └── plugin_api.py # 24 mobile routes, ACP engine, dashboard proxy, remote tunnel
 ├── bridge/               # Standalone backend bridge (same code as plugin, dev server)
 │   ├── hermes_mobile_bridge/  # main.py (routes), acp_client.py (ACP), dashboard.py (proxy)
-│   └── tests/            # fake hermes-acp stdio server + mocked dashboard (26 tests)
+│   └── tests/            # fake hermes-acp stdio server + mocked dashboard (30 tests)
 └── docs/                 # Mobile API contract
 ```
 
