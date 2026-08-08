@@ -210,6 +210,7 @@ enum SessionSource {
         case "desktop": "macwindow"
         case "cli": "terminal"
         case "acp", "mobile": "iphone"
+        case "cron": "clock.arrow.circlepath"
         case "all": "checkerboard.rectangle"
         default: "bubble.left.and.bubble.right"
         }
