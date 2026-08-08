@@ -72,8 +72,8 @@ private struct CompactChatControls: View {
     var body: some View {
         HStack(spacing: 8) {
             if let onBack {
-                compactButton("chevron.left", action: onBack)
-                    .accessibilityLabel("Back to chats")
+                compactButton("xmark", action: onBack)
+                    .accessibilityLabel("Close chat")
                 Text(store.selectedSession?.title ?? "New Session")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(HermesTheme.mutedForeground)
