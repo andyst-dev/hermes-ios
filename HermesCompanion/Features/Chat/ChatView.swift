@@ -65,6 +65,7 @@ private struct CompactChatControls: View {
     @Binding var showingInspector: Bool
     @Binding var showingModels: Bool
     var onBack: (() -> Void)? = nil
+    @State private var shareURL: URL?
 
     var body: some View {
         HStack(spacing: 8) {
@@ -81,6 +82,18 @@ private struct CompactChatControls: View {
                 .accessibilityLabel("Change model")
             compactButton("sidebar.right") { showingInspector = true }
                 .accessibilityLabel("Conversation info")
+            if let shareURL {
+                ShareLink(item: shareURL) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(width: 28, height: 28)
+                        .background(HermesTheme.card, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(HermesTheme.stroke, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(HermesTheme.primary)
+                .accessibilityLabel("Export conversation")
+            }
             if store.isStreaming {
                 compactButton("stop.fill", role: .destructive) { Task { await store.stop() } }
                     .accessibilityLabel("Stop")
@@ -90,6 +103,13 @@ private struct CompactChatControls: View {
         .padding(.top, 6)
         .padding(.bottom, 4)
         .background(HermesTheme.background.opacity(0.72))
+        .onAppear { refreshShareURL() }
+        .onChange(of: store.messages) { refreshShareURL() }
+        .onChange(of: store.selectedSessionID) { refreshShareURL() }
+    }
+
+    private func refreshShareURL() {
+        shareURL = store.exportMarkdownFileURL()
     }
 
     private func compactButton(_ systemName: String, role: ButtonRole? = nil, action: @escaping () -> Void) -> some View {

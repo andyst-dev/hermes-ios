@@ -632,6 +632,33 @@ final class AppStore: ObservableObject {
         archivedSessions = (try? await client.archivedSessions()) ?? []
     }
 
+    /// Writes the current conversation to a temporary markdown file and
+    /// returns its URL, ready for a ShareLink export.
+    func exportMarkdownFileURL() -> URL? {
+        guard let session = selectedSession else { return nil }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        var md = "# \(session.title)\n\n"
+        md += "*\(formatter.string(from: session.updatedAt))"
+        if let source = session.source, !source.isEmpty { md += " · \(source)" }
+        md += "*\n\n---\n\n"
+        for message in messages where message.isTranscriptVisible {
+            switch message.role {
+            case .user:
+                md += "## User\n\n\(message.text)\n\n"
+            case .assistant:
+                md += "## Hermes\n\n\(message.text)\n\n"
+            default:
+                break
+            }
+        }
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("hermes-\(session.id).md")
+        try? md.write(to: url, atomically: true, encoding: .utf8)
+        return url
+    }
+
     /// Un-archives a chat and moves it back to the main list.
     func restoreSession(id: String) async throws {
         try await client.archiveSession(id: id, archived: false)
