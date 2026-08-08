@@ -50,7 +50,7 @@ struct ChatView: View {
             }
             ComposerView()
         }
-        .background(HermesTheme.background.opacity(0.72))
+        .background(HermesTheme.background.ignoresSafeArea())
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {
@@ -102,7 +102,7 @@ private struct CompactChatControls: View {
         .padding(.horizontal, 14)
         .padding(.top, 6)
         .padding(.bottom, 4)
-        .background(HermesTheme.background.opacity(0.72))
+        .background(HermesTheme.background.ignoresSafeArea())
         .onAppear { refreshShareURL() }
         .onChange(of: store.messages) { refreshShareURL() }
         .onChange(of: store.selectedSessionID) { refreshShareURL() }

@@ -60,6 +60,7 @@ struct HermesMobileScreen<Content: View>: View {
             content
         }
         .background(HermesTheme.sidebar.ignoresSafeArea())
+        .presentationBackground(HermesTheme.sidebar)
     }
 }
 
