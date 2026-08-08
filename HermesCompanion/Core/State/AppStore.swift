@@ -266,6 +266,37 @@ final class AppStore: ObservableObject {
         }
     }
 
+    // MARK: - Desktop maintenance (hermes doctor / update)
+
+    @Published var toolOutput = ""
+    @Published var toolTitle = ""
+    @Published var toolRunning = false
+
+    func runDesktopTool(_ kind: DesktopTool) async {
+        guard case .connected = connection else {
+            toolOutput = "Not connected to a desktop."
+            return
+        }
+        toolTitle = kind.title
+        toolRunning = true
+        toolOutput = "Running \(kind.command)…"
+        do {
+            switch kind {
+            case .doctor: toolOutput = try await client.runDoctor()
+            case .update: toolOutput = try await client.runUpdate()
+            }
+        } catch {
+            toolOutput = "Failed: \(error.localizedDescription)"
+        }
+        toolRunning = false
+    }
+
+    enum DesktopTool {
+        case doctor, update
+        var title: String { self == .doctor ? "Hermes doctor" : "Hermes update" }
+        var command: String { self == .doctor ? "hermes doctor" : "hermes update --yes" }
+    }
+
     /// Foreground poll loop: refreshes sessions/cron/memory/approvals every
     /// 30 s while the app is active and connected, so changes made on the
     /// desktop show up without reopening screens. Never touches `messages`

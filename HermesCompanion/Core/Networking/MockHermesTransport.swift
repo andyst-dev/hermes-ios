@@ -75,6 +75,23 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
         }
     }
 
+    func runDoctor() async throws -> String {
+        """
+        ✅ Configuration and dependencies look healthy
+        - config: /Users/andy/.hermes/config.yaml (valid)
+        - model providers: nous (ok), deepseek (ok)
+        - gateway: running
+        """
+    }
+
+    func runUpdate() async throws -> String {
+        """
+        ✔ hermes is up to date
+        Already on the latest commit (main)
+        Dependencies satisfied
+        """
+    }
+
     func uploadAttachment(fileURL: URL) async throws -> String {
         "/mock/\(fileURL.lastPathComponent)"
     }

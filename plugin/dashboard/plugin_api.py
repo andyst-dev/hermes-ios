@@ -1750,3 +1750,49 @@ async def mobile_memory_delete(target: str, index: int) -> dict[str, Any]:
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"Could not update memory: {exc}") from exc
     return {"ok": True, "target": target, "entries": _parse_memory_file(path)}
+
+
+def _hermes_cli_cwd() -> str:
+    """Repo root that owns the running dashboard (where `hermes_cli` lives)."""
+    import hermes_cli  # already loaded in the dashboard process
+    module_file = getattr(hermes_cli, "__file__", None)
+    if module_file:
+        return os.path.dirname(os.path.dirname(os.path.abspath(module_file)))
+    return os.getcwd()
+
+
+async def _run_cli(args: list[str], timeout: int) -> dict[str, Any]:
+    """Run a `hermes` CLI subcommand in the dashboard's own environment."""
+    import sys
+    proc = None
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            sys.executable, "-m", "hermes_cli.main", *args,
+            cwd=_hermes_cli_cwd(),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except asyncio.TimeoutError:
+        if proc:
+            proc.kill()
+        return {"ok": False, "error": f"timed out after {timeout}s"}
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "error": str(exc)}
+    return {"ok": proc.returncode == 0, "output": (stdout or b"").decode("utf-8", "replace")}
+
+
+@router.post("/doctor")
+async def mobile_doctor() -> dict[str, Any]:
+    """Run `hermes doctor` on the desktop and return its configuration report."""
+    return await _run_cli(["doctor"], timeout=180)
+
+
+@router.post("/update")
+async def mobile_update() -> dict[str, Any]:
+    """Pull the latest hermes and reinstall dependencies (`hermes update --yes`).
+
+    Long-running: the dashboard keeps serving while the venv is reinstalled;
+    a restart is only needed after the update completes.
+    """
+    return await _run_cli(["update", "--yes"], timeout=600)

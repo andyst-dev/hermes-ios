@@ -7,6 +7,8 @@ struct SettingsView: View {
     @State private var showingCron = false
     @State private var showingSkillsMemory = false
     @State private var showingForgetPairingAlert = false
+    @State private var showingUpdateConfirmation = false
+    @State private var showingToolOutput = false
     @State private var actionStatus: String?
     @AppStorage("hermes.debugAutoConnect") private var debugAutoConnect = false
 
@@ -79,6 +81,25 @@ struct SettingsView: View {
                         Task { await store.refreshTunnelStatus() }
                         Task { await store.refreshCron() }
                         Task { await store.refreshSkillsMemory() }
+                    }
+
+                    HermesMobileSection(title: "Desktop maintenance", icon: "wrench.and.screwdriver", accent: HermesTheme.primary) {
+                        SettingsButtonRow(title: "Hermes doctor", subtitle: "Check configuration and dependencies", icon: "stethoscope", accent: HermesTheme.green) {
+                            Task { await store.runDesktopTool(.doctor) }
+                            showingToolOutput = true
+                        }
+                        SettingsButtonRow(title: "Hermes update", subtitle: "Pull latest hermes and reinstall dependencies", icon: "arrow.down.circle", accent: HermesTheme.warm) {
+                            showingUpdateConfirmation = true
+                        }
+                    }
+                    .alert("Update Hermes?", isPresented: $showingUpdateConfirmation) {
+                        Button("Update") {
+                            Task { await store.runDesktopTool(.update) }
+                            showingToolOutput = true
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
+                        Text("Pulls the latest hermes from git and reinstalls dependencies. Restart the dashboard after it finishes.")
                     }
 
                     HermesMobileSection(title: "Debug", icon: "wrench.and.screwdriver", accent: HermesTheme.mutedForeground) {
@@ -171,6 +192,10 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showingSkillsMemory) {
             SkillsMemoryView()
+                .environmentObject(store)
+        }
+        .sheet(isPresented: $showingToolOutput) {
+            DesktopToolOutputView()
                 .environmentObject(store)
         }
         .alert("Forget pairing?", isPresented: $showingForgetPairingAlert) {
@@ -266,5 +291,36 @@ struct SettingsButtonRow: View {
             .background(HermesTheme.card.opacity(0.26), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct DesktopToolOutputView: View {
+    @EnvironmentObject private var store: AppStore
+
+    var body: some View {
+        HermesMobileScreen(title: store.toolTitle, subtitle: "Desktop CLI output", icon: "terminal", showsDone: true) {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 10) {
+                    if store.toolRunning {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Running…")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(HermesTheme.mutedForeground)
+                        }
+                        .padding(.vertical, 6)
+                    }
+                    Text(store.toolOutput)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(HermesTheme.ink.opacity(0.85))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.horizontal, 13)
+                .padding(.top, 10)
+                .padding(.bottom, 28)
+            }
+        }
     }
 }

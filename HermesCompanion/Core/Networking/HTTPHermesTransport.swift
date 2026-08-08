@@ -322,6 +322,16 @@ actor HTTPHermesTransport: HermesTransport {
         let _: MobileSessionActionResponse = try await post("api/mobile/sessions/\(id)/archive", body: MobileArchiveRequest(archived: archived))
     }
 
+    func runDoctor() async throws -> String {
+        let result: MobileCliOutput = try await post("api/mobile/doctor", body: EmptyBody(), timeout: 180)
+        return result.output
+    }
+
+    func runUpdate() async throws -> String {
+        let result: MobileCliOutput = try await post("api/mobile/update", body: EmptyBody(), timeout: 600)
+        return result.output
+    }
+
     func attachDesktopFile(path: String) async throws -> HermesDesktopAttachment {
         try await post("api/mobile/files/attach", body: MobileDesktopFileAttachmentRequest(path: path))
     }
@@ -604,6 +614,12 @@ private struct MobilePinRequest: Encodable {
 
 private struct MobileArchiveRequest: Encodable {
     let archived: Bool
+}
+
+private struct MobileCliOutput: Decodable {
+    let ok: Bool
+    let output: String
+    let error: String?
 }
 
 private struct MobileDesktopFileAttachmentRequest: Encodable {

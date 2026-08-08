@@ -23,6 +23,10 @@ protocol HermesTransport: Sendable {
     func renameSession(id: String, title: String) async throws
     func pinSession(id: String, pinned: Bool) async throws
     func archiveSession(id: String, archived: Bool) async throws
+    /// Desktop maintenance — runs `hermes doctor` / `hermes update --yes`
+    /// on the desktop and returns the CLI output.
+    func runDoctor() async throws -> String
+    func runUpdate() async throws -> String
     func uploadAttachment(fileURL: URL) async throws -> String
     func attachDesktopFile(path: String) async throws -> HermesDesktopAttachment
     /// Remote access tunnel (cloudflared quick tunnel / ngrok) — lets the

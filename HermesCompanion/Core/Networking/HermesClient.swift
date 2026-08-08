@@ -84,6 +84,14 @@ final class HermesClient: ObservableObject {
         try await transport.archiveSession(id: id, archived: archived)
     }
 
+    func runDoctor() async throws -> String {
+        try await transport.runDoctor()
+    }
+
+    func runUpdate() async throws -> String {
+        try await transport.runUpdate()
+    }
+
     func uploadAttachment(fileURL: URL) async throws -> String {
         try await transport.uploadAttachment(fileURL: fileURL)
     }

@@ -806,3 +806,49 @@ def test_plugin_memory_get_and_append(client, tmp_path, monkeypatch):
 
     bad = client.post("/api/plugins/hermes-mobile/memory", json={"target": "wat", "content": "x"})
     assert bad.status_code == 400
+
+
+def test_plugin_doctor_and_update_run_cli(client, monkeypatch):
+    """POST /doctor and /update invoke the hermes CLI with the right args."""
+
+    class FakeProc:
+        returncode = 0
+
+        async def communicate(self):
+            return b"doctor report line\n", None
+
+    calls = []
+
+    async def fake_exec(*args, **kwargs):
+        calls.append((args, kwargs))
+        return FakeProc()
+
+    monkeypatch.setattr(plugin.asyncio, "create_subprocess_exec", fake_exec)
+
+    doctor = client.post("/api/plugins/hermes-mobile/doctor")
+    assert doctor.status_code == 200
+    body = doctor.json()
+    assert body["ok"] is True
+    assert "doctor report" in body["output"]
+    doc_args = calls[0][0]
+    assert doc_args[1] == "-m" and doc_args[2] == "hermes_cli.main" and "doctor" in doc_args
+
+    update = client.post("/api/plugins/hermes-mobile/update")
+    assert update.status_code == 200
+    assert update.json()["ok"] is True
+    up_args = calls[1][0]
+    assert "update" in up_args and "--yes" in up_args
+
+    class FailingProc:
+        returncode = 1
+
+        async def communicate(self):
+            return b"something broke\n", None
+
+    async def failing_exec(*args, **kwargs):
+        return FailingProc()
+
+    monkeypatch.setattr(plugin.asyncio, "create_subprocess_exec", failing_exec)
+    bad = client.post("/api/plugins/hermes-mobile/doctor")
+    assert bad.json()["ok"] is False
+    assert "something broke" in bad.json()["output"]
