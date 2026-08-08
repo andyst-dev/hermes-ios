@@ -68,8 +68,8 @@ struct HermesOverviewView: View {
                     .padding(.top, 2)
             }
             Spacer(minLength: 6)
-            sectionLabel("Cron")
             if let next = s.nextCronDate, !s.nextCronTitle.isEmpty {
+                sectionLabel("Cron")
                 Text("\(s.nextCronTitle)")
                     .font(.system(size: 10.5, weight: .medium))
                     .foregroundStyle(.white.opacity(0.7))
@@ -78,11 +78,6 @@ struct HermesOverviewView: View {
                 Text(HermesOverviewView.relativeTime(from: next))
                     .font(.system(size: 9.5))
                     .foregroundStyle(.white.opacity(0.45))
-            } else {
-                Text("No cron scheduled")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.white.opacity(0.35))
-                    .padding(.top, 2)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -111,7 +106,26 @@ struct HermesOverviewView: View {
             Divider()
                 .overlay(Color.white.opacity(0.08))
                 .padding(.vertical, 6)
-            nextCron(s)
+            HStack(spacing: 6) {
+                if let next = s.nextCronDate, !s.nextCronTitle.isEmpty {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.4))
+                    Text("Next: \(s.nextCronTitle) · \(HermesOverviewView.relativeTime(from: next))")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.white.opacity(0.6))
+                        .lineLimit(1)
+                }
+                Spacer()
+                Link(destination: URL(string: "hermes://new-chat")!) {
+                    Text("New chat")
+                        .font(.system(size: 9.5, weight: .bold))
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.white.opacity(0.9), in: Capsule())
+                }
+            }
         }
     }
 
@@ -141,8 +155,8 @@ struct HermesOverviewView: View {
             Divider()
                 .overlay(Color.white.opacity(0.08))
                 .padding(.vertical, 6)
-            sectionLabel("Cron")
             if let next = s.nextCronDate, !s.nextCronTitle.isEmpty {
+                sectionLabel("Cron")
                 Text("\(s.nextCronTitle)")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.white.opacity(0.8))
@@ -152,11 +166,6 @@ struct HermesOverviewView: View {
                     .font(.system(size: 10.5))
                     .foregroundStyle(.white.opacity(0.5))
                     .padding(.top, 1)
-            } else {
-                Text("No cron scheduled")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.white.opacity(0.35))
-                    .padding(.top, 3)
             }
             Spacer(minLength: 6)
             HStack {
@@ -207,34 +216,6 @@ struct HermesOverviewView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func nextCron(_ s: HermesWidgetSnapshot) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: "clock.arrow.circlepath")
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.4))
-            if let next = s.nextCronDate, !s.nextCronTitle.isEmpty {
-                Text("Next: \(s.nextCronTitle) · \(HermesOverviewView.relativeTime(from: next))")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.white.opacity(0.6))
-                    .lineLimit(1)
-            } else {
-                Text("No cron scheduled")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.white.opacity(0.35))
-                    .lineLimit(1)
-            }
-            Spacer()
-            Link(destination: URL(string: "hermes://new-chat")!) {
-                Text("New chat")
-                    .font(.system(size: 9.5, weight: .bold))
-                    .foregroundStyle(.black)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(.white.opacity(0.9), in: Capsule())
-            }
-        }
     }
 
     private func statusColor(_ status: HermesWidgetSnapshot.GatewayStatus) -> Color {

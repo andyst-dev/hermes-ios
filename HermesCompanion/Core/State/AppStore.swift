@@ -295,12 +295,15 @@ final class AppStore: ObservableObject {
         if case .connected = connection {
             snapshot.gatewayUp = true
         }
-        if let session = selectedSession {
+        // The widget always shows the MOST RECENT session (first in the
+        // desktop list, ordered by activity), not whatever the app happens
+        // to have selected.
+        if let session = sessions.first {
             snapshot.sessionID = session.id
             snapshot.sessionTitle = session.title
             snapshot.sessionSubtitle = session.subtitle
         }
-        if let last = messages.last, !last.text.isEmpty {
+        if let last = messages.last, !last.text.isEmpty, selectedSessionID == snapshot.sessionID {
             snapshot.lastMessagePreview = String(last.text.prefix(80))
         }
         let nextJob = cronJobs

@@ -12,26 +12,33 @@ struct SkillsMemoryView: View {
     @State private var editingTarget = "memory"
     @State private var editDraft = ""
     @State private var actionStatus: String?
+    @State private var selectedTab = 0  // 0 = Skills, 1 = Memory
 
     var body: some View {
         HermesMobileScreen(title: "Skills & memory", subtitle: "Desktop agent state", icon: "brain.head.profile", showsDone: true) {
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 18) {
-                    skillsSection
-                    memorySection
-                    if let actionStatus {
-                        Text(actionStatus)
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(HermesTheme.green)
-                            .padding(.horizontal, 10)
+            VStack(spacing: 0) {
+                tabBar
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 18) {
+                        if selectedTab == 0 {
+                            skillsSection
+                        } else {
+                            memorySection
+                        }
+                        if let actionStatus {
+                            Text(actionStatus)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(HermesTheme.green)
+                                .padding(.horizontal, 10)
+                        }
                     }
+                    .padding(.horizontal, 13)
+                    .padding(.top, 10)
+                    .padding(.bottom, 28)
                 }
-                .padding(.horizontal, 13)
-                .padding(.top, 10)
-                .padding(.bottom, 28)
-            }
-            .refreshable {
-                await store.refreshSkillsMemory()
+                .refreshable {
+                    await store.refreshSkillsMemory()
+                }
             }
         }
         .sheet(item: $selectedSkill) { skill in
@@ -74,6 +81,34 @@ struct SkillsMemoryView: View {
         .task {
             await store.refreshSkillsMemory()
         }
+    }
+
+    private var tabBar: some View {
+        HStack(spacing: 8) {
+            tabChip("Skills", tab: 0, icon: "books.vertical")
+            tabChip("Memory", tab: 1, icon: "brain.head.profile")
+            Spacer()
+        }
+        .padding(.horizontal, 13)
+        .padding(.top, 8)
+    }
+
+    private func tabChip(_ title: String, tab: Int, icon: String) -> some View {
+        Button {
+            selectedTab = tab
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .semibold))
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundStyle(selectedTab == tab ? HermesTheme.primary : HermesTheme.mutedForeground)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(selectedTab == tab ? HermesTheme.userBubble : HermesTheme.card.opacity(0.42), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     private var skillsSection: some View {
