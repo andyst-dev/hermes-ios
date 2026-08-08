@@ -560,6 +560,18 @@ final class AppStore: ObservableObject {
             messages = []
         }
         try? await refreshSessions()
+        writeWidgetSnapshot()
+    }
+
+    func deleteSession(id: String) async throws {
+        try await client.deleteSession(id: id)
+        sessions.removeAll { $0.id == id }
+        if selectedSessionID == id {
+            selectedSessionID = nil
+            messages = []
+        }
+        try? await refreshSessions()
+        writeWidgetSnapshot()
     }
 
     /// Loads the archived chats (hidden from the main list) for the

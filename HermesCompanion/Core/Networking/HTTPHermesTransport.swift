@@ -322,6 +322,10 @@ actor HTTPHermesTransport: HermesTransport {
         let _: MobileSessionActionResponse = try await post("api/mobile/sessions/\(id)/archive", body: MobileArchiveRequest(archived: archived))
     }
 
+    func deleteSession(id: String) async throws {
+        let _: MobileSessionActionResponse = try await delete("api/mobile/sessions/\(id)")
+    }
+
     func runDoctor() async throws -> HermesDoctorReport {
         try await post("api/mobile/doctor", body: EmptyBody(), timeout: 180)
     }
@@ -507,6 +511,10 @@ actor HTTPHermesTransport: HermesTransport {
     private func post<T: Decodable, Body: Encodable>(_ path: String, body: Body, timeout: TimeInterval = 12) async throws -> T {
         let data = try JSONEncoder().encode(body)
         return try await dataRequest(path: path, method: "POST", body: data, timeout: timeout)
+    }
+
+    private func delete<T: Decodable>(_ path: String, timeout: TimeInterval = 30) async throws -> T {
+        try await dataRequest(path: path, method: "DELETE", body: nil, timeout: timeout)
     }
 
     private func dataRequest<T: Decodable>(path: String, method: String, body: Data?, timeout: TimeInterval = 12, queryItems: [URLQueryItem] = []) async throws -> T {

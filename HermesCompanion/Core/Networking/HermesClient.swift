@@ -84,6 +84,10 @@ final class HermesClient: ObservableObject {
         try await transport.archiveSession(id: id, archived: archived)
     }
 
+    func deleteSession(id: String) async throws {
+        try await transport.deleteSession(id: id)
+    }
+
     func runDoctor() async throws -> HermesDoctorReport {
         try await transport.runDoctor()
     }

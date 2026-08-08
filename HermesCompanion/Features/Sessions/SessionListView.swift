@@ -18,7 +18,9 @@ struct SessionListView: View {
                     MobileQuickFilters()
                     SidebarSearchField(text: $searchText)
                     if allFilter {
-                        PinnedSection(sessions: pinnedSessions)
+                        PinnedSection(sessions: pinnedSessions) { session in
+                            sessionPendingDeletion = session
+                        }
                         // One chronological list, newest activity first,
                         // every source mixed in; the per-chat icon tells
                         // the origin apart (CLI, Telegram, Mobile...).
@@ -27,7 +29,8 @@ struct SessionListView: View {
                             icon: "clock",
                             sessions: allSessionsChronological,
                             searchText: searchText,
-                            onSessionSelected: onSessionSelected
+                            onSessionSelected: onSessionSelected,
+                            onDelete: { session in sessionPendingDeletion = session }
                         )
                     } else {
                         SessionSourceSection(
@@ -35,7 +38,8 @@ struct SessionListView: View {
                             icon: regularSectionIcon,
                             sessions: visibleSessions(),
                             searchText: searchText,
-                            onSessionSelected: onSessionSelected
+                            onSessionSelected: onSessionSelected,
+                            onDelete: { session in sessionPendingDeletion = session }
                         )
                     }
                     if !hasResults {
@@ -57,9 +61,30 @@ struct SessionListView: View {
         .sheet(isPresented: $showingArchived) {
             ArchivedSessionsView().environmentObject(store)
         }
+        .alert("Delete this session?", isPresented: deleteConfirmationBinding) {
+            Button("Delete", role: .destructive) {
+                if let id = sessionPendingDeletion?.id {
+                    Task { try? await store.deleteSession(id: id) }
+                }
+                sessionPendingDeletion = nil
+            }
+            Button("Cancel", role: .cancel) {
+                sessionPendingDeletion = nil
+            }
+        } message: {
+            Text("This permanently deletes the chat from your desktop. Use Archive instead if you want to keep it recoverable.")
+        }
     }
 
     @State private var showingArchived = false
+    @State private var sessionPendingDeletion: HermesSession?
+
+    private var deleteConfirmationBinding: Binding<Bool> {
+        Binding(
+            get: { sessionPendingDeletion != nil },
+            set: { if !$0 { sessionPendingDeletion = nil } }
+        )
+    }
 
     private var selectedFilter: String { store.selectedSourceFilter.lowercased() }
 
@@ -253,6 +278,7 @@ private struct SidebarSearchField: View {
 private struct PinnedSection: View {
     @EnvironmentObject private var store: AppStore
     let sessions: [HermesSession]
+    let onDelete: (HermesSession) -> Void
 
     var body: some View {
         if !sessions.isEmpty {
@@ -268,6 +294,11 @@ private struct PinnedSection: View {
                         }
                         .buttonStyle(.plain)
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button(role: .destructive) {
+                                onDelete(session)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
                             Button {
                                 Task { try? await store.pinSession(id: session.id, pinned: false) }
                             } label: {
@@ -318,6 +349,7 @@ private struct SessionSourceSection: View {
     let sessions: [HermesSession]
     let searchText: String
     let onSessionSelected: () -> Void
+    let onDelete: (HermesSession) -> Void
 
     var body: some View {
         SidebarSection(title: title, icon: icon, accent: accent) {
@@ -345,10 +377,16 @@ private struct SessionSourceSection: View {
                                 .buttonStyle(.plain)
                                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                     Button(role: .destructive) {
+                                        onDelete(session)
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                    Button {
                                         Task { try? await store.archiveSession(id: session.id) }
                                     } label: {
                                         Label("Archive", systemImage: "archivebox")
                                     }
+                                    .tint(HermesTheme.warm)
                                     Button {
                                         Task { try? await store.pinSession(id: session.id, pinned: !(session.pinned ?? false)) }
                                     } label: {

@@ -931,3 +931,26 @@ def test_plugin_update_status_contract(client, monkeypatch):
     assert body2["updateAvailable"] is False
     assert body2["highlights"] == []
     assert all("log" not in a for a in calls)
+
+
+def test_plugin_session_delete_runs_cli(client, monkeypatch):
+    """DELETE /sessions/{id} invokes `hermes sessions delete --yes <id>`."""
+
+    class OkProc:
+        returncode = 0
+
+        async def communicate(self):
+            return b"deleted\n", None
+
+    calls = []
+
+    async def fake_exec(*args, **kwargs):
+        calls.append(args)
+        return OkProc()
+
+    monkeypatch.setattr(plugin.asyncio, "create_subprocess_exec", fake_exec)
+    r = client.delete("/api/plugins/hermes-mobile/sessions/sess-123")
+    assert r.status_code == 200
+    assert r.json()["ok"] is True
+    cli = " ".join(str(x) for x in calls[0])
+    assert "sess-123" in cli and "delete" in cli and "--yes" in cli

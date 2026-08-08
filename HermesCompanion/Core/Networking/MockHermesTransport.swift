@@ -75,6 +75,10 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
         }
     }
 
+    func deleteSession(id: String) async throws {
+        sessionList.removeAll { $0.id == id }
+    }
+
     func runDoctor() async throws -> HermesDoctorReport {
         HermesDoctorReport(
             ok: true,

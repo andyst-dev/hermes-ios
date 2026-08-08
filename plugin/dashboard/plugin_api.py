@@ -757,6 +757,15 @@ async def mobile_archive(session_id: str, body: Optional[_ArchiveRequest] = None
     return {"ok": True, "archived": archived}
 
 
+@router.delete("/sessions/{session_id}")
+async def mobile_session_delete(session_id: str) -> dict[str, Any]:
+    """Permanently delete a session via `hermes sessions delete --yes`.
+
+    Hard delete — purges the conversation from the desktop store.
+    """
+    return await _run_cli(["sessions", "delete", "--yes", session_id], timeout=120)
+
+
 @router.post("/chat")
 async def mobile_chat(body: _ChatRequest) -> StreamingResponse:
     engine = _get_engine()

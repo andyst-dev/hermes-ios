@@ -23,6 +23,8 @@ protocol HermesTransport: Sendable {
     func renameSession(id: String, title: String) async throws
     func pinSession(id: String, pinned: Bool) async throws
     func archiveSession(id: String, archived: Bool) async throws
+    /// Permanently deletes a session on the desktop (hard delete).
+    func deleteSession(id: String) async throws
     /// Desktop maintenance — runs `hermes doctor` / `hermes update --yes`
     /// on the desktop and returns the parsed report / CLI output.
     func runDoctor() async throws -> HermesDoctorReport
