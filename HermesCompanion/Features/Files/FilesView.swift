@@ -95,6 +95,9 @@ struct FilesView: View {
                     .padding(.top, 6)
                     .padding(.bottom, 28)
                 }
+                .refreshable {
+                    await load(path: currentPath.isEmpty ? nil : currentPath)
+                }
             }
         }
         .sheet(item: $openFile) { entry in
