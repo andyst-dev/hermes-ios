@@ -422,7 +422,7 @@ private struct ComposerView: View {
                     HStack(spacing: 8) {
                         ForEach(store.pendingAttachments) { attachment in
                             HStack(spacing: 6) {
-                                Image(systemName: "photo")
+                                Image(systemName: (attachment.mimeType ?? "").hasPrefix("image/") ? "photo" : "doc")
                                     .font(.system(size: 11, weight: .semibold))
                                     .foregroundStyle(HermesTheme.primary)
                                 Text(attachment.filename)
@@ -525,7 +525,7 @@ private struct ComposerView: View {
             DesktopFilePickerView()
                 .environmentObject(store)
         }
-        .fileImporter(isPresented: $showingFilesImporter, allowedContentTypes: [.image], allowsMultipleSelection: true) { result in
+        .fileImporter(isPresented: $showingFilesImporter, allowedContentTypes: [.item], allowsMultipleSelection: true) { result in
             guard case .success(let urls) = result else { return }
             Task {
                 for url in urls {
@@ -533,10 +533,10 @@ private struct ComposerView: View {
                     defer { if accessing { url.stopAccessingSecurityScopedResource() } }
                     guard let data = try? Data(contentsOf: url), !data.isEmpty else { continue }
                     let id = UUID()
-                    let filename = url.lastPathComponent.isEmpty ? "file-\(id.uuidString.prefix(8)).jpg" : url.lastPathComponent
+                    let filename = url.lastPathComponent.isEmpty ? "file-\(id.uuidString.prefix(8))" : url.lastPathComponent
                     let fileURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(filename)
                     try? data.write(to: fileURL)
-                    let mime = UTType(filenameExtension: URL(fileURLWithPath: filename).pathExtension)?.preferredMIMEType ?? "image/jpeg"
+                    let mime = UTType(filenameExtension: URL(fileURLWithPath: filename).pathExtension)?.preferredMIMEType ?? "application/octet-stream"
                     store.addPendingAttachment(OutboundPrompt.Attachment(id: id, filename: filename, mimeType: mime, sizeBytes: data.count))
                 }
             }
