@@ -240,8 +240,66 @@ struct HermesCronJob: Codable, Equatable, Identifiable {
     let skills: [String]
     let latestExecution: HermesCronExecution?
 
+    // The real gateway sends `schedule` as an object {kind, expr, display}
+    // while the mock sends a plain String — accept both.
+    enum CodingKeys: String, CodingKey {
+        case id, name, prompt, schedule, scheduleDisplay, state, enabled
+        case nextRunAt, lastRunAt, deliver, skills, latestExecution
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        prompt = try c.decode(String.self, forKey: .prompt)
+        if let plain = try? c.decode(String.self, forKey: .schedule) {
+            schedule = plain
+        } else if let obj = try? c.decode([String: String].self, forKey: .schedule) {
+            schedule = obj["display"] ?? obj["expr"] ?? ""
+        } else {
+            schedule = ""
+        }
+        scheduleDisplay = (try? c.decode(String.self, forKey: .scheduleDisplay)) ?? schedule
+        state = try c.decode(String.self, forKey: .state)
+        enabled = try c.decode(Bool.self, forKey: .enabled)
+        nextRunAt = try? c.decodeIfPresent(String.self, forKey: .nextRunAt)
+        lastRunAt = try? c.decodeIfPresent(String.self, forKey: .lastRunAt)
+        deliver = (try? c.decode(String.self, forKey: .deliver)) ?? ""
+        skills = (try? c.decode([String].self, forKey: .skills)) ?? []
+        latestExecution = try? c.decodeIfPresent(HermesCronExecution.self, forKey: .latestExecution)
+    }
+
     var isPaused: Bool {
         state == "paused" || !enabled
+    }
+
+    // Convenience memberwise init (used by the mock transport).
+    init(
+        id: String,
+        name: String,
+        prompt: String,
+        schedule: String,
+        scheduleDisplay: String,
+        state: String,
+        enabled: Bool,
+        nextRunAt: String? = nil,
+        lastRunAt: String? = nil,
+        deliver: String = "",
+        skills: [String] = [],
+        latestExecution: HermesCronExecution? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.prompt = prompt
+        self.schedule = schedule
+        self.scheduleDisplay = scheduleDisplay
+        self.state = state
+        self.enabled = enabled
+        self.nextRunAt = nextRunAt
+        self.lastRunAt = lastRunAt
+        self.deliver = deliver
+        self.skills = skills
+        self.latestExecution = latestExecution
     }
 
     var stateLabel: String {

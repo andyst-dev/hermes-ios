@@ -245,4 +245,23 @@ final class HermesCompanionTests: XCTestCase {
         KeychainStore.deleteToken()
         XCTAssertNil(KeychainStore.loadToken())
     }
+
+    func testCronJobDecodesGatewayScheduleObject() throws {
+        // The real gateway sends `schedule` as an object {kind, expr, display},
+        // the mock as a plain string. Both must decode.
+        let json = Data(#"""
+        [{"id":"c65ec1b78138","name":"Daily briefing","prompt":"summarize",
+          "schedule":{"kind":"cron","expr":"0 9 * * *","display":"0 9 * * *"},
+          "scheduleDisplay":"0 9 * * *","state":"scheduled","enabled":true,
+          "nextRunAt":"2026-08-08T09:00:00+02:00","lastRunAt":null,
+          "deliver":"telegram:Home","skills":[],
+          "latestExecution":{"id":"","status":"","startedAt":null,"finishedAt":null}}]
+        """#.utf8)
+        let jobs = try JSONDecoder().decode([HermesCronJob].self, from: json)
+        XCTAssertEqual(jobs.count, 1)
+        XCTAssertEqual(jobs[0].name, "Daily briefing")
+        XCTAssertEqual(jobs[0].schedule, "0 9 * * *")
+        XCTAssertEqual(jobs[0].scheduleDisplay, "0 9 * * *")
+        XCTAssertFalse(jobs[0].isPaused)
+    }
 }
