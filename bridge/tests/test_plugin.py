@@ -260,18 +260,19 @@ def test_plugin_stats_aggregates_models(tmp_path, monkeypatch, client):
             model TEXT, message_count INTEGER, input_tokens INTEGER,
             output_tokens INTEGER, cache_read_tokens INTEGER,
             reasoning_tokens INTEGER, estimated_cost_usd REAL,
-            actual_cost_usd REAL, archived INTEGER, started_at REAL
+            actual_cost_usd REAL, archived INTEGER, started_at REAL,
+            cost_status TEXT
         )
         """
     )
     now = time.time()
     con.executemany(
-        "INSERT INTO sessions VALUES (?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO sessions VALUES (?,?,?,?,?,?,?,?,?,?,?)",
         [
-            ("deepseek-v4-flash", 10, 1000, 500, 0, 0, 0.05, 0.0, 0, now - 172800),
-            ("deepseek-v4-flash", 5, 500, 250, 0, 0, 0.02, 0.0, 0, now - 86400),
-            ("gpt-5.5", 3, 2000, 100, 0, 0, 0.10, 0.0, 0, now - 86400),
-            ("archived-model", 1, 999, 999, 0, 0, 9.99, 0.0, 1, now),
+            ("deepseek-v4-flash", 10, 1000, 500, 0, 0, 0.05, 0.0, 0, now - 172800, "estimated"),
+            ("deepseek-v4-flash", 5, 500, 250, 0, 0, 0.02, 0.0, 0, now - 86400, "estimated"),
+            ("gpt-5.5", 3, 2000, 100, 0, 0, 0.10, 0.0, 0, now - 86400, "included"),
+            ("archived-model", 1, 999, 999, 0, 0, 9.99, 0.0, 1, now, "estimated"),
         ],
     )
     con.commit()
@@ -292,6 +293,9 @@ def test_plugin_stats_aggregates_models(tmp_path, monkeypatch, client):
     assert set(models) == {"deepseek-v4-flash", "gpt-5.5"}
     assert models["deepseek-v4-flash"]["sessions"] == 2
     assert models["deepseek-v4-flash"]["inputTokens"] == 1500
+    assert models["deepseek-v4-flash"]["costStatus"] == "estimated"
+    assert models["gpt-5.5"]["costStatus"] == "included"
+    assert models["deepseek-v4-flash"]["untrackedSessions"] == 0
     # Daily rows are present and sorted by day.
     days = [row["day"] for row in data["daily"]]
     assert days == sorted(days) and days

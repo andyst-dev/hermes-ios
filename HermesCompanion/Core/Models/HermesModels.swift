@@ -70,8 +70,18 @@ struct HermesModelStat: Decodable, Equatable, Identifiable {
     let reasoningTokens: Int
     let estimatedCostUsd: Double
     let actualCostUsd: Double
+    /// Desktop billing state for these sessions: "estimated" (pay-per-token),
+    /// "included" (subscription), or "" when untracked (tokens not recorded).
+    let costStatus: String
+    /// Sessions whose token usage was never recorded by the desktop (their
+    /// real cost is missing from the estimate).
+    let untrackedSessions: Int
 
     var totalTokens: Int { inputTokens + outputTokens + cacheReadTokens + reasoningTokens }
+
+    var isSubscriptionIncluded: Bool { costStatus.lowercased().contains("included") }
+    var isFullyUntracked: Bool { untrackedSessions >= sessions && totalTokens == 0 }
+    var isPartiallyTracked: Bool { untrackedSessions > 0 && !isFullyUntracked }
 }
 
 struct HermesDailyStat: Decodable, Equatable, Identifiable {

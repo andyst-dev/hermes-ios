@@ -1918,7 +1918,10 @@ async def mobile_stats() -> dict[str, Any]:
                            COALESCE(SUM(cache_read_tokens), 0)                           AS cacheReadTokens,
                            COALESCE(SUM(reasoning_tokens), 0)                            AS reasoningTokens,
                            COALESCE(SUM(estimated_cost_usd), 0)                          AS estimatedCostUsd,
-                           COALESCE(SUM(actual_cost_usd), 0)                             AS actualCostUsd
+                           COALESCE(SUM(actual_cost_usd), 0)                             AS actualCostUsd,
+                           COALESCE(MAX(cost_status), '')                                AS costStatus,
+                           SUM(CASE WHEN COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0) = 0
+                                    THEN 1 ELSE 0 END)                                   AS untrackedSessions
                     FROM sessions
                     WHERE archived = 0
                     GROUP BY model

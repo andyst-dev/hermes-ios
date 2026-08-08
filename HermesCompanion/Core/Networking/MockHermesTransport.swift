@@ -124,19 +124,22 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
                     model: "deepseek-v4-flash", sessions: 20, messages: 700,
                     inputTokens: 1_400_000, outputTokens: 280_000,
                     cacheReadTokens: 3_500_000, reasoningTokens: 30_000,
-                    estimatedCostUsd: 8.9, actualCostUsd: 0
+                    estimatedCostUsd: 8.9, actualCostUsd: 0,
+                    costStatus: "estimated", untrackedSessions: 1
                 ),
                 HermesModelStat(
                     model: "gpt-5.5", sessions: 12, messages: 300,
                     inputTokens: 500_000, outputTokens: 90_000,
                     cacheReadTokens: 1_200_000, reasoningTokens: 15_000,
-                    estimatedCostUsd: 2.4, actualCostUsd: 0
+                    estimatedCostUsd: 2.4, actualCostUsd: 0,
+                    costStatus: "included", untrackedSessions: 0
                 ),
                 HermesModelStat(
                     model: "gpt-5.6-sol", sessions: 10, messages: 200,
                     inputTokens: 100_000, outputTokens: 30_000,
                     cacheReadTokens: 300_000, reasoningTokens: 5_000,
-                    estimatedCostUsd: 1.2, actualCostUsd: 0
+                    estimatedCostUsd: 1.2, actualCostUsd: 0,
+                    costStatus: "included", untrackedSessions: 0
                 ),
             ],
             daily: [

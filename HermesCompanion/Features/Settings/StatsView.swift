@@ -120,9 +120,7 @@ struct StatsView: View {
                             .foregroundStyle(HermesTheme.ink)
                             .lineLimit(1)
                         Spacer()
-                        Text(money(stat.estimatedCostUsd))
-                            .font(.system(size: 11.5, weight: .semibold))
-                            .foregroundStyle(stat.estimatedCostUsd > 0 ? HermesTheme.primary : HermesTheme.mutedText)
+                        costBadge(for: stat)
                     }
                     HStack(spacing: 8) {
                         GeometryReader { geo in
@@ -152,15 +150,52 @@ struct StatsView: View {
         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(HermesTheme.stroke, lineWidth: 1))
     }
 
+    @ViewBuilder
+    private func costBadge(for stat: HermesModelStat) -> some View {
+        if stat.isSubscriptionIncluded {
+            Label("Inclus (abonnement)", systemImage: "checkmark.seal")
+                .font(.system(size: 10.5, weight: .semibold))
+                .foregroundStyle(HermesTheme.mutedText)
+                .fixedSize()
+        } else if stat.isFullyUntracked {
+            Label("Coût non tracé", systemImage: "questionmark.circle")
+                .font(.system(size: 10.5, weight: .semibold))
+                .foregroundStyle(HermesTheme.warm)
+                .fixedSize()
+        } else if stat.isPartiallyTracked {
+            Label("≈ \(money(stat.estimatedCostUsd)) · partiel", systemImage: "exclamationmark.triangle")
+                .font(.system(size: 10.5, weight: .semibold))
+                .foregroundStyle(HermesTheme.warm)
+                .fixedSize()
+        } else {
+            Text(money(stat.estimatedCostUsd))
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(HermesTheme.primary)
+        }
+    }
+
     private func costNote(_ stats: HermesStatsReport) -> some View {
-        let billed = stats.total.estimatedCostUsd > stats.total.actualCostUsd
-        return Text(billed
-            ? "Estimated cost is computed from per-provider pricing; subscription-included usage shows $0.00."
-            : "All usage is billed per token. Actual cost: \(money(stats.total.actualCostUsd)).")
-            .font(.system(size: 10.5))
-            .foregroundStyle(HermesTheme.mutedText.opacity(0.85))
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 4)
+        VStack(alignment: .leading, spacing: 6) {
+            noteRow("dollarsign.circle", "Estimé = tokens × tarifs fournisseur, calculé par le desktop (facturation au token).")
+            noteRow("checkmark.seal", "« Inclus (abonnement) » = pas facturé au token → coût estimé 0.")
+            noteRow("questionmark.circle", "« Coût non tracé » = le desktop n'enregistre pas les tokens (ex. Codex/terra-pro) → consulte la facture du fournisseur.")
+            noteRow("exclamationmark.triangle", "« Partiel » = certaines sessions du modèle n'ont pas de tokens enregistrés → le coût affiché est sous-évalué.")
+        }
+        .font(.system(size: 10.5))
+        .foregroundStyle(HermesTheme.mutedText.opacity(0.85))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 4)
+    }
+
+    private func noteRow(_ icon: String, _ text: String) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 9.5, weight: .semibold))
+                .foregroundStyle(HermesTheme.warm.opacity(0.8))
+                .frame(width: 14)
+            Text(text)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     // MARK: - Helpers
