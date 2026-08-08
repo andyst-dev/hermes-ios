@@ -66,6 +66,7 @@ private struct CompactChatControls: View {
     @Binding var showingModels: Bool
     var onBack: (() -> Void)? = nil
     @State private var shareURL: URL?
+    @State private var exportingMarkdown = false
 
     var body: some View {
         HStack(spacing: 8) {
@@ -83,7 +84,16 @@ private struct CompactChatControls: View {
             compactButton("sidebar.right") { showingInspector = true }
                 .accessibilityLabel("Conversation info")
             if let shareURL {
-                ShareLink(item: shareURL) {
+                Menu {
+                    ShareLink(item: shareURL) {
+                        Label("Share conversation…", systemImage: "square.and.arrow.up")
+                    }
+                    Button {
+                        exportingMarkdown = true
+                    } label: {
+                        Label("Save to Files…", systemImage: "square.and.arrow.down")
+                    }
+                } label: {
                     Image(systemName: "square.and.arrow.up")
                         .font(.system(size: 13, weight: .semibold))
                         .frame(width: 28, height: 28)
@@ -93,6 +103,12 @@ private struct CompactChatControls: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(HermesTheme.primary)
                 .accessibilityLabel("Export conversation")
+                .fileExporter(
+                    isPresented: $exportingMarkdown,
+                    document: MarkdownFileDocument(url: shareURL),
+                    contentType: .plainText,
+                    defaultFilename: exportFilename
+                ) { _ in }
             }
             if store.isStreaming {
                 compactButton("stop.fill", role: .destructive) { Task { await store.stop() } }
@@ -112,6 +128,15 @@ private struct CompactChatControls: View {
         shareURL = store.exportMarkdownFileURL()
     }
 
+    private var exportFilename: String {
+        let title = store.selectedSession?.title ?? "hermes-export"
+        let sanitized = title
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: ":", with: "-")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return sanitized.isEmpty ? "hermes-export" : sanitized
+    }
+
     private func compactButton(_ systemName: String, role: ButtonRole? = nil, action: @escaping () -> Void) -> some View {
         Button(role: role, action: action) {
             Image(systemName: systemName)
@@ -122,6 +147,26 @@ private struct CompactChatControls: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(HermesTheme.primary)
+    }
+}
+
+/// FileDocument wrapper so "Save to Files" can export the generated
+/// markdown straight from the share menu.
+struct MarkdownFileDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.plainText] }
+
+    private let url: URL
+
+    init(url: URL) {
+        self.url = url
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("hermes-export.md")
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: try Data(contentsOf: url))
     }
 }
 
