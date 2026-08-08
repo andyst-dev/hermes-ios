@@ -75,13 +75,17 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
         }
     }
 
-    func runDoctor() async throws -> String {
-        """
-        ✅ Configuration and dependencies look healthy
-        - config: /Users/andy/.hermes/config.yaml (valid)
-        - model providers: nous (ok), deepseek (ok)
-        - gateway: running
-        """
+    func runDoctor() async throws -> HermesDoctorReport {
+        HermesDoctorReport(
+            ok: true,
+            output: """
+            ✅ Configuration and dependencies look healthy
+            - config: /Users/andy/.hermes/config.yaml (valid)
+            - model providers: nous (ok), deepseek (ok)
+            - gateway: running
+            """,
+            issues: []
+        )
     }
 
     func runUpdate() async throws -> String {
@@ -90,6 +94,16 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
         Already on the latest commit (main)
         Dependencies satisfied
         """
+    }
+
+    func fetchUpdateStatus() async throws -> HermesUpdateStatus {
+        HermesUpdateStatus(
+            ok: true,
+            updateAvailable: false,
+            highlights: [],
+            fullChangelog: "",
+            output: "hermes is up to date"
+        )
     }
 
     func uploadAttachment(fileURL: URL) async throws -> String {

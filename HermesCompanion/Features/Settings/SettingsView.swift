@@ -9,6 +9,7 @@ struct SettingsView: View {
     @State private var showingForgetPairingAlert = false
     @State private var showingUpdateConfirmation = false
     @State private var showingToolOutput = false
+    @State private var showingWhatsNew = false
     @State private var actionStatus: String?
     @AppStorage("hermes.debugAutoConnect") private var debugAutoConnect = false
 
@@ -81,6 +82,7 @@ struct SettingsView: View {
                         Task { await store.refreshTunnelStatus() }
                         Task { await store.refreshCron() }
                         Task { await store.refreshSkillsMemory() }
+                        Task { await store.refreshUpdateStatus() }
                     }
 
                     HermesMobileSection(title: "Desktop maintenance", icon: "wrench.and.screwdriver", accent: HermesTheme.primary) {
@@ -88,8 +90,13 @@ struct SettingsView: View {
                             Task { await store.runDesktopTool(.doctor) }
                             showingToolOutput = true
                         }
-                        SettingsButtonRow(title: "Hermes update", subtitle: "Pull latest hermes and reinstall dependencies", icon: "arrow.down.circle", accent: HermesTheme.warm) {
+                        SettingsButtonRow(title: "Hermes update", subtitle: updateSubtitle, icon: "arrow.down.circle", accent: updateAccent) {
                             showingUpdateConfirmation = true
+                        }
+                        if store.updateStatus?.updateAvailable == true {
+                            SettingsButtonRow(title: "What's new", subtitle: "\(store.updateStatus?.highlights.count ?? 0) incoming changes", icon: "sparkles", accent: HermesTheme.warm) {
+                                showingWhatsNew = true
+                            }
                         }
                     }
                     .alert("Update Hermes?", isPresented: $showingUpdateConfirmation) {
@@ -198,6 +205,10 @@ struct SettingsView: View {
             DesktopToolOutputView()
                 .environmentObject(store)
         }
+        .sheet(isPresented: $showingWhatsNew) {
+            WhatsNewView()
+                .environmentObject(store)
+        }
         .alert("Forget pairing?", isPresented: $showingForgetPairingAlert) {
             Button("Cancel", role: .cancel) {}
             Button("Forget", role: .destructive) {
@@ -216,6 +227,20 @@ struct SettingsView: View {
         case .failed: return "not paired"
         case .disconnected: return "not connected"
         }
+    }
+
+    private var updateSubtitle: String {
+        guard let status = store.updateStatus else { return "Checking for updates…" }
+        if status.updateAvailable {
+            return "Update available — \(status.highlights.count) incoming changes"
+        }
+        return "You're up to date"
+    }
+
+    private var updateAccent: Color {
+        if store.updateStatus?.updateAvailable == true { return HermesTheme.warm }
+        if store.updateStatus != nil { return HermesTheme.green }
+        return HermesTheme.mutedForeground
     }
 
     private var connectionAccent: Color {
@@ -294,13 +319,14 @@ struct SettingsButtonRow: View {
     }
 }
 
+
 private struct DesktopToolOutputView: View {
     @EnvironmentObject private var store: AppStore
 
     var body: some View {
         HermesMobileScreen(title: store.toolTitle, subtitle: "Desktop CLI output", icon: "terminal", showsDone: true) {
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 16) {
                     if store.toolRunning {
                         HStack(spacing: 8) {
                             ProgressView()
@@ -311,11 +337,85 @@ private struct DesktopToolOutputView: View {
                         }
                         .padding(.vertical, 6)
                     }
+                    if !store.toolIssues.isEmpty {
+                        HermesMobileSection(title: "Issues found (\(store.toolIssues.count))", icon: "exclamationmark.triangle", accent: HermesTheme.warm) {
+                            ForEach(Array(store.toolIssues.enumerated()), id: \.offset) { _, issue in
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(issue.problem)
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundStyle(HermesTheme.warm)
+                                    Text("→ \(issue.solution)")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(HermesTheme.mutedForeground)
+                                }
+                                .padding(.vertical, 3)
+                            }
+                        }
+                    }
                     Text(store.toolOutput)
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(HermesTheme.ink.opacity(0.85))
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.horizontal, 13)
+                .padding(.top, 10)
+                .padding(.bottom, 28)
+            }
+        }
+    }
+}
+
+private struct WhatsNewView: View {
+    @EnvironmentObject private var store: AppStore
+    @State private var showFullChangelog = false
+
+    var body: some View {
+        HermesMobileScreen(title: "What's new", subtitle: "Incoming changes", icon: "sparkles", showsDone: true) {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 14) {
+                    if let status = store.updateStatus {
+                        if status.updateAvailable {
+                            ForEach(Array(status.highlights.enumerated()), id: \.offset) { _, line in
+                                Text(line)
+                                    .font(.system(size: 12, design: .monospaced))
+                                    .foregroundStyle(HermesTheme.ink.opacity(0.85))
+                                    .textSelection(.enabled)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            Button {
+                                showFullChangelog.toggle()
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: showFullChangelog ? "chevron.up" : "chevron.down")
+                                    Text(showFullChangelog ? "Hide full changelog" : "See all changes in detail")
+                                        .font(.system(size: 12.5, weight: .semibold))
+                                }
+                                .foregroundStyle(HermesTheme.primary)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.top, 4)
+                            if showFullChangelog {
+                                Text(status.fullChangelog.isEmpty ? "No detailed changelog available." : status.fullChangelog)
+                                    .font(.system(size: 10.5, design: .monospaced))
+                                    .foregroundStyle(HermesTheme.ink.opacity(0.7))
+                                    .textSelection(.enabled)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        } else {
+                            Text("You're up to date.")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(HermesTheme.green)
+                            Text(status.output)
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(HermesTheme.mutedForeground)
+                                .textSelection(.enabled)
+                        }
+                    } else {
+                        Text("Checking for updates…")
+                            .font(.system(size: 13))
+                            .foregroundStyle(HermesTheme.mutedForeground)
+                    }
                 }
                 .padding(.horizontal, 13)
                 .padding(.top, 10)

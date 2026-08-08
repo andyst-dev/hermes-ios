@@ -322,14 +322,17 @@ actor HTTPHermesTransport: HermesTransport {
         let _: MobileSessionActionResponse = try await post("api/mobile/sessions/\(id)/archive", body: MobileArchiveRequest(archived: archived))
     }
 
-    func runDoctor() async throws -> String {
-        let result: MobileCliOutput = try await post("api/mobile/doctor", body: EmptyBody(), timeout: 180)
-        return result.output
+    func runDoctor() async throws -> HermesDoctorReport {
+        try await post("api/mobile/doctor", body: EmptyBody(), timeout: 180)
     }
 
     func runUpdate() async throws -> String {
         let result: MobileCliOutput = try await post("api/mobile/update", body: EmptyBody(), timeout: 600)
         return result.output
+    }
+
+    func fetchUpdateStatus() async throws -> HermesUpdateStatus {
+        try await get("api/mobile/update/status", timeout: 150)
     }
 
     func attachDesktopFile(path: String) async throws -> HermesDesktopAttachment {

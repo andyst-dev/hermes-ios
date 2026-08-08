@@ -1782,10 +1782,102 @@ async def _run_cli(args: list[str], timeout: int) -> dict[str, Any]:
     return {"ok": proc.returncode == 0, "output": (stdout or b"").decode("utf-8", "replace")}
 
 
+async def _run_git(args: list[str], timeout: int = 30) -> str:
+    """Run a read-only git command in the hermes repo root."""
+    proc = None
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "git", *args,
+            cwd=_hermes_cli_cwd(),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except (asyncio.TimeoutError, OSError):
+        if proc:
+            proc.kill()
+        return ""
+    return (stdout or b"").decode("utf-8", "replace")
+
+
+def _doctor_solution(problem: str) -> str:
+    """Best-effort fix suggestion for a doctor warning/error line."""
+    low = problem.lower()
+    if "run `" in problem:
+        # The doctor already embeds the fix command (e.g. "run `hermes update`").
+        import re as _re
+        m = _re.search(r"run `([^`]+)`", problem)
+        if m:
+            return f"Run `{m.group(1)}` to fix this."
+    if "sqlite" in low:
+        return "Update SQLite via `hermes update` (fixed versions: 3.51.3+ / 3.50.7 / 3.44.6)."
+    if "not a recognised provider" in low:
+        return "Fix config.yaml: set model.provider to a known provider, or run `hermes setup` to re-pick it."
+    if "not installed" in low or "not logged in" in low:
+        return "Optional: run `hermes setup` to install or sign in to this integration."
+    if "key" in low or "token" in low:
+        return "Add the missing credential in ~/.hermes/.env (or run `hermes setup`)."
+    if "permission" in low or "not writable" in low:
+        return "Fix the file/folder permissions (chmod) or run `hermes setup`."
+    return "Run `hermes setup` to repair, or `hermes doctor` again after fixing."
+
+
+def _parse_doctor_issues(output: str) -> list[dict[str, str]]:
+    """Extract ⚠/✗ lines from the doctor report with fix suggestions."""
+    issues: list[dict[str, str]] = []
+    for line in output.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        marker = None
+        for m in ("✗", "⚠"):
+            if stripped.startswith(m):
+                marker = m
+                break
+        if marker is None:
+            continue
+        problem = stripped[len(marker):].strip()
+        if not problem:
+            continue
+        issues.append({"problem": problem, "solution": _doctor_solution(problem)})
+    return issues
+
+
 @router.post("/doctor")
 async def mobile_doctor() -> dict[str, Any]:
-    """Run `hermes doctor` on the desktop and return its configuration report."""
-    return await _run_cli(["doctor"], timeout=180)
+    """Run `hermes doctor` and return the report plus parsed issues + fixes."""
+    result = await _run_cli(["doctor"], timeout=180)
+    result["issues"] = _parse_doctor_issues(result.get("output", ""))
+    return result
+
+
+@router.get("/update/status")
+async def mobile_update_status() -> dict[str, Any]:
+    """Check whether an update is available and what it brings.
+
+    Runs `hermes update --check` (fetches upstream, installs nothing),
+    then lists the incoming commits via git.
+    """
+    check = await _run_cli(["update", "--check"], timeout=120)
+    output = check.get("output", "")
+    available = "update available" in output.lower()
+    highlights: list[str] = []
+    full_changelog = ""
+    if available:
+        highlights = [
+            line for line in (await _run_git(["log", "HEAD..upstream/main", "--oneline", "-15"])).splitlines()
+            if line.strip()
+        ]
+        full_changelog = await _run_git(["log", "HEAD..upstream/main", "--stat", "--no-color", "-25"])
+        if len(full_changelog) > 20000:
+            full_changelog = full_changelog[:20000] + "\n… (truncated)"
+    return {
+        "ok": check.get("ok", False),
+        "updateAvailable": available,
+        "highlights": highlights,
+        "fullChangelog": full_changelog,
+        "output": output,
+    }
 
 
 @router.post("/update")

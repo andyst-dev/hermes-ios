@@ -269,8 +269,10 @@ final class AppStore: ObservableObject {
     // MARK: - Desktop maintenance (hermes doctor / update)
 
     @Published var toolOutput = ""
+    @Published var toolIssues: [HermesDoctorIssue] = []
     @Published var toolTitle = ""
     @Published var toolRunning = false
+    @Published var updateStatus: HermesUpdateStatus?
 
     func runDesktopTool(_ kind: DesktopTool) async {
         guard case .connected = connection else {
@@ -280,15 +282,26 @@ final class AppStore: ObservableObject {
         toolTitle = kind.title
         toolRunning = true
         toolOutput = "Running \(kind.command)…"
+        toolIssues = []
         do {
             switch kind {
-            case .doctor: toolOutput = try await client.runDoctor()
-            case .update: toolOutput = try await client.runUpdate()
+            case .doctor:
+                let report = try await client.runDoctor()
+                toolOutput = report.output
+                toolIssues = report.issues
+            case .update:
+                toolOutput = try await client.runUpdate()
+                await refreshUpdateStatus()
             }
         } catch {
             toolOutput = "Failed: \(error.localizedDescription)"
         }
         toolRunning = false
+    }
+
+    func refreshUpdateStatus() async {
+        guard case .connected = connection else { return }
+        updateStatus = try? await client.fetchUpdateStatus()
     }
 
     enum DesktopTool {

@@ -852,3 +852,82 @@ def test_plugin_doctor_and_update_run_cli(client, monkeypatch):
     bad = client.post("/api/plugins/hermes-mobile/doctor")
     assert bad.json()["ok"] is False
     assert "something broke" in bad.json()["output"]
+
+
+def test_plugin_doctor_parses_issues_and_solutions():
+    """⚠/✗ lines become problem+solution entries; ✓ lines are ignored."""
+    output = (
+        "  \u2713 Python 3.11\n"
+        "  \u26a0 SQLite 3.50.4 (WAL-reset bug) (run `hermes update`)\n"
+        "  \u2717 model.provider 'wat' is not a recognised provider\n"
+        "  \u26a0 discord.py (optional, not installed)\n"
+    )
+    issues = plugin._parse_doctor_issues(output)
+    assert len(issues) == 3
+    assert issues[0]["problem"].startswith("SQLite")
+    assert "hermes update" in issues[0]["solution"]
+    assert "recognised provider" in issues[1]["problem"]
+    assert "config.yaml" in issues[1]["solution"]
+    assert issues[2]["solution"].startswith("Optional")
+    assert plugin._parse_doctor_issues("  \u2713 all good\n") == []
+
+
+
+
+def test_plugin_update_status_contract(client, monkeypatch):
+    """GET /update/status parses --check and lists incoming commits."""
+
+    class CliProc:
+        returncode = 0
+
+        async def communicate(self):
+            return b"\u2695 Update available (behind upstream/main).\n", None
+
+    class GitProc:
+        def __init__(self, data: bytes):
+            self._data = data
+            self.returncode = 0
+
+        async def communicate(self):
+            return self._data, None
+
+    calls = []
+
+    async def fake_exec(*args, **kwargs):
+        calls.append(args)
+        if list(args[1:3]) == ["-m", "hermes_cli.main"] and "--check" in args:
+            return CliProc()
+        if "log" in args:
+            if "--stat" in args:
+                return GitProc(b"full changelog detail\n")
+            return GitProc(b"abc1234 feat: shiny new thing\ncdef567 fix: bug\n")
+        raise AssertionError(f"unexpected exec: {args}")
+
+    monkeypatch.setattr(plugin.asyncio, "create_subprocess_exec", fake_exec)
+    r = client.get("/api/plugins/hermes-mobile/update/status")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["updateAvailable"] is True
+    assert len(body["highlights"]) == 2
+    assert "feat: shiny" in body["highlights"][0]
+    assert "full changelog" in body["fullChangelog"]
+
+    # when --check says up to date, no git log is fetched
+    class UpToDateProc:
+        returncode = 0
+
+        async def communicate(self):
+            return b"hermes is up to date\n", None
+
+    calls.clear()
+
+    async def up_to_date_exec(*args, **kwargs):
+        calls.append(args)
+        return UpToDateProc()
+
+    monkeypatch.setattr(plugin.asyncio, "create_subprocess_exec", up_to_date_exec)
+    r2 = client.get("/api/plugins/hermes-mobile/update/status")
+    body2 = r2.json()
+    assert body2["updateAvailable"] is False
+    assert body2["highlights"] == []
+    assert all("log" not in a for a in calls)

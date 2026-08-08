@@ -14,6 +14,29 @@ struct HermesHost: Codable, Equatable, Identifiable {
     let profile: String
 }
 
+/// Parsed `hermes doctor` report: raw CLI output plus the ⚠/✗ issues
+/// the plugin extracted, each with a fix suggestion.
+struct HermesDoctorIssue: Decodable, Equatable {
+    let problem: String
+    let solution: String
+}
+
+struct HermesDoctorReport: Decodable, Equatable {
+    let ok: Bool
+    let output: String
+    let issues: [HermesDoctorIssue]
+}
+
+/// `hermes update --check` result: whether an update is available and
+/// what it brings (incoming commit highlights + full changelog).
+struct HermesUpdateStatus: Decodable, Equatable {
+    let ok: Bool
+    let updateAvailable: Bool
+    let highlights: [String]
+    let fullChangelog: String
+    let output: String
+}
+
 struct HermesSession: Codable, Equatable, Identifiable {
     let id: String
     var title: String
