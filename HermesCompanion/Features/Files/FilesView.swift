@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct FilesView: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
     @State private var pathStack: [String] = []
     @State private var entries: [HermesFileEntry] = []
@@ -139,6 +140,7 @@ struct FilesView: View {
 }
 
 private struct FilePreviewView: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
     let entry: HermesFileEntry
     @State private var content = "Loading…"

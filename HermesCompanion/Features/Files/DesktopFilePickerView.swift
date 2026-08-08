@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct DesktopFilePickerView: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
     @State private var pathStack: [String] = []

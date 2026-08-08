@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct CommandPaletteView: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SessionListView: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
     @Binding var showingSettings: Bool
     var onSessionSelected: () -> Void = {}
@@ -134,6 +135,7 @@ struct SessionListView: View {
 }
 
 private struct MobileSessionsHeader: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @Binding var showingSettings: Bool
     let onNewSession: () -> Void
     let onOpenCommands: () -> Void
@@ -191,6 +193,7 @@ private struct MobileSessionsHeader: View {
 }
 
 private struct MobileQuickFilters: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
 
     var body: some View {
@@ -256,6 +259,7 @@ enum SessionSource {
 }
 
 private struct SidebarSearchField: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @Binding var text: String
 
     var body: some View {
@@ -276,6 +280,7 @@ private struct SidebarSearchField: View {
 }
 
 private struct PinnedSection: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
     let sessions: [HermesSession]
     let onDelete: (HermesSession) -> Void
@@ -314,6 +319,7 @@ private struct PinnedSection: View {
 }
 
 private struct EmptySessionsState: View {
+    @ObservedObject private var theme = ThemeManager.shared
     let filter: String
     let searchText: String
 
@@ -342,6 +348,7 @@ private struct EmptySessionsState: View {
 }
 
 private struct SessionSourceSection: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
     let title: String
     let icon: String
@@ -416,6 +423,7 @@ private struct SessionSourceSection: View {
 }
 
 private struct SidebarSection<Content: View>: View {
+    @ObservedObject private var theme = ThemeManager.shared
     let title: String
     let icon: String
     var accent: Color = HermesTheme.mutedForeground
@@ -439,6 +447,7 @@ private struct SidebarSection<Content: View>: View {
 }
 
 private struct SidebarGroupLabel: View {
+    @ObservedObject private var theme = ThemeManager.shared
     let title: String
 
     var body: some View {
@@ -457,6 +466,7 @@ private struct SidebarGroupLabel: View {
 }
 
 private struct SidebarSessionRow: View {
+    @ObservedObject private var theme = ThemeManager.shared
     let session: HermesSession
     let selected: Bool
 
@@ -504,6 +514,7 @@ private struct SidebarSessionRow: View {
 }
 
 private struct SidebarFooter: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
 
     var body: some View {
@@ -532,6 +543,7 @@ private struct SidebarFooter: View {
 // MARK: - Archived sessions
 
 private struct ArchivedSessionsView: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
 

@@ -5,6 +5,7 @@ import SwiftUI
 /// (`/api/mobile/cron`); when the backend does not ship them (standalone
 /// bridge), the store flags `cronUnavailable` and the view explains.
 struct CronJobsView: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
     @State private var expandedJobID: String?
     @State private var jobToRemove: HermesCronJob?

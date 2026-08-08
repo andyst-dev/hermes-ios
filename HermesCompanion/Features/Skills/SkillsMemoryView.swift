@@ -3,6 +3,7 @@ import SwiftUI
 /// Skills catalog (read-only) + persistent memory (read + append) straight
 /// from the desktop backend.
 struct SkillsMemoryView: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
     @State private var selectedSkill: HermesSkill?
     @State private var showingAddMemory = false
@@ -269,6 +270,7 @@ struct SkillsMemoryView: View {
 
 /// Full SKILL.md content of one skill.
 private struct SkillDetailView: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @Environment(\.dismiss) private var dismiss
     let skill: HermesSkill
 
@@ -305,6 +307,7 @@ private struct SkillDetailView: View {
 
 /// Edit or delete one persistent-memory entry.
 private struct MemoryEditSheet: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @Environment(\.dismiss) private var dismiss
     let target: String
     let entry: HermesMemoryEntry

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
     @State private var showingModels = false
     @State private var showingFiles = false
@@ -14,7 +15,6 @@ struct SettingsView: View {
     @State private var actionStatus: String?
     @AppStorage("hermes.debugAutoConnect") private var debugAutoConnect = false
     @AppStorage("hermes.faceidLock") private var faceIDLock = false
-    @ObservedObject private var theme = ThemeManager.shared
 
     var body: some View {
         HermesMobileScreen(title: "Settings", subtitle: connectionLabel, icon: "gearshape", showsDone: true) {
@@ -346,6 +346,7 @@ struct SettingsView: View {
 }
 
 struct SettingsButtonRow: View {
+    @ObservedObject private var theme = ThemeManager.shared
     let title: String
     let subtitle: String
     let icon: String
@@ -383,6 +384,7 @@ struct SettingsButtonRow: View {
 
 
 private struct DesktopToolOutputView: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
 
     var body: some View {
@@ -429,6 +431,7 @@ private struct DesktopToolOutputView: View {
 }
 
 private struct WhatsNewView: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
     @State private var showFullChangelog = false
 

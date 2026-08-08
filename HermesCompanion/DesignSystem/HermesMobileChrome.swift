@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct HermesMobileScreen<Content: View>: View {
+    @ObservedObject private var theme = ThemeManager.shared
     let title: String
     var subtitle: String?
     var icon: String?
@@ -65,6 +66,7 @@ struct HermesMobileScreen<Content: View>: View {
 }
 
 struct HermesMobileSection<Content: View>: View {
+    @ObservedObject private var theme = ThemeManager.shared
     let title: String
     var icon: String?
     var accent: Color = HermesTheme.mutedForeground
@@ -92,6 +94,7 @@ struct HermesMobileSection<Content: View>: View {
 }
 
 struct HermesMobileRow: View {
+    @ObservedObject private var theme = ThemeManager.shared
     let title: String
     var subtitle: String? = nil
     var icon: String? = nil
@@ -138,6 +141,7 @@ struct HermesMobileRow: View {
 }
 
 struct HermesMobileSearchField: View {
+    @ObservedObject private var theme = ThemeManager.shared
     let placeholder: String
     @Binding var text: String
 

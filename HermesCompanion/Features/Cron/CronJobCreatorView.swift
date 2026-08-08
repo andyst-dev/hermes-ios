@@ -4,6 +4,7 @@ import SwiftUI
 /// (preset chips or a custom expression), and enable toggle. Posts to
 /// `/api/mobile/cron` via the store and dismisses on success.
 struct CronJobCreatorView: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
 

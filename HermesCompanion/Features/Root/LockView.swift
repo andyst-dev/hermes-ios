@@ -2,6 +2,7 @@ import SwiftUI
 
 /// Full-screen lock shown over the whole app when the Face ID toggle is on.
 struct LockView: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
 
     var body: some View {

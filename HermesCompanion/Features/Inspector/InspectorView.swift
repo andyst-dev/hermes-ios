@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct InspectorView: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
     @State private var showingRenameAlert = false
@@ -151,6 +152,7 @@ private struct ToolUsage: Identifiable {
 }
 
 struct CapabilityBadges: View {
+    @ObservedObject private var theme = ThemeManager.shared
     let items: [String]
 
     var body: some View {
@@ -169,6 +171,7 @@ struct CapabilityBadges: View {
 }
 
 struct EmptyLine: View {
+    @ObservedObject private var theme = ThemeManager.shared
     let text: String
     init(_ text: String) { self.text = text }
     var body: some View { Text(text).font(.caption).foregroundStyle(HermesTheme.mutedForeground).padding(.horizontal, 10) }

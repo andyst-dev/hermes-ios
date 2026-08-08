@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ModelPickerView: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
@@ -84,6 +85,7 @@ struct ModelPickerView: View {
 }
 
 private struct ModelRow: View {
+    @ObservedObject private var theme = ThemeManager.shared
     let model: HermesModel
     let active: Bool
 
@@ -123,6 +125,7 @@ private struct ModelRow: View {
 /// Thinking + effort control, mirroring the desktop's reasoning picker.
 /// "none" disables thinking; the other levels raise the budget.
 private struct ReasoningSection: View {
+    @ObservedObject private var theme = ThemeManager.shared
     let effort: HermesReasoningEffort
     let onToggle: (Bool) -> Void
     let onSelect: (String) -> Void

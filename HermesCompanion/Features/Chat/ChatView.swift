@@ -3,6 +3,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ChatView: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
     @Binding var showingInspector: Bool
     @Binding var showingModels: Bool
@@ -61,6 +62,7 @@ struct ChatView: View {
 }
 
 private struct CompactChatControls: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
     @Binding var showingInspector: Bool
     @Binding var showingModels: Bool
@@ -149,6 +151,7 @@ private struct ChatTurn: Identifiable {
 }
 
 private struct StickyUserPrompt: View {
+    @ObservedObject private var theme = ThemeManager.shared
     let message: HermesMessage
 
     var body: some View {
@@ -172,6 +175,7 @@ private struct StickyUserPrompt: View {
 }
 
 private struct ResponseBlock: View {
+    @ObservedObject private var theme = ThemeManager.shared
     let message: HermesMessage
 
     var body: some View {
@@ -197,6 +201,7 @@ private struct ResponseBlock: View {
 /// Collapsible reasoning block. The thinking streams here, separate from the
 /// answer, so the reply stays concise - expand to read it, like on Desktop.
 private struct ThinkingBlock: View {
+    @ObservedObject private var theme = ThemeManager.shared
     let text: String
     @State private var expanded = false
 
@@ -248,6 +253,7 @@ private struct ThinkingBlock: View {
 }
 
 private struct MarkdownMessageText: View {
+    @ObservedObject private var theme = ThemeManager.shared
     private let blocks: [MarkdownBlock]
     private let baseSize: CGFloat
     private let textColor: Color
@@ -354,6 +360,7 @@ private extension Text {
 }
 
 private struct ToolCallCard: View {
+    @ObservedObject private var theme = ThemeManager.shared
     let tool: HermesToolCall
 
     var body: some View {
@@ -408,6 +415,7 @@ private struct ToolCallCard: View {
 }
 
 private struct ComposerView: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
     @StateObject private var voice = VoiceTranscriber()
     @State private var showingPhotoPicker = false
@@ -569,6 +577,7 @@ private struct ComposerView: View {
 /// Dangerous-command approval surfaced by the Desktop during a streaming
 /// turn. The turn is blocked until the phone answers.
 private struct ApprovalCard: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
     let request: ApprovalRequest
 

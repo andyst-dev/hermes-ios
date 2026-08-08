@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ConnectView: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
     @State private var host = UserDefaults.standard.string(forKey: "hermes.host") ?? ProcessInfo.processInfo.environment["HERMES_MOBILE_BASE_URL"] ?? "http://127.0.0.1:8765"
     @State private var profile = UserDefaults.standard.string(forKey: "hermes.profile") ?? ProcessInfo.processInfo.environment["HERMES_PROFILE"] ?? "default"
@@ -318,6 +319,7 @@ struct ConnectView: View {
 }
 
 private struct ConnectOnboardingHeader: View {
+    @ObservedObject private var theme = ThemeManager.shared
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: -2) {

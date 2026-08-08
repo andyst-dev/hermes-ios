@@ -4,6 +4,7 @@ import SwiftUI
 /// Desktop usage stats: totals, tokens per model, estimated cost and the
 /// last 14 days of activity (from the desktop's local state DB).
 struct StatsView: View {
+    @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
 
     var body: some View {
