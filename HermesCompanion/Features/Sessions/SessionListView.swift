@@ -12,31 +12,23 @@ struct SessionListView: View {
             MobileSessionsHeader(showingSettings: $showingSettings, onNewSession: openNewSession, onOpenCommands: onOpenCommands)
             ScrollView(showsIndicators: false) {
                 let allFilter = store.selectedSourceFilter == "all"
-                let desktopSessions = visibleSessions(only: "desktop")
-                let cliSessions = visibleSessions(only: "cli")
-                let mobileSessions = visibleSessions(only: "mobile")
-                let telegramSessions = visibleSessions(only: "telegram")
-                let hasResults = allFilter
-                    ? !desktopSessions.isEmpty || !cliSessions.isEmpty || !mobileSessions.isEmpty || !telegramSessions.isEmpty
-                    : !visibleSessions().isEmpty
+                let hasResults = !visibleSessions().isEmpty
 
                 VStack(alignment: .leading, spacing: 18) {
                     MobileQuickFilters()
                     SidebarSearchField(text: $searchText)
                     if allFilter {
                         PinnedSection(sessions: pinnedSessions)
-                        if !desktopSessions.isEmpty {
-                            SessionSourceSection(title: "Desktop", icon: "macwindow", sessions: desktopSessions, searchText: searchText, onSessionSelected: onSessionSelected)
-                        }
-                        if !cliSessions.isEmpty {
-                            SessionSourceSection(title: "CLI", icon: "terminal", sessions: cliSessions, searchText: searchText, onSessionSelected: onSessionSelected)
-                        }
-                        if !mobileSessions.isEmpty {
-                            SessionSourceSection(title: "Mobile", icon: "iphone", sessions: mobileSessions, searchText: searchText, onSessionSelected: onSessionSelected)
-                        }
-                        if !telegramSessions.isEmpty {
-                            SessionSourceSection(title: "Telegram", icon: "paperplane.circle.fill", accent: Color(red: 0.180, green: 0.620, blue: 0.920), sessions: telegramSessions, searchText: searchText, onSessionSelected: onSessionSelected)
-                        }
+                        // One chronological list, newest activity first,
+                        // every source mixed in; the per-chat icon tells
+                        // the origin apart (CLI, Telegram, Mobile...).
+                        SessionSourceSection(
+                            title: "All sessions",
+                            icon: "clock",
+                            sessions: allSessionsChronological,
+                            searchText: searchText,
+                            onSessionSelected: onSessionSelected
+                        )
                     } else {
                         SessionSourceSection(
                             title: regularSectionTitle,
@@ -100,6 +92,14 @@ struct SessionListView: View {
 
     private var pinnedSessions: [HermesSession] {
         store.sessions.filter { $0.pinned == true }
+    }
+
+    /// All sources mixed, newest activity first. Pinned chats already
+    /// appear in the pinned card on top, so they are not duplicated here.
+    private var allSessionsChronological: [HermesSession] {
+        visibleSessions()
+            .filter { $0.pinned != true }
+            .sorted { $0.updatedAt > $1.updatedAt }
     }
 }
 
@@ -315,7 +315,7 @@ private struct SessionSourceSection: View {
             } else {
                 VStack(alignment: .leading, spacing: 10) {
                     ForEach(sessionGroups, id: \.title) { group in
-                        if group.title != "Today" || title.lowercased() == "telegram" {
+                        if group.title != "Today" || title.lowercased() == "telegram" || title.lowercased() == "all sessions" {
                             SidebarGroupLabel(title: group.title)
                         }
                         VStack(alignment: .leading, spacing: 2) {
@@ -426,6 +426,13 @@ private struct SidebarSessionRow: View {
                 }
             }
             Spacer(minLength: 0)
+            // Per-chat origin icon (CLI / Telegram / Mobile / Desktop),
+            // always shown so rows align and the mixed chronological
+            // "All sessions" list stays scannable.
+            Image(systemName: SessionSource.icon(session.source ?? "desktop"))
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(HermesTheme.mutedForeground.opacity(0.55))
+                .frame(width: 16)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, selected ? 7 : 5)
