@@ -87,6 +87,8 @@ private struct MainShellView: View {
             )
             .environmentObject(store)
             .presentationBackground(HermesTheme.background)
+            .presentationDetents([.large])
+            .presentationDragIndicator(.hidden)
         }
     }
 
