@@ -1961,12 +1961,35 @@ async def mobile_stats() -> dict[str, Any]:
                     """
                 )
             ]
+            by_provider = [
+                dict(row)
+                for row in con.execute(
+                    """
+                    SELECT COALESCE(NULLIF(billing_provider, ''), 'unknown')              AS provider,
+                           COUNT(*)                                                      AS sessions,
+                           COALESCE(SUM(message_count), 0)                               AS messages,
+                           COALESCE(SUM(input_tokens), 0)                                AS inputTokens,
+                           COALESCE(SUM(output_tokens), 0)                               AS outputTokens,
+                           COALESCE(SUM(cache_read_tokens), 0)                           AS cacheReadTokens,
+                           COALESCE(SUM(reasoning_tokens), 0)                            AS reasoningTokens,
+                           COALESCE(SUM(estimated_cost_usd), 0)                          AS estimatedCostUsd,
+                           COALESCE(SUM(actual_cost_usd), 0)                             AS actualCostUsd,
+                           COALESCE(MAX(cost_status), '')                                AS costStatus,
+                           SUM(CASE WHEN COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0) = 0
+                                    THEN 1 ELSE 0 END)                                   AS untrackedSessions
+                    FROM sessions
+                    WHERE archived = 0
+                    GROUP BY provider
+                    ORDER BY (input_tokens + output_tokens) DESC
+                    """
+                )
+            ]
         finally:
             con.close()
     except Exception as exc:  # noqa: BLE001 - report any DB hiccup
-        return {"ok": False, "error": str(exc), "byModel": [], "daily": [], "total": {}}
+        return {"ok": False, "error": str(exc), "byModel": [], "byProvider": [], "daily": [], "total": {}}
 
-    return {"ok": True, "total": total, "byModel": by_model, "daily": daily}
+    return {"ok": True, "total": total, "byModel": by_model, "byProvider": by_provider, "daily": daily}
 
 
 @router.post("/update")

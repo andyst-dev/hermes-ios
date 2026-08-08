@@ -43,6 +43,7 @@ struct HermesStatsReport: Decodable, Equatable {
     let ok: Bool
     let total: HermesStatsTotal
     let byModel: [HermesModelStat]
+    let byProvider: [HermesProviderStat]
     let daily: [HermesDailyStat]
 }
 
@@ -89,6 +90,29 @@ struct HermesDailyStat: Decodable, Equatable, Identifiable {
     let day: String
     let sessions: Int
     let tokens: Int
+}
+
+/// Same aggregation grouped by billing provider (nous portal, deepseek,
+/// openai-codex, anthropic...). "unknown" = provider not recorded.
+struct HermesProviderStat: Decodable, Equatable, Identifiable {
+    var id: String { provider }
+    let provider: String
+    let sessions: Int
+    let messages: Int
+    let inputTokens: Int
+    let outputTokens: Int
+    let cacheReadTokens: Int
+    let reasoningTokens: Int
+    let estimatedCostUsd: Double
+    let actualCostUsd: Double
+    let costStatus: String
+    let untrackedSessions: Int
+
+    var totalTokens: Int { inputTokens + outputTokens + cacheReadTokens + reasoningTokens }
+
+    var isSubscriptionIncluded: Bool { costStatus.lowercased().contains("included") }
+    var isFullyUntracked: Bool { untrackedSessions >= sessions && totalTokens == 0 }
+    var isPartiallyTracked: Bool { untrackedSessions > 0 && !isFullyUntracked }
 }
 
 struct HermesSession: Codable, Equatable, Identifiable {

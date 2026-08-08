@@ -261,18 +261,18 @@ def test_plugin_stats_aggregates_models(tmp_path, monkeypatch, client):
             output_tokens INTEGER, cache_read_tokens INTEGER,
             reasoning_tokens INTEGER, estimated_cost_usd REAL,
             actual_cost_usd REAL, archived INTEGER, started_at REAL,
-            cost_status TEXT
+            cost_status TEXT, billing_provider TEXT
         )
         """
     )
     now = time.time()
     con.executemany(
-        "INSERT INTO sessions VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO sessions VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
         [
-            ("deepseek-v4-flash", 10, 1000, 500, 0, 0, 0.05, 0.0, 0, now - 172800, "estimated"),
-            ("deepseek-v4-flash", 5, 500, 250, 0, 0, 0.02, 0.0, 0, now - 86400, "estimated"),
-            ("gpt-5.5", 3, 2000, 100, 0, 0, 0.10, 0.0, 0, now - 86400, "included"),
-            ("archived-model", 1, 999, 999, 0, 0, 9.99, 0.0, 1, now, "estimated"),
+            ("deepseek-v4-flash", 10, 1000, 500, 0, 0, 0.05, 0.0, 0, now - 172800, "estimated", "deepseek"),
+            ("deepseek-v4-flash", 5, 500, 250, 0, 0, 0.02, 0.0, 0, now - 86400, "estimated", "nous"),
+            ("gpt-5.5", 3, 2000, 100, 0, 0, 0.10, 0.0, 0, now - 86400, "included", "openai-codex"),
+            ("archived-model", 1, 999, 999, 0, 0, 9.99, 0.0, 1, now, "estimated", "deepseek"),
         ],
     )
     con.commit()
@@ -296,6 +296,11 @@ def test_plugin_stats_aggregates_models(tmp_path, monkeypatch, client):
     assert models["deepseek-v4-flash"]["costStatus"] == "estimated"
     assert models["gpt-5.5"]["costStatus"] == "included"
     assert models["deepseek-v4-flash"]["untrackedSessions"] == 0
+    providers = {p["provider"]: p for p in data["byProvider"]}
+    assert set(providers) == {"deepseek", "nous", "openai-codex"}
+    assert providers["nous"]["sessions"] == 1
+    assert providers["nous"]["estimatedCostUsd"] == pytest.approx(0.02)
+    assert providers["openai-codex"]["costStatus"] == "included"
     # Daily rows are present and sorted by day.
     days = [row["day"] for row in data["daily"]]
     assert days == sorted(days) and days

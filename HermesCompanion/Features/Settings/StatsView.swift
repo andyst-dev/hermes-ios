@@ -13,7 +13,8 @@ struct StatsView: View {
                     if let stats = store.stats {
                         totalsGrid(stats.total)
                         dailyChart(stats.daily)
-                        modelBreakdown(stats.byModel)
+                        breakdown(eyebrow: "BY PROVIDER", title: "Where the money goes", rows: stats.byProvider.map(StatRow.init(provider:)))
+                        breakdown(eyebrow: "BY MODEL", title: "Tokens & cost", rows: stats.byModel.map(StatRow.init(model:)))
                         costNote(stats)
                     } else if let error = store.statsError {
                         Text(error)
@@ -106,16 +107,16 @@ struct StatsView: View {
         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(HermesTheme.stroke, lineWidth: 1))
     }
 
-    // MARK: - Per-model breakdown
+    // MARK: - Per-model / per-provider breakdown
 
-    private func modelBreakdown(_ models: [HermesModelStat]) -> some View {
+    private func breakdown(eyebrow: String, title: String, rows: [StatRow]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionTitle("BY MODEL", "Tokens & cost")
-            let maxTokens = models.map(\.totalTokens).max() ?? 1
-            ForEach(models) { stat in
+            sectionTitle(eyebrow, title)
+            let maxTokens = rows.map(\.tokens).max() ?? 1
+            ForEach(rows) { stat in
                 VStack(alignment: .leading, spacing: 5) {
                     HStack {
-                        Text(displayName(stat.model))
+                        Text(stat.name)
                             .font(.system(size: 12.5, weight: .semibold))
                             .foregroundStyle(HermesTheme.ink)
                             .lineLimit(1)
@@ -128,18 +129,18 @@ struct StatsView: View {
                                 Capsule().fill(HermesTheme.muted.opacity(0.7))
                                 Capsule()
                                     .fill(HermesTheme.ring.gradient)
-                                    .frame(width: max(4, geo.size.width * CGFloat(stat.totalTokens) / CGFloat(maxTokens)))
+                                    .frame(width: max(4, geo.size.width * CGFloat(stat.tokens) / CGFloat(maxTokens)))
                             }
                         }
                         .frame(height: 7)
-                        Text("\(compact(stat.totalTokens)) tok · \(stat.sessions) sess")
+                        Text("\(compact(stat.tokens)) tok · \(stat.sessions) sess")
                             .font(.system(size: 10))
                             .foregroundStyle(HermesTheme.mutedText)
                             .fixedSize()
                     }
                 }
             }
-            if models.isEmpty {
+            if rows.isEmpty {
                 Text("No sessions yet")
                     .font(.system(size: 12))
                     .foregroundStyle(HermesTheme.mutedText)
@@ -151,7 +152,7 @@ struct StatsView: View {
     }
 
     @ViewBuilder
-    private func costBadge(for stat: HermesModelStat) -> some View {
+    private func costBadge(for stat: StatRow) -> some View {
         if stat.isSubscriptionIncluded {
             Label("Inclus (abonnement)", systemImage: "checkmark.seal")
                 .font(.system(size: 10.5, weight: .semibold))
@@ -163,12 +164,12 @@ struct StatsView: View {
                 .foregroundStyle(HermesTheme.warm)
                 .fixedSize()
         } else if stat.isPartiallyTracked {
-            Label("≈ \(money(stat.estimatedCostUsd)) · partiel", systemImage: "exclamationmark.triangle")
+            Label("≈ \(money(stat.cost)) · partiel", systemImage: "exclamationmark.triangle")
                 .font(.system(size: 10.5, weight: .semibold))
                 .foregroundStyle(HermesTheme.warm)
                 .fixedSize()
         } else {
-            Text(money(stat.estimatedCostUsd))
+            Text(money(stat.cost))
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(HermesTheme.primary)
         }
@@ -180,6 +181,7 @@ struct StatsView: View {
             noteRow("checkmark.seal", "« Inclus (abonnement) » = pas facturé au token → coût estimé 0.")
             noteRow("questionmark.circle", "« Coût non tracé » = le desktop n'enregistre pas les tokens (ex. Codex/terra-pro) → consulte la facture du fournisseur.")
             noteRow("exclamationmark.triangle", "« Partiel » = certaines sessions du modèle n'ont pas de tokens enregistrés → le coût affiché est sous-évalué.")
+            noteRow("building.2", "Coût réel Nous portal = crédits sur portal.nousresearch.com — l'estimation utilise les tarifs configurés du desktop.")
         }
         .font(.system(size: 10.5))
         .foregroundStyle(HermesTheme.mutedText.opacity(0.85))
@@ -212,10 +214,6 @@ struct StatsView: View {
         }
     }
 
-    private func displayName(_ model: String) -> String {
-        model.split(separator: "/").last.map(String.init) ?? model
-    }
-
     private func shortDay(_ day: String) -> String {
         day.count >= 10 ? String(day.suffix(5)) : day
     }
@@ -228,5 +226,52 @@ struct StatsView: View {
 
     private func money(_ value: Double) -> String {
         String(format: "$%.2f", value)
+    }
+}
+
+/// One row in a stats breakdown — shared between the BY MODEL and
+/// BY PROVIDER sections so both get identical badges and bars.
+private struct StatRow: Identifiable {
+    let id: String
+    let name: String
+    let sessions: Int
+    let tokens: Int
+    let cost: Double
+    let costStatus: String
+    let untrackedSessions: Int
+
+    init(model: HermesModelStat) {
+        id = model.id
+        name = model.model.split(separator: "/").last.map(String.init) ?? model.model
+        sessions = model.sessions
+        tokens = model.totalTokens
+        cost = model.estimatedCostUsd
+        costStatus = model.costStatus
+        untrackedSessions = model.untrackedSessions
+    }
+
+    init(provider: HermesProviderStat) {
+        id = provider.id
+        name = Self.providerName(provider.provider)
+        sessions = provider.sessions
+        tokens = provider.totalTokens
+        cost = provider.estimatedCostUsd
+        costStatus = provider.costStatus
+        untrackedSessions = provider.untrackedSessions
+    }
+
+    var isSubscriptionIncluded: Bool { costStatus.lowercased().contains("included") }
+    var isFullyUntracked: Bool { untrackedSessions >= sessions && tokens == 0 }
+    var isPartiallyTracked: Bool { untrackedSessions > 0 && !isFullyUntracked }
+
+    static func providerName(_ raw: String) -> String {
+        switch raw.lowercased() {
+        case "nous": return "Nous portal"
+        case "deepseek": return "DeepSeek (direct)"
+        case "openai-codex": return "OpenAI Codex"
+        case "openai": return "OpenAI"
+        case "anthropic": return "Anthropic"
+        default: return "(non renseigné)"
+        }
     }
 }

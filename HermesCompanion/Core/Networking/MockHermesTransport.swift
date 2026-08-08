@@ -142,6 +142,29 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
                     costStatus: "included", untrackedSessions: 0
                 ),
             ],
+            byProvider: [
+                HermesProviderStat(
+                    provider: "nous", sessions: 15, messages: 550,
+                    inputTokens: 1_200_000, outputTokens: 220_000,
+                    cacheReadTokens: 2_900_000, reasoningTokens: 20_000,
+                    estimatedCostUsd: 8.5, actualCostUsd: 0,
+                    costStatus: "estimated", untrackedSessions: 2
+                ),
+                HermesProviderStat(
+                    provider: "deepseek", sessions: 18, messages: 420,
+                    inputTokens: 700_000, outputTokens: 150_000,
+                    cacheReadTokens: 2_100_000, reasoningTokens: 25_000,
+                    estimatedCostUsd: 2.6, actualCostUsd: 0,
+                    costStatus: "estimated", untrackedSessions: 0
+                ),
+                HermesProviderStat(
+                    provider: "openai-codex", sessions: 9, messages: 230,
+                    inputTokens: 100_000, outputTokens: 30_000,
+                    cacheReadTokens: 0, reasoningTokens: 5_000,
+                    estimatedCostUsd: 0, actualCostUsd: 0,
+                    costStatus: "included", untrackedSessions: 0
+                ),
+            ],
             daily: [
                 HermesDailyStat(day: "2026-08-01", sessions: 6, tokens: 900_000),
                 HermesDailyStat(day: "2026-08-02", sessions: 3, tokens: 500_000),
