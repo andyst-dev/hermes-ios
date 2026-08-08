@@ -48,6 +48,9 @@ enum HermesTheme {
 
     static func brandTitle(size: CGFloat) -> Font { .custom("Collapse-Bold", size: size) }
     static func brandRegular(size: CGFloat) -> Font { .custom("Collapse-Regular", size: size) }
+    /// Serif heavy brand face — the same look as the "HERMES" wordmark on
+    /// the home-screen widgets (system serif, heavy weight).
+    static func brandSerif(size: CGFloat) -> Font { .system(size: size, weight: .heavy, design: .serif) }
 }
 
 struct DesktopPanel: ViewModifier {
