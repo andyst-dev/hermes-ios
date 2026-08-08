@@ -22,7 +22,8 @@ struct HermesMobileScreen<Content: View>: View {
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(HermesTheme.brandTitle(size: 25))
+                        .font(HermesTheme.brandSerif(size: 24))
+                        .tracking(0.4)
                         .foregroundStyle(HermesTheme.ink)
                     if let subtitle {
                         Text(subtitle)
