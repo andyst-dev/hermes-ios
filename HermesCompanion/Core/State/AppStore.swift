@@ -64,6 +64,7 @@ final class AppStore: ObservableObject {
             try await refreshCapabilities()
             await refreshReasoningEffort()
             await checkPendingApprovals()
+            await refreshCron()
             startAutoRefresh()
             writeWidgetSnapshot()
         } catch {

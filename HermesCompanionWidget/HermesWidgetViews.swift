@@ -70,7 +70,7 @@ struct HermesOverviewView: View {
             Spacer(minLength: 6)
             sectionLabel("Cron")
             if let next = s.nextCronDate, !s.nextCronTitle.isEmpty {
-                Text("\\(s.nextCronTitle)")
+                Text("\(s.nextCronTitle)")
                     .font(.system(size: 10.5, weight: .medium))
                     .foregroundStyle(.white.opacity(0.7))
                     .lineLimit(1)
@@ -97,7 +97,7 @@ struct HermesOverviewView: View {
                 }
                 Spacer(minLength: 8)
                 if !s.sessionID.isEmpty {
-                    Link(destination: URL(string: "hermes://session/\\(s.sessionID)")!) {
+                    Link(destination: URL(string: "hermes://session/\(s.sessionID)")!) {
                         Text("Open")
                             .font(.system(size: 9, weight: .bold))
                             .foregroundStyle(.black)
@@ -143,7 +143,7 @@ struct HermesOverviewView: View {
                 .padding(.vertical, 6)
             sectionLabel("Cron")
             if let next = s.nextCronDate, !s.nextCronTitle.isEmpty {
-                Text("\\(s.nextCronTitle)")
+                Text("\(s.nextCronTitle)")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.white.opacity(0.8))
                     .lineLimit(1)
@@ -160,9 +160,15 @@ struct HermesOverviewView: View {
             }
             Spacer(minLength: 6)
             HStack {
-                Text("Updated \\(HermesOverviewView.relativeTime(from: s.updatedAt))")
-                    .font(.system(size: 9))
-                    .foregroundStyle(.white.opacity(0.3))
+                if s.updatedAt > Date().addingTimeInterval(-7 * 86400) {
+                    Text("Updated \(HermesOverviewView.relativeTime(from: s.updatedAt))")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.white.opacity(0.3))
+                } else {
+                    Text("—")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.white.opacity(0.3))
+                }
                 Spacer()
                 Link(destination: URL(string: "hermes://new-chat")!) {
                     Text("New chat")
