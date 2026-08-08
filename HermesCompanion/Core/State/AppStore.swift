@@ -119,9 +119,20 @@ final class AppStore: ObservableObject {
             await refreshCron()
             startAutoRefresh()
             writeWidgetSnapshot()
+            consumePendingOpenSession()
         } catch {
             connection = .failed(error.localizedDescription)
         }
+    }
+
+    /// Opens the conversation requested by the "Open a Hermes session" Siri
+    /// intent (it writes the target id before launching the app).
+    private func consumePendingOpenSession() {
+        let key = "hermes.pendingOpenSessionID"
+        guard let pendingID = UserDefaults.standard.string(forKey: key) else { return }
+        UserDefaults.standard.removeObject(forKey: key)
+        guard sessions.contains(where: { $0.id == pendingID }) else { return }
+        selectedSessionID = pendingID
     }
 
     /// Foreground alert poll — surfaces an approval that arrived while the
