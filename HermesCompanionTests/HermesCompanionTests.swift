@@ -264,4 +264,40 @@ final class HermesCompanionTests: XCTestCase {
         XCTAssertEqual(jobs[0].scheduleDisplay, "0 9 * * *")
         XCTAssertFalse(jobs[0].isPaused)
     }
+
+    func testCronCreateThroughClient() async throws {
+        let client = HermesClient(transport: MockHermesTransport())
+        let job = try await client.cronCreate(
+            name: "Nightly backup", prompt: "Back up the repo",
+            schedule: "0 2 * * *", skills: ["git"], deliver: "local", enabled: true
+        )
+        XCTAssertEqual(job.name, "Nightly backup")
+        XCTAssertEqual(job.prompt, "Back up the repo")
+        XCTAssertEqual(job.schedule, "0 2 * * *")
+        XCTAssertEqual(job.skills, ["git"])
+        XCTAssertEqual(job.deliver, "local")
+        XCTAssertTrue(job.enabled)
+        XCTAssertEqual(job.state, "scheduled")
+    }
+
+    func testCronCreateThroughStoreAppendsToList() async throws {
+        let store = AppStore(client: HermesClient(transport: MockHermesTransport()))
+        await store.refreshCron()
+        let before = store.cronJobs.count
+        try await store.cronCreate(
+            name: nil, prompt: "Hello", schedule: "every 30m",
+            skills: nil, deliver: nil, enabled: true
+        )
+        XCTAssertEqual(store.cronJobs.count, before + 1)
+        XCTAssertEqual(store.cronJobs.last?.prompt, "Hello")
+    }
+
+    func testMemoryUpdateAndDeleteThroughClient() async throws {
+        let client = HermesClient(transport: MockHermesTransport())
+        let updated = try await client.memoryUpdate(target: "memory", index: 1, content: "edited fact")
+        XCTAssertEqual(updated.first?.content, "edited fact")
+        XCTAssertEqual(updated.first?.index, 1)
+        let afterDelete = try await client.memoryDelete(target: "memory", index: 1)
+        XCTAssertTrue(afterDelete.isEmpty)
+    }
 }

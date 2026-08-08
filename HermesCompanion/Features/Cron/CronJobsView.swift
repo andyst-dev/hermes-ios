@@ -10,9 +10,12 @@ struct CronJobsView: View {
     @State private var jobToRemove: HermesCronJob?
     @State private var executions: [String: [HermesCronExecution]] = [:]
     @State private var loaded = false
+    @State private var showingCreator = false
 
     var body: some View {
-        HermesMobileScreen(title: "Cron jobs", subtitle: subtitle, icon: "clock.badge.checkmark", showsDone: true) {
+        HermesMobileScreen(title: "Cron jobs", subtitle: subtitle, icon: "clock.badge.checkmark", showsDone: true, onAdd: {
+            showingCreator = true
+        }) {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 18) {
                     if store.cronUnavailable && !loaded {
@@ -30,6 +33,9 @@ struct CronJobsView: View {
                 .padding(.top, 10)
                 .padding(.bottom, 28)
             }
+        }
+        .sheet(isPresented: $showingCreator) {
+            CronJobCreatorView().environmentObject(store)
         }
         .alert("Remove cron job?", isPresented: Binding(
             get: { jobToRemove != nil },

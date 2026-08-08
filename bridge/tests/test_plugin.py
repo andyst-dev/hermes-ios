@@ -550,6 +550,35 @@ def cron_stub(monkeypatch):
             return None
         return {**fake_job, "state": "running"}
 
+    created_kwargs: dict = {}
+
+    def create_job(prompt, schedule, name=None, **kwargs):
+        created_kwargs.update(prompt=prompt, schedule=schedule, name=name, **kwargs)
+        return {
+            **fake_job,
+            "id": "job2",
+            "name": name or "Untitled",
+            "prompt": prompt,
+            "schedule": schedule,
+            "deliver": kwargs.get("deliver") or "",
+            "skills": kwargs.get("skills") or [],
+        }
+
+    def get_job(job_id):
+        if job_id == "job1":
+            return dict(fake_job)
+        if job_id == "job2":
+            return {
+                **fake_job,
+                "id": "job2",
+                "name": created_kwargs.get("name") or "Untitled",
+                "prompt": created_kwargs.get("prompt", ""),
+                "schedule": created_kwargs.get("schedule", ""),
+                "deliver": created_kwargs.get("deliver") or "",
+                "skills": created_kwargs.get("skills") or [],
+            }
+        return None
+
     fake_cron = types.ModuleType("cron")
     fake_cron_jobs = types.ModuleType("cron.jobs")
     setattr(fake_cron_jobs, "list_jobs", lambda include_disabled=False: [dict(fake_job)])
@@ -557,6 +586,9 @@ def cron_stub(monkeypatch):
     setattr(fake_cron_jobs, "resume_job", resumed)
     setattr(fake_cron_jobs, "trigger_job", triggered)
     setattr(fake_cron_jobs, "remove_job", lambda job_id: job_id == "job1")
+    setattr(fake_cron_jobs, "create_job", create_job)
+    setattr(fake_cron_jobs, "get_job", get_job)
+    setattr(fake_cron_jobs, "created_kwargs", created_kwargs)
     setattr(fake_cron, "jobs", fake_cron_jobs)
     monkeypatch.setitem(sys.modules, "cron", fake_cron)
     monkeypatch.setitem(sys.modules, "cron.jobs", fake_cron_jobs)
@@ -590,6 +622,88 @@ def test_plugin_cron_unknown_job_404(client, cron_stub):
     resp = client.post("/api/plugins/hermes-mobile/cron/ghost/pause")
     assert resp.status_code == 404
     assert "Unknown cron job" in resp.json()["detail"]
+
+
+def test_plugin_cron_create(client, cron_stub):
+    created = client.post(
+        "/api/plugins/hermes-mobile/cron",
+        json={
+            "name": "Nightly backup",
+            "prompt": "Back up the repo",
+            "schedule": "0 2 * * *",
+            "skills": ["git"],
+            "deliver": "local",
+        },
+    )
+    assert created.status_code == 200
+    job = created.json()["job"]
+    assert job["id"] == "job2"
+    assert job["name"] == "Nightly backup"
+    assert job["prompt"] == "Back up the repo"
+    assert job["schedule"] == "0 2 * * *"
+    assert job["skills"] == ["git"]
+    assert job["deliver"] == "local"
+    # The gateway create_job must have received the mobile fields.
+    assert cron_stub.created_kwargs["skills"] == ["git"]
+    assert cron_stub.created_kwargs["deliver"] == "local"
+    assert cron_stub.created_kwargs["name"] == "Nightly backup"
+
+
+def test_plugin_cron_create_validates(client, cron_stub):
+    missing_prompt = client.post(
+        "/api/plugins/hermes-mobile/cron",
+        json={"name": "x", "schedule": "0 9 * * *"},
+    )
+    assert missing_prompt.status_code == 400
+    assert "prompt" in missing_prompt.json()["detail"]
+
+    missing_schedule = client.post(
+        "/api/plugins/hermes-mobile/cron",
+        json={"prompt": "hello"},
+    )
+    assert missing_schedule.status_code == 400
+    assert "schedule" in missing_schedule.json()["detail"]
+
+
+def test_plugin_memory_update_and_delete(client, monkeypatch, tmp_path):
+    monkeypatch.setattr(plugin, "_MEMORIES_DIR", str(tmp_path))
+    mem = tmp_path / "MEMORY.md"
+    mem.write_text("first entry\n\n§\n\nsecond entry\n", encoding="utf-8")
+
+    updated = client.patch(
+        "/api/plugins/hermes-mobile/memory/memory/1",
+        json={"content": "second entry (edited)"},
+    )
+    assert updated.status_code == 200
+    entries = updated.json()["entries"]
+    assert len(entries) == 2
+    assert entries[1]["content"] == "second entry (edited)"
+    # The on-disk file keeps the § separator format the memory loader parses.
+    assert "second entry (edited)" in mem.read_text(encoding="utf-8")
+
+    deleted = client.delete("/api/plugins/hermes-mobile/memory/memory/0")
+    assert deleted.status_code == 200
+    remaining = deleted.json()["entries"]
+    assert len(remaining) == 1
+    assert remaining[0]["content"] == "second entry (edited)"
+
+
+def test_plugin_memory_edits_validate(client, monkeypatch, tmp_path):
+    monkeypatch.setattr(plugin, "_MEMORIES_DIR", str(tmp_path))
+    (tmp_path / "MEMORY.md").write_text("only entry\n", encoding="utf-8")
+
+    out_of_range = client.delete("/api/plugins/hermes-mobile/memory/memory/5")
+    assert out_of_range.status_code == 404
+    assert "No memory entry" in out_of_range.json()["detail"]
+
+    empty = client.patch(
+        "/api/plugins/hermes-mobile/memory/memory/0",
+        json={"content": "   "},
+    )
+    assert empty.status_code == 400
+
+    bad_target = client.delete("/api/plugins/hermes-mobile/memory/notes/0")
+    assert bad_target.status_code == 400
 
 
 def test_plugin_notifications_pending(client, monkeypatch):

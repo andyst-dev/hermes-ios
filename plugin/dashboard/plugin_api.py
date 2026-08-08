@@ -1657,3 +1657,96 @@ async def mobile_memory_append(body: _MemoryRequest) -> dict[str, Any]:
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"Could not write memory: {exc}") from exc
     return {"ok": True, "target": body.target, "entries": _parse_memory_file(path)}
+
+
+# ---------------------------------------------------------------------------
+# Cron creation + memory editing (mobile authoring surfaces)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/cron")
+async def mobile_cron_create(body: dict[str, Any]) -> dict[str, Any]:
+    # Parsed as a raw dict (not a BaseModel) — pydantic 2.13's TypeAdapter
+    # rejects optional-with-default fields through FastAPI's body FieldInfo
+    # alias, which would 500 every create. Validation is explicit below.
+    prompt = (body.get("prompt") or "").strip()
+    schedule = (body.get("schedule") or "").strip()
+    if not prompt:
+        raise HTTPException(status_code=400, detail="prompt is required")
+    if not schedule:
+        raise HTTPException(status_code=400, detail="schedule is required")
+    cron_jobs = _load_cron_jobs()
+    try:
+        job = cron_jobs.create_job(
+            prompt=prompt,
+            schedule=schedule,
+            name=(body.get("name") or None),
+            skills=body.get("skills") or None,
+            deliver=body.get("deliver") or None,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Cron create failed: {exc}") from exc
+    if not body.get("enabled", True):
+        try:
+            cron_jobs.pause_job(job["id"])
+            job = cron_jobs.get_job(job["id"]) or job
+        except Exception:  # pragma: no cover — pause after create is best-effort
+            pass
+    return {"ok": True, "job": _cron_job_row(job)}
+
+
+class _MemoryContent(BaseModel):
+    content: str
+
+
+def _memory_path_for(target: str) -> Path:
+    if target not in ("memory", "user"):
+        raise HTTPException(status_code=400, detail="target must be memory|user")
+    return _memories_root_dir() / ("MEMORY.md" if target == "memory" else "USER.md")
+
+
+def _memory_entries(path: Path) -> list[str]:
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Memory file not found")
+    text = path.read_text(encoding="utf-8", errors="replace")
+    return [e.strip() for e in re.split(r"\n\s*§\s*\n", text) if e.strip()]
+
+
+def _write_memory_entries(path: Path, entries: list[str]) -> None:
+    body = "\n\n§\n\n".join(entries)
+    path.write_text(body + ("\n" if body else ""), encoding="utf-8")
+
+
+@router.patch("/memory/{target}/{index}")
+async def mobile_memory_update(target: str, index: int, body: _MemoryContent) -> dict[str, Any]:
+    content = body.content.strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="content is empty")
+    path = _memory_path_for(target)
+    try:
+        entries = _memory_entries(path)
+        if index < 0 or index >= len(entries):
+            raise HTTPException(status_code=404, detail=f"No memory entry at index {index}")
+        entries[index] = content
+        _write_memory_entries(path, entries)
+    except HTTPException:
+        raise
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Could not update memory: {exc}") from exc
+    return {"ok": True, "target": target, "entries": _parse_memory_file(path)}
+
+
+@router.delete("/memory/{target}/{index}")
+async def mobile_memory_delete(target: str, index: int) -> dict[str, Any]:
+    path = _memory_path_for(target)
+    try:
+        entries = _memory_entries(path)
+        if index < 0 or index >= len(entries):
+            raise HTTPException(status_code=404, detail=f"No memory entry at index {index}")
+        del entries[index]
+        _write_memory_entries(path, entries)
+    except HTTPException:
+        raise
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Could not update memory: {exc}") from exc
+    return {"ok": True, "target": target, "entries": _parse_memory_file(path)}

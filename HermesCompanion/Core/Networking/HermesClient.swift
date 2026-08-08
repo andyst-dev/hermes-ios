@@ -124,6 +124,10 @@ final class HermesClient: ObservableObject {
         try await transport.cronRemove(jobID: jobID)
     }
 
+    func cronCreate(name: String?, prompt: String, schedule: String, skills: [String]?, deliver: String?, enabled: Bool) async throws -> HermesCronJob {
+        try await transport.cronCreate(name: name, prompt: prompt, schedule: schedule, skills: skills, deliver: deliver, enabled: enabled)
+    }
+
     func pendingNotifications() async throws -> HermesPendingNotifications {
         try await transport.fetchPendingNotifications()
     }
@@ -142,5 +146,13 @@ final class HermesClient: ObservableObject {
 
     func memoryAppend(target: String, content: String) async throws -> [HermesMemoryEntry] {
         try await transport.appendMemory(target: target, content: content)
+    }
+
+    func memoryUpdate(target: String, index: Int, content: String) async throws -> [HermesMemoryEntry] {
+        try await transport.updateMemory(target: target, index: index, content: content)
+    }
+
+    func memoryDelete(target: String, index: Int) async throws -> [HermesMemoryEntry] {
+        try await transport.deleteMemory(target: target, index: index)
     }
 }

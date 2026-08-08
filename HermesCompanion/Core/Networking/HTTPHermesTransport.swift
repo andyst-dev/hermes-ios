@@ -368,6 +368,23 @@ actor HTTPHermesTransport: HermesTransport {
         let _: MobileSessionActionResponse = try await post("api/mobile/cron/\(jobID)/remove", body: EmptyBody())
     }
 
+    func cronCreate(name: String?, prompt: String, schedule: String, skills: [String]?, deliver: String?, enabled: Bool) async throws -> HermesCronJob {
+        struct CronCreateBody: Encodable {
+            let name: String?
+            let prompt: String
+            let schedule: String
+            let skills: [String]?
+            let deliver: String?
+            let enabled: Bool
+        }
+        let response: MobileCronActionResponse = try await post(
+            "api/mobile/cron",
+            body: CronCreateBody(name: name, prompt: prompt, schedule: schedule, skills: skills, deliver: deliver, enabled: enabled),
+            timeout: 20
+        )
+        return response.job
+    }
+
     func fetchPendingNotifications() async throws -> HermesPendingNotifications {
         try await get("api/mobile/notifications/pending", timeout: 20)
     }
@@ -399,6 +416,35 @@ actor HTTPHermesTransport: HermesTransport {
         let response: MemoryAppendResponse = try await post(
             "api/mobile/memory",
             body: MobileMemoryAppendRequest(target: target, content: content)
+        )
+        return response.entries
+    }
+
+    func updateMemory(target: String, index: Int, content: String) async throws -> [HermesMemoryEntry] {
+        struct MemoryEditResponse: Decodable {
+            let entries: [HermesMemoryEntry]
+        }
+        struct MemoryUpdateBody: Encodable {
+            let content: String
+        }
+        let response: MemoryEditResponse = try await dataRequest(
+            path: "api/mobile/memory/\(target)/\(index)",
+            method: "PATCH",
+            body: try JSONEncoder().encode(MemoryUpdateBody(content: content)),
+            timeout: 20
+        )
+        return response.entries
+    }
+
+    func deleteMemory(target: String, index: Int) async throws -> [HermesMemoryEntry] {
+        struct MemoryEditResponse: Decodable {
+            let entries: [HermesMemoryEntry]
+        }
+        let response: MemoryEditResponse = try await dataRequest(
+            path: "api/mobile/memory/\(target)/\(index)",
+            method: "DELETE",
+            body: Optional<Data>.none,
+            timeout: 20
         )
         return response.entries
     }

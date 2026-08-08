@@ -8,6 +8,9 @@ struct SkillsMemoryView: View {
     @State private var showingAddMemory = false
     @State private var addMemoryTarget = "memory"
     @State private var memoryDraft = ""
+    @State private var editingEntry: HermesMemoryEntry?
+    @State private var editingTarget = "memory"
+    @State private var editDraft = ""
     @State private var actionStatus: String?
 
     var body: some View {
@@ -31,6 +34,22 @@ struct SkillsMemoryView: View {
         .sheet(item: $selectedSkill) { skill in
             SkillDetailView(skill: skill)
                 .environmentObject(store)
+        }
+        .sheet(item: $editingEntry) { entry in
+            MemoryEditSheet(
+                target: editingTarget,
+                entry: entry,
+                draft: editDraft,
+                onSave: { content in
+                    let ok = await store.memoryUpdate(target: editingTarget, index: entry.index, content: content)
+                    actionStatus = ok ? "Memory updated on the desktop." : "Could not update memory."
+                },
+                onDelete: {
+                    let ok = await store.memoryDelete(target: editingTarget, index: entry.index)
+                    actionStatus = ok ? "Memory entry removed." : "Could not remove memory."
+                }
+            )
+            .environmentObject(store)
         }
         .alert("Add memory entry", isPresented: $showingAddMemory) {
             TextField("Fact to remember…", text: $memoryDraft)
@@ -110,9 +129,9 @@ struct SkillsMemoryView: View {
 
     private var memorySection: some View {
         HermesMobileSection(title: "Memory", icon: "brain", accent: HermesTheme.green) {
-            memoryGroup(title: "Agent notes", entries: store.memory.memory)
+            memoryGroup(title: "Agent notes", target: "memory", entries: store.memory.memory)
             Divider().overlay(HermesTheme.border.opacity(0.5)).padding(.vertical, 4)
-            memoryGroup(title: "Your profile", entries: store.memory.user)
+            memoryGroup(title: "Your profile", target: "user", entries: store.memory.user)
 
             HStack(spacing: 8) {
                 Button {
@@ -154,7 +173,7 @@ struct SkillsMemoryView: View {
         }
     }
 
-    private func memoryGroup(title: String, entries: [HermesMemoryEntry]) -> some View {
+    private func memoryGroup(title: String, target: String, entries: [HermesMemoryEntry]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title.uppercased())
                 .font(.system(size: 10, weight: .bold, design: .monospaced))
@@ -166,13 +185,44 @@ struct SkillsMemoryView: View {
                     .foregroundStyle(HermesTheme.mutedForeground.opacity(0.6))
             } else {
                 ForEach(entries) { entry in
-                    Text(entry.content)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(HermesTheme.ink.opacity(0.85))
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Button {
+                        editingTarget = target
+                        editDraft = entry.content
+                        editingEntry = entry
+                    } label: {
+                        HStack(alignment: .top, spacing: 6) {
+                            Text(entry.content)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(HermesTheme.ink.opacity(0.85))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .multilineTextAlignment(.leading)
+                            Image(systemName: "pencil")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(HermesTheme.mutedForeground.opacity(0.5))
+                                .padding(.top, 2)
+                        }
                         .padding(.horizontal, 9)
                         .padding(.vertical, 7)
                         .background(HermesTheme.card.opacity(0.3), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .contextMenu {
+                        Button {
+                            editingTarget = target
+                            editDraft = entry.content
+                            editingEntry = entry
+                        } label: {
+                            Label("Edit", systemImage: "pencil")
+                        }
+                        Button(role: .destructive) {
+                            Task {
+                                let ok = await store.memoryDelete(target: target, index: entry.index)
+                                actionStatus = ok ? "Memory entry removed." : "Could not remove memory."
+                            }
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
                 }
             }
         }
@@ -211,6 +261,90 @@ private struct SkillDetailView: View {
                     .padding(.bottom, 28)
                 }
             }
+        }
+    }
+}
+
+/// Edit or delete one persistent-memory entry.
+private struct MemoryEditSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let target: String
+    let entry: HermesMemoryEntry
+    @State var draft: String
+    var onSave: (String) async -> Void
+    var onDelete: () async -> Void
+
+    @State private var saving = false
+
+    var body: some View {
+        NavigationStack {
+            HermesMobileScreen(title: "Edit memory", subtitle: target == "user" ? "Your profile" : "Agent notes", icon: "pencil", showsDone: true) {
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 14) {
+                        TextEditor(text: $draft)
+                            .font(.system(size: 13.5, weight: .medium))
+                            .foregroundStyle(HermesTheme.ink)
+                            .scrollContentBackground(.hidden)
+                            .padding(8)
+                            .frame(minHeight: 120)
+                            .background(HermesTheme.card.opacity(0.35), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(HermesTheme.border.opacity(0.7), lineWidth: 1))
+
+                        Button {
+                            save()
+                        } label: {
+                            HStack(spacing: 8) {
+                                if saving {
+                                    ProgressView().tint(HermesTheme.ink)
+                                } else {
+                                    Image(systemName: "checkmark.circle.fill")
+                                }
+                                Text(saving ? "Saving…" : "Save changes")
+                                    .font(.system(size: 14, weight: .bold))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 13)
+                            .foregroundStyle(HermesTheme.ink)
+                            .background(HermesTheme.primary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(saving)
+
+                        Button(role: .destructive) {
+                            Task {
+                                await onDelete()
+                                dismiss()
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 11, weight: .bold))
+                                Text("Delete this entry")
+                                    .font(.system(size: 12.5, weight: .semibold))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 11)
+                            .foregroundStyle(HermesTheme.red)
+                            .background(HermesTheme.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 13)
+                    .padding(.top, 10)
+                    .padding(.bottom, 28)
+                }
+            }
+        }
+    }
+
+    private func save() {
+        let content = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !content.isEmpty else { return }
+        saving = true
+        Task {
+            await onSave(content)
+            saving = false
+            dismiss()
         }
     }
 }

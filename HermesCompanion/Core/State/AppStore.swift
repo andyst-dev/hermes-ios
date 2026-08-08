@@ -317,6 +317,17 @@ final class AppStore: ObservableObject {
         } catch {}
     }
 
+    /// Create a job from the phone and refresh the list (throws so the
+    /// creator sheet can surface validation errors from the gateway).
+    func cronCreate(name: String?, prompt: String, schedule: String, skills: [String]?, deliver: String?, enabled: Bool) async throws {
+        let created = try await client.cronCreate(name: name, prompt: prompt, schedule: schedule, skills: skills, deliver: deliver, enabled: enabled)
+        if let idx = cronJobs.firstIndex(where: { $0.id == created.id }) {
+            cronJobs[idx] = created
+        } else {
+            cronJobs.append(created)
+        }
+    }
+
     /// Thin passthrough so CronJobsView can load a job's execution history.
     func cronExecutions(jobID: String) async throws -> [HermesCronExecution] {
         try await client.cronExecutions(jobID: jobID)
@@ -342,6 +353,30 @@ final class AppStore: ObservableObject {
     @discardableResult
     func memoryAppend(target: String, content: String) async -> Bool {
         guard let entries = try? await client.memoryAppend(target: target, content: content) else { return false }
+        switch target {
+        case "user":
+            memory.user = entries
+        default:
+            memory.memory = entries
+        }
+        return true
+    }
+
+    @discardableResult
+    func memoryUpdate(target: String, index: Int, content: String) async -> Bool {
+        guard let entries = try? await client.memoryUpdate(target: target, index: index, content: content) else { return false }
+        switch target {
+        case "user":
+            memory.user = entries
+        default:
+            memory.memory = entries
+        }
+        return true
+    }
+
+    @discardableResult
+    func memoryDelete(target: String, index: Int) async -> Bool {
+        guard let entries = try? await client.memoryDelete(target: target, index: index) else { return false }
         switch target {
         case "user":
             memory.user = entries

@@ -37,6 +37,8 @@ protocol HermesTransport: Sendable {
     func cronResume(jobID: String) async throws -> HermesCronJob
     func cronRun(jobID: String) async throws -> HermesCronJob
     func cronRemove(jobID: String) async throws
+    /// Create a cron job from the phone (name/prompt/schedule/skills/deliver).
+    func cronCreate(name: String?, prompt: String, schedule: String, skills: [String]?, deliver: String?, enabled: Bool) async throws -> HermesCronJob
     /// Background-alert poll: approvals waiting for a phone verdict + cron
     /// runs that just finished (drives local notifications, no APNs).
     func fetchPendingNotifications() async throws -> HermesPendingNotifications
@@ -45,6 +47,9 @@ protocol HermesTransport: Sendable {
     func fetchSkill(name: String) async throws -> HermesSkill
     func fetchMemory() async throws -> HermesMemory
     func appendMemory(target: String, content: String) async throws -> [HermesMemoryEntry]
+    /// Edit or delete one memory entry (agent notes or user profile).
+    func updateMemory(target: String, index: Int, content: String) async throws -> [HermesMemoryEntry]
+    func deleteMemory(target: String, index: Int) async throws -> [HermesMemoryEntry]
 }
 
 enum HermesTransportError: Error, LocalizedError {

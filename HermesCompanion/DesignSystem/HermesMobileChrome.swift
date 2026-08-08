@@ -5,6 +5,8 @@ struct HermesMobileScreen<Content: View>: View {
     var subtitle: String?
     var icon: String?
     var showsDone: Bool = false
+    /// Optional leading action button ("+" style) shown before the xmark.
+    var onAdd: (() -> Void)? = nil
     @ViewBuilder var content: Content
     @Environment(\.dismiss) private var dismiss
 
@@ -30,6 +32,16 @@ struct HermesMobileScreen<Content: View>: View {
                     }
                 }
                 Spacer()
+                if let onAdd {
+                    Button(action: onAdd) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(HermesTheme.primary)
+                            .frame(width: 32, height: 32)
+                            .background(HermesTheme.userBubble, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
                 if showsDone {
                     Button { dismiss() } label: {
                         Image(systemName: "xmark")

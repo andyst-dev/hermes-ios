@@ -184,6 +184,15 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
 
     func cronRemove(jobID: String) async throws {}
 
+    func cronCreate(name: String?, prompt: String, schedule: String, skills: [String]?, deliver: String?, enabled: Bool) async throws -> HermesCronJob {
+        HermesCronJob(
+            id: "created-job", name: name ?? "Untitled", prompt: prompt,
+            schedule: schedule, scheduleDisplay: schedule, state: enabled ? "scheduled" : "paused",
+            enabled: enabled, nextRunAt: nil, lastRunAt: nil,
+            deliver: deliver ?? "", skills: skills ?? [], latestExecution: nil
+        )
+    }
+
     func fetchPendingNotifications() async throws -> HermesPendingNotifications {
         HermesPendingNotifications(
             ok: true,
@@ -221,5 +230,13 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
 
     func appendMemory(target: String, content: String) async throws -> [HermesMemoryEntry] {
         [HermesMemoryEntry(index: 2, content: content)]
+    }
+
+    func updateMemory(target: String, index: Int, content: String) async throws -> [HermesMemoryEntry] {
+        [HermesMemoryEntry(index: index, content: content)]
+    }
+
+    func deleteMemory(target: String, index: Int) async throws -> [HermesMemoryEntry] {
+        []
     }
 }
