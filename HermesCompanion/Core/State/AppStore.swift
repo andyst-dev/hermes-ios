@@ -256,6 +256,9 @@ final class AppStore: ObservableObject {
             messages.append(HermesMessage(id: UUID().uuidString, role: .system, text: error.localizedDescription, createdAt: .now, toolCalls: []))
         }
         isStreaming = false
+        // The turn completed while the app was visible: no background
+        // "reply ready" alert needed anymore.
+        NotificationManager.shared.clearPendingTurn()
     }
 
     /// Answer a pending dangerous-command approval. "once" / "session" /
@@ -300,6 +303,7 @@ final class AppStore: ObservableObject {
         guard let selectedSessionID else { return }
         do { try await client.stop(sessionID: selectedSessionID) } catch {}
         isStreaming = false
+        NotificationManager.shared.clearPendingTurn()
     }
 
     func disconnect(clearPairing: Bool = false) {

@@ -55,6 +55,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             }
             let pending = try await client.pendingNotifications()
             fireNotifications(for: pending)
+            await checkTurnReady(client: client)
             task.setTaskCompleted(success: true)
         } catch {
             print("HERMES: background check failed: \(error.localizedDescription)")
@@ -68,7 +69,48 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     func checkInForeground(using client: HermesClient) async -> HermesPendingApproval? {
         guard let pending = try? await client.pendingNotifications() else { return nil }
         fireNotifications(for: pending)
+        await checkTurnReady(client: client)
         return pending.approvals.first
+    }
+
+    // MARK: - Turn-ready ("reply ready") alerts
+
+    private let pendingTurnKey = "hermes.pendingTurnSessionID"
+
+    var pendingTurnSessionID: String? {
+        UserDefaults.standard.string(forKey: pendingTurnKey)
+    }
+
+    /// Remember that a turn was streaming when the app went to background,
+    /// so the next background check can alert when the reply is done.
+    func markPendingTurn(sessionID: String?) {
+        if let sessionID {
+            UserDefaults.standard.set(sessionID, forKey: pendingTurnKey)
+        } else {
+            clearPendingTurn()
+        }
+    }
+
+    func clearPendingTurn() {
+        UserDefaults.standard.removeObject(forKey: pendingTurnKey)
+    }
+
+    /// If a turn was pending and its session is no longer running, fire a
+    /// local "reply ready" notification and forget the pending turn.
+    private func checkTurnReady(client: HermesClient) async {
+        guard let turnID = pendingTurnSessionID else { return }
+        guard let sessions = try? await client.sessions(),
+              let session = sessions.first(where: { $0.id == turnID }) else { return }
+        guard session.status != .running, session.status != .waitingApproval else { return }
+        clearPendingTurn()
+        let content = UNMutableNotificationContent()
+        content.title = "Reply ready"
+        content.body = session.title
+        content.sound = .default
+        content.userInfo = ["sessionID": session.id]
+        try? await UNUserNotificationCenter.current().add(
+            UNNotificationRequest(identifier: "turn-ready-\(session.id)", content: content, trigger: nil)
+        )
     }
 
     // MARK: - Alerting

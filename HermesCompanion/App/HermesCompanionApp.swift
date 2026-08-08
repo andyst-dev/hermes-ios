@@ -70,6 +70,11 @@ struct HermesCompanionApp: App {
                 store.lockNow()
             }
             if phase == .background {
+                // Remember an in-flight turn so a later background check can
+                // alert "reply ready" once the desktop finishes it.
+                if store.isStreaming {
+                    NotificationManager.shared.markPendingTurn(sessionID: store.selectedSessionID)
+                }
                 NotificationManager.shared.scheduleBackgroundCheck()
             }
         }
