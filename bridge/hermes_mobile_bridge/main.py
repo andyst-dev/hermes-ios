@@ -229,16 +229,27 @@ async def mobile_session_messages(session_id: str) -> dict[str, Any]:
 
 def _tool_calls_from_row(m: dict[str, Any]) -> list[dict[str, Any]]:
     calls = []
-    for tc in m.get("tool_calls") or []:
+    raw_calls = m.get("tool_calls") or []
+    if isinstance(raw_calls, str):
+        try:
+            raw_calls = json.loads(raw_calls)
+        except (TypeError, json.JSONDecodeError):
+            raw_calls = []
+    for tc in raw_calls:
+        if not isinstance(tc, dict):
+            continue
         # The iOS app's HermesToolCall requires name/status/summary; status
         # enum is queued|running|succeeded|failed|waitingApproval. The
         # dashboard rows carry raw tool_calls with 'name'/'arguments' and an
         # optional 'status' (or a command string in the 'command' field).
-        name = tc.get("name") or tc.get("tool_name") or "tool"
+        raw_function = tc.get("function")
+        function: dict[str, Any] = raw_function if isinstance(raw_function, dict) else {}
+        name = tc.get("name") or tc.get("tool_name") or function.get("name") or "tool"
         raw_status = str(tc.get("status") or "completed").lower()
         status = raw_status if raw_status in ("queued", "running", "succeeded", "failed", "waitingApproval") else "succeeded"
-        arguments = tc.get("arguments") or tc.get("input") or ""
-        command = tc.get("command") or (json.dumps(arguments)[:300] if arguments else "")
+        arguments = tc.get("arguments") or tc.get("input") or function.get("arguments") or ""
+        rendered_arguments = arguments if isinstance(arguments, str) else json.dumps(arguments, ensure_ascii=False)
+        command = tc.get("command") or rendered_arguments[:300]
         calls.append(
             {
                 "id": str(tc.get("id") or uuid.uuid4()),

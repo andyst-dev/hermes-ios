@@ -375,10 +375,14 @@ private struct ToolCallCard: View {
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .textCase(.uppercase)
                     .foregroundStyle(HermesTheme.ink.opacity(0.84))
-                Text(tool.summary)
-                    .font(.caption)
-                    .foregroundStyle(HermesTheme.mutedForeground)
-                    .lineLimit(2)
+                if !tool.summary.isEmpty,
+                   tool.summary.caseInsensitiveCompare(tool.name) != .orderedSame,
+                   tool.summary.caseInsensitiveCompare("tool") != .orderedSame {
+                    Text(tool.summary)
+                        .font(.caption)
+                        .foregroundStyle(HermesTheme.mutedForeground)
+                        .lineLimit(2)
+                }
                 if let command = tool.command {
                     Text(command)
                         .font(HermesTheme.mono)

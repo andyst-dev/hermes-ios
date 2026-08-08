@@ -587,12 +587,25 @@ def _mobile_session_row(row: dict[str, Any]) -> dict[str, Any]:
 
 def _tool_calls_from_row(m: dict[str, Any]) -> list[dict[str, Any]]:
     calls = []
-    for tc in m.get("tool_calls") or []:
-        name = tc.get("name") or tc.get("tool_name") or "tool"
+    raw_calls = m.get("tool_calls") or []
+    if isinstance(raw_calls, str):
+        try:
+            raw_calls = json.loads(raw_calls)
+        except (TypeError, json.JSONDecodeError):
+            raw_calls = []
+    for tc in raw_calls:
+        if not isinstance(tc, dict):
+            continue
+        # Hermes persists OpenAI-style function calls with name/arguments
+        # nested under `function`; older dashboard rows used flat keys.
+        raw_function = tc.get("function")
+        function: dict[str, Any] = raw_function if isinstance(raw_function, dict) else {}
+        name = tc.get("name") or tc.get("tool_name") or function.get("name") or "tool"
         raw_status = str(tc.get("status") or "completed").lower()
         status = raw_status if raw_status in ("queued", "running", "succeeded", "failed", "waitingApproval") else "succeeded"
-        arguments = tc.get("arguments") or tc.get("input") or ""
-        command = tc.get("command") or (json.dumps(arguments)[:300] if arguments else "")
+        arguments = tc.get("arguments") or tc.get("input") or function.get("arguments") or ""
+        rendered_arguments = arguments if isinstance(arguments, str) else json.dumps(arguments, ensure_ascii=False)
+        command = tc.get("command") or rendered_arguments[:300]
         calls.append(
             {
                 "id": str(tc.get("id") or uuid.uuid4()),

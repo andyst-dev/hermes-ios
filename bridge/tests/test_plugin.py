@@ -145,7 +145,16 @@ class FakeDashboard:
                 "role": "assistant",
                 "content": "bonjour",
                 "created_at": 1785900001,
-                "tool_calls": [],
+                "tool_calls": [
+                    {
+                        "id": "call-real-shape",
+                        "type": "function",
+                        "function": {
+                            "name": "terminal",
+                            "arguments": '{"command":"git status --short"}',
+                        },
+                    }
+                ],
             },
         ]
 
@@ -328,6 +337,8 @@ def test_plugin_messages_shape(client):
     assert isinstance(messages[0]["id"], str)
     assert "createdAt" in messages[0]
     assert messages[1]["role"] == "assistant"
+    assert messages[1]["toolCalls"][0]["name"] == "terminal"
+    assert "git status --short" in messages[1]["toolCalls"][0]["command"]
 
 
 def test_plugin_models_shape(client):

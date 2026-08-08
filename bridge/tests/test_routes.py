@@ -107,6 +107,16 @@ def client(monkeypatch):
                                 {"type": "text", "text": "bonjour"},
                                 {"type": "tool_use", "name": "terminal"},
                             ],
+                            "tool_calls": [
+                                {
+                                    "id": "call-real-shape",
+                                    "type": "function",
+                                    "function": {
+                                        "name": "terminal",
+                                        "arguments": '{"command":"git status --short"}',
+                                    },
+                                }
+                            ],
                         },
                     ]
                 },
@@ -195,6 +205,8 @@ def test_session_messages_filtered(client):
     messages = resp.json()["messages"]
     assert len(messages) == 2
     assert messages[0]["role"] == "user"
+    assert messages[1]["toolCalls"][0]["name"] == "terminal"
+    assert "git status --short" in messages[1]["toolCalls"][0]["command"]
     assert messages[0]["text"] == "salut"
     assert isinstance(messages[0]["id"], str)
     assert "createdAt" in messages[0]
