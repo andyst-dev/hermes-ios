@@ -30,6 +30,7 @@ import secrets
 import shutil
 import sqlite3
 import time
+import urllib.request
 import uuid
 from pathlib import Path
 from typing import Any, Optional
@@ -2031,29 +2032,66 @@ async def mobile_stats() -> dict[str, Any]:
                 agg["models"].sort(
                     key=lambda m: m["tokens"], reverse=True
                 )
-            # Real Nous-portal account state (credits balance, monthly cap).
-            # Fetched live from the portal; best effort — never fails the route.
-            nous_portal: dict[str, Any] = {"ok": False, "error": "unavailable"}
+            # Live account state per provider (best effort — never fails the
+            # route). Nous portal: credits balance + monthly cap. DeepSeek:
+            # API account balance. Providers without a public balance
+            # endpoint (OpenAI Codex, Anthropic) are simply omitted.
+            accounts: list[dict[str, Any]] = []
             try:
                 from hermes_cli.nous_billing import get_billing_state  # type: ignore[import-not-found]
 
                 state = get_billing_state(timeout=4)
-                nous_portal = {
-                    "ok": True,
-                    "balanceUsd": state.get("balanceUsd"),
-                    "monthlyCapLimitUsd": (state.get("monthlyCap") or {}).get("limitUsd"),
-                    "monthlyCapSpentUsd": (state.get("monthlyCap") or {}).get("spentThisMonthUsd"),
-                    "autoReload": state.get("autoReload"),
-                    "org": (state.get("org") or {}).get("slug"),
-                }
+                accounts.append(
+                    {
+                        "provider": "nous",
+                        "label": "Nous portal",
+                        "ok": True,
+                        "balanceUsd": state.get("balanceUsd"),
+                        "detail": f"Cap mensuel : ${(state.get('monthlyCap') or {}).get('spentThisMonthUsd') or '0'} / ${(state.get('monthlyCap') or {}).get('limitUsd') or '0'}"
+                        + (" · auto-reload off" if state.get("autoReload") is False else ""),
+                        "error": None,
+                    }
+                )
             except Exception as exc:  # noqa: BLE001 - portal is optional data
-                nous_portal = {"ok": False, "error": str(exc)[:200]}
+                accounts.append({"provider": "nous", "label": "Nous portal", "ok": False, "balanceUsd": None, "detail": None, "error": str(exc)[:200]})
+
+            # DeepSeek API balance (official /user/balance endpoint).
+            deepseek_key: str | None = None
+            try:
+                for line in (_hermes_home_dir() / ".env").read_text().splitlines():
+                    if line.startswith("DEEPSEEK_API_KEY="):
+                        deepseek_key = line.split("=", 1)[1].strip().strip("\"'")
+                        break
+            except OSError:
+                pass
+            if deepseek_key:
+                try:
+                    req = urllib.request.Request(
+                        "https://api.deepseek.com/user/balance",
+                        headers={"Authorization": f"Bearer {deepseek_key}"},
+                    )
+                    with urllib.request.urlopen(req, timeout=4) as resp:
+                        payload = json.loads(resp.read().decode())
+                    infos = payload.get("balance_infos") or []
+                    balance = infos[0].get("total_balance") if infos else None
+                    accounts.append(
+                        {
+                            "provider": "deepseek",
+                            "label": "DeepSeek",
+                            "ok": True,
+                            "balanceUsd": balance,
+                            "detail": "Solde du compte API",
+                            "error": None,
+                        }
+                    )
+                except Exception as exc:  # noqa: BLE001 - balance is optional data
+                    accounts.append({"provider": "deepseek", "label": "DeepSeek", "ok": False, "balanceUsd": None, "detail": None, "error": str(exc)[:200]})
         finally:
             con.close()
     except Exception as exc:  # noqa: BLE001 - report any DB hiccup
-        return {"ok": False, "error": str(exc), "byModel": [], "byProvider": [], "daily": [], "total": {}, "nousPortal": {"ok": False, "error": str(exc)[:200]}}
+        return {"ok": False, "error": str(exc), "byModel": [], "byProvider": [], "daily": [], "total": {}, "accounts": []}
 
-    return {"ok": True, "total": total, "byModel": by_model, "byProvider": by_provider, "daily": daily, "nousPortal": nous_portal}
+    return {"ok": True, "total": total, "byModel": by_model, "byProvider": by_provider, "daily": daily, "accounts": accounts}
 
 
 @router.post("/update")

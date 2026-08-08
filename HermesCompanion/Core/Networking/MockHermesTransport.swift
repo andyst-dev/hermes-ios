@@ -185,15 +185,20 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
                 HermesDailyStat(day: "2026-08-07", sessions: 2, tokens: 300_000),
                 HermesDailyStat(day: "2026-08-08", sessions: 1, tokens: 60_000),
             ],
-            nousPortal: HermesNousPortal(
-                ok: true,
-                balanceUsd: "-1.78",
-                monthlyCapLimitUsd: "1000",
-                monthlyCapSpentUsd: "0",
-                autoReload: false,
-                org: "andystoll",
-                error: nil
-            ),
+            accounts: [
+                HermesProviderAccount(
+                    provider: "nous", label: "Nous portal", ok: true,
+                    balanceUsd: "-1.78",
+                    detail: "Cap mensuel : $0 / $1000 · auto-reload off",
+                    error: nil
+                ),
+                HermesProviderAccount(
+                    provider: "deepseek", label: "DeepSeek", ok: true,
+                    balanceUsd: "0.15",
+                    detail: "Solde du compte API",
+                    error: nil
+                ),
+            ],
         )
     }
 

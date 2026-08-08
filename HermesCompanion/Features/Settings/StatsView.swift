@@ -11,8 +11,8 @@ struct StatsView: View {
             ScrollView {
                 VStack(spacing: 14) {
                     if let stats = store.stats {
-                        if let portal = stats.nousPortal {
-                            nousPortalCard(portal)
+                        if !stats.accounts.isEmpty {
+                            accountCards(stats.accounts)
                         }
                         totalsGrid(stats.total)
                         dailyChart(stats.daily)
@@ -39,19 +39,28 @@ struct StatsView: View {
         .task { await store.refreshStats() }
     }
 
-    // MARK: - Nous portal
+    // MARK: - Provider accounts
 
-    private func nousPortalCard(_ portal: HermesNousPortal) -> some View {
+    private func accountCards(_ accounts: [HermesProviderAccount]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionTitle("ACCOUNTS", "Live balance per provider")
+            ForEach(accounts) { account in
+                accountCard(account)
+            }
+        }
+    }
+
+    private func accountCard(_ account: HermesProviderAccount) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Image(systemName: "building.columns")
+                Image(systemName: account.provider == "nous" ? "building.columns" : "dollarsign.circle")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(HermesTheme.warm)
-                Text("Nous portal\(portal.org.map { " · \($0)" } ?? "")")
+                Text(account.label)
                     .font(HermesTheme.brandSerif(size: 15))
                     .foregroundStyle(HermesTheme.ink)
                 Spacer()
-                if portal.ok {
+                if account.ok {
                     Text("LIVE")
                         .font(.system(size: 8.5, weight: .bold))
                         .foregroundStyle(HermesTheme.green)
@@ -61,35 +70,30 @@ struct StatsView: View {
                         .background(HermesTheme.green.opacity(0.12), in: Capsule())
                 }
             }
-            if portal.ok {
-                if let balance = parseUsd(portal.balanceUsd) {
+            if account.ok {
+                if let balance = account.balanceValue {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(money(balance))
                             .font(.system(size: 26, weight: .bold))
                             .foregroundStyle(balance < 0 ? HermesTheme.warm : HermesTheme.green)
-                        Text(balance < 0 ? "solde négatif — crédits dépassés, la facturation suit sur la carte enregistrée" : "solde de crédits")
+                        Text(balance < 0 ? "solde négatif — crédits dépassés, la facturation suit sur la carte enregistrée" : "solde du compte")
                             .font(.system(size: 10.5))
                             .foregroundStyle(HermesTheme.mutedText)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                if let limit = parseUsd(portal.monthlyCapLimitUsd) {
+                if let detail = account.detail, !detail.isEmpty {
                     HStack(spacing: 6) {
-                        Image(systemName: "gauge.with.dots.needle.bottom.50percent")
+                        Image(systemName: "info.circle")
                             .font(.system(size: 10))
                             .foregroundStyle(HermesTheme.mutedText)
-                        Text("Cap mensuel : \(money(parseUsd(portal.monthlyCapSpentUsd) ?? 0)) / \(money(limit))")
+                        Text(detail)
                             .font(.system(size: 10.5))
                             .foregroundStyle(HermesTheme.mutedText)
-                        if portal.autoReload == false {
-                            Text("· auto-reload off")
-                                .font(.system(size: 10))
-                                .foregroundStyle(HermesTheme.mutedText.opacity(0.7))
-                        }
                     }
                 }
             } else {
-                Text("Portail indisponible : \(portal.error ?? "inconnu")")
+                Text("Indisponible : \(account.error ?? "inconnu")")
                     .font(.system(size: 10.5))
                     .foregroundStyle(HermesTheme.mutedText)
                     .fixedSize(horizontal: false, vertical: true)
@@ -100,12 +104,8 @@ struct StatsView: View {
         .background(HermesTheme.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(portal.ok && (parseUsd(portal.balanceUsd) ?? 0) < 0 ? HermesTheme.warm.opacity(0.6) : HermesTheme.stroke, lineWidth: 1)
+                .stroke(account.ok && (account.balanceValue ?? 0) < 0 ? HermesTheme.warm.opacity(0.6) : HermesTheme.stroke, lineWidth: 1)
         )
-    }
-
-    private func parseUsd(_ raw: String?) -> Double? {
-        raw.flatMap(Double.init)
     }
 
     // MARK: - Totals

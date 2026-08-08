@@ -45,20 +45,22 @@ struct HermesStatsReport: Decodable, Equatable {
     let byModel: [HermesModelStat]
     let byProvider: [HermesProviderStat]
     let daily: [HermesDailyStat]
-    /// Live Nous-portal account state (best effort, may be unavailable).
-    let nousPortal: HermesNousPortal?
+    /// Live account state per provider (best effort, may be partial).
+    let accounts: [HermesProviderAccount]
 }
 
-/// Live billing state of the user's Nous portal account, fetched from
-/// portal.nousresearch.com by the desktop.
-struct HermesNousPortal: Decodable, Equatable {
+/// Live balance of a provider account, fetched by the desktop from each
+/// provider's official endpoint (Nous portal, DeepSeek API...).
+struct HermesProviderAccount: Decodable, Equatable, Identifiable {
+    var id: String { provider }
+    let provider: String
+    let label: String
     let ok: Bool
     let balanceUsd: String?
-    let monthlyCapLimitUsd: String?
-    let monthlyCapSpentUsd: String?
-    let autoReload: Bool?
-    let org: String?
+    let detail: String?
     let error: String?
+
+    var balanceValue: Double? { balanceUsd.flatMap(Double.init) }
 }
 
 struct HermesStatsTotal: Decodable, Equatable {

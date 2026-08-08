@@ -284,7 +284,8 @@ def test_plugin_stats_aggregates_models(tmp_path, monkeypatch, client):
     assert resp.status_code == 200
     data = resp.json()
     assert data["ok"] is True
-    assert "nousPortal" in data  # live portal state; unavailable in tests
+    assert isinstance(data["accounts"], list) and data["accounts"]
+    assert all({"provider", "ok"} <= set(a) for a in data["accounts"])
     total = data["total"]
     # Archived sessions are excluded.
     assert total["sessions"] == 4
