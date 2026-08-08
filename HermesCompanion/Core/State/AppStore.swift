@@ -1,4 +1,5 @@
 import Foundation
+import LocalAuthentication
 
 @MainActor
 final class AppStore: ObservableObject {
@@ -33,8 +34,59 @@ final class AppStore: ObservableObject {
     /// MainShellView watches it to bring up the chat.
     @Published var deepLinkSessionID: String?
 
+    // MARK: - Face ID / passcode lock
+
+    @Published var isLocked = false
+    @Published var faceIDUnlockError: String?
+
     init(client: HermesClient) {
         self.client = client
+        configureLockIfNeeded()
+    }
+
+    /// Locks the app on launch when the Face ID toggle is on. If neither
+    /// biometrics nor a device passcode is available, the lock would be a
+    /// dead end, so the toggle is turned off instead.
+    func configureLockIfNeeded() {
+        guard UserDefaults.standard.bool(forKey: "hermes.faceidLock") else { return }
+        let context = LAContext()
+        var error: NSError?
+        if context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) {
+            isLocked = true
+        } else {
+            UserDefaults.standard.set(false, forKey: "hermes.faceidLock")
+        }
+    }
+
+    func lockNow() {
+        guard UserDefaults.standard.bool(forKey: "hermes.faceidLock") else { return }
+        let context = LAContext()
+        var error: NSError?
+        if context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) {
+            isLocked = true
+        }
+    }
+
+    /// Prompts for Face ID (or the device passcode) and unlocks on success.
+    func unlockWithFaceID() async {
+        let context = LAContext()
+        var error: NSError?
+        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
+            faceIDUnlockError = error?.localizedDescription ?? "Biometrics are not available on this device."
+            return
+        }
+        do {
+            let granted = try await context.evaluatePolicy(
+                .deviceOwnerAuthentication,
+                localizedReason: "Unlock Hermes Companion"
+            )
+            if granted {
+                isLocked = false
+                faceIDUnlockError = nil
+            }
+        } catch {
+            faceIDUnlockError = error.localizedDescription
+        }
     }
 
     var selectedSession: HermesSession? {

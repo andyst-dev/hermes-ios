@@ -12,6 +12,7 @@ struct SettingsView: View {
     @State private var showingWhatsNew = false
     @State private var actionStatus: String?
     @AppStorage("hermes.debugAutoConnect") private var debugAutoConnect = false
+    @AppStorage("hermes.faceidLock") private var faceIDLock = false
 
     var body: some View {
         HermesMobileScreen(title: "Settings", subtitle: connectionLabel, icon: "gearshape", showsDone: true) {
@@ -107,6 +108,29 @@ struct SettingsView: View {
                         Button("Cancel", role: .cancel) {}
                     } message: {
                         Text("Pulls the latest hermes from git and reinstalls dependencies. Restart the dashboard after it finishes.")
+                    }
+
+                    HermesMobileSection(title: "Security", icon: "lock.shield", accent: HermesTheme.green) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "faceid")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(HermesTheme.green)
+                                .frame(width: 18)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Face ID lock")
+                                    .font(.system(size: 13.5, weight: .semibold))
+                                    .foregroundStyle(HermesTheme.ink)
+                                Text("Require Face ID (or the device passcode) when the app opens or returns to the foreground")
+                                    .font(.system(size: 10.5))
+                                    .foregroundStyle(HermesTheme.mutedForeground.opacity(0.78))
+                            }
+                            Spacer()
+                            Toggle("", isOn: $faceIDLock)
+                                .labelsHidden()
+                                .toggleStyle(PlutoToggleStyle())
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
                     }
 
                     HermesMobileSection(title: "Debug", icon: "wrench.and.screwdriver", accent: HermesTheme.mutedForeground) {

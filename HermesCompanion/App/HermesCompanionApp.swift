@@ -63,6 +63,10 @@ struct HermesCompanionApp: App {
             // Foreground auto-refresh lives in AppStore; keep it honest about
             // whether the app is actually on screen.
             store.isAppActive = (phase == .active)
+            if phase == .active {
+                // Face ID lock re-arms when the app comes back to the foreground.
+                store.lockNow()
+            }
             if phase == .background {
                 NotificationManager.shared.scheduleBackgroundCheck()
             }

@@ -23,6 +23,11 @@ struct RootView: View {
                     ConnectView()
                 }
             }
+            if store.isLocked {
+                LockView()
+                    .transition(.opacity)
+                    .zIndex(10)
+            }
         }
         .tint(HermesTheme.ring)
         .sheet(isPresented: $showingSettings) {

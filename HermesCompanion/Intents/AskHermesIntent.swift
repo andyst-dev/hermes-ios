@@ -6,9 +6,11 @@ import Foundation
 /// the app (UserDefaults + Keychain), so it works standalone, without any
 /// paid Apple account.
 struct AskHermesIntent: AppIntent {
-    static var title: LocalizedStringResource = "Ask Hermes"
-    static var description = IntentDescription("Send a prompt to the Hermes agent on your Desktop and get its answer.")
-    static var openAppWhenRun: Bool = true
+    static var title: LocalizedStringResource { "Ask Hermes" }
+    static var description: IntentDescription {
+        IntentDescription("Send a prompt to the Hermes agent on your Desktop and get its answer.")
+    }
+    static var openAppWhenRun: Bool { true }
 
     @Parameter(title: "Prompt", description: "What you want Hermes to do")
     var prompt: String
@@ -23,7 +25,7 @@ struct AskHermesIntent: AppIntent {
         let storedHost = UserDefaults.standard.string(forKey: "hermes.host")
         let hostURL = storedHost.flatMap(URL.init(string:)) ?? URL(string: "http://127.0.0.1:8765")!
         let profile = UserDefaults.standard.string(forKey: "hermes.profile") ?? "default"
-        let transport = HTTPHermesTransport()
+        let transport = HTTPHermesTransport(tokenProvider: { KeychainStore.loadToken() })
         _ = try? await transport.connect(to: HermesHost(name: "Desktop Hermes", baseURL: hostURL, profile: profile))
         let client = HermesClient(transport: transport)
 
@@ -37,6 +39,7 @@ struct AskHermesIntent: AppIntent {
         }
 
         let answer = reply.trimmingCharacters(in: .whitespacesAndNewlines)
-        return .result(dialog: answer.isEmpty ? "Hermes is done. Open the app to read the full answer." : answer)
+        let dialog = answer.isEmpty ? "Hermes is done. Open the app to read the full answer." : answer
+        return .result(dialog: IntentDialog(stringLiteral: dialog))
     }
 }

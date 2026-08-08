@@ -13,6 +13,7 @@
 		192E8C22095A31D8296A9FB3 /* CommandPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF817F24DDC187E7EB511900 /* CommandPaletteView.swift */; };
 		2C3601D636E637CEB80AB084 /* ConnectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50C05059C56AC8B54ABC5F3A /* ConnectView.swift */; };
 		3997B012E29E2AF3DFCC55A2 /* HermesMobileChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2647EEA774508A3B4E265577 /* HermesMobileChrome.swift */; };
+		3C25CB8DB3DB2033F70B176A /* LockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 306508AE113CC82FB8B90751 /* LockView.swift */; };
 		410BF46C7AAF8A6A999F10F6 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8ACE0D50C84489476C9CDEA /* WidgetSnapshot.swift */; };
 		43CD510C1D0303BA1058E2D1 /* CronJobsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40E50055BBEEC9801545330B /* CronJobsView.swift */; };
 		446DC2E70EAC2BF83E38A382 /* SkillsMemoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCDA8F1DC7098D0CBFCBF06F /* SkillsMemoryView.swift */; };
@@ -44,6 +45,7 @@
 		E03008EDFE64AD3FC5F63596 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A75BF6BBCA5ED22868C2313 /* RootView.swift */; };
 		E285B0D1C23F30E172220236 /* VoiceTranscriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C4242BD9A3D08863F353150 /* VoiceTranscriber.swift */; };
 		F6ADFB5934CD58D205A5ABC8 /* HermesCompanionWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 6FD113ABEC89C0DC2C39976D /* HermesCompanionWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		F813946326B135954128EF70 /* AskHermesIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83F324A9FB710A8CFB0AEAE7 /* AskHermesIntent.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -86,6 +88,7 @@
 		2B98971C65F2F2EF126D0A2A /* HermesCompanionWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HermesCompanionWidget.entitlements; sourceTree = "<group>"; };
 		2D00A43C4B11D147CC9A67FC /* HTTPHermesTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPHermesTransport.swift; sourceTree = "<group>"; };
 		2EA7DEF8ED8453262DFAA6D2 /* HermesCompanionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesCompanionTests.swift; sourceTree = "<group>"; };
+		306508AE113CC82FB8B90751 /* LockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockView.swift; sourceTree = "<group>"; };
 		381D91433351994202DB41EA /* FilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesView.swift; sourceTree = "<group>"; };
 		389DD64335F98D57BF8E1B67 /* Collapse-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Collapse-Bold.ttf"; sourceTree = "<group>"; };
 		40E50055BBEEC9801545330B /* CronJobsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CronJobsView.swift; sourceTree = "<group>"; };
@@ -98,6 +101,7 @@
 		6FD113ABEC89C0DC2C39976D /* HermesCompanionWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = HermesCompanionWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		78AAFBA76E8B1897CCC68836 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
 		7A75BF6BBCA5ED22868C2313 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		83F324A9FB710A8CFB0AEAE7 /* AskHermesIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskHermesIntent.swift; sourceTree = "<group>"; };
 		8C31DC2507E266A61FD54AAF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		8C4242BD9A3D08863F353150 /* VoiceTranscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceTranscriber.swift; sourceTree = "<group>"; };
 		9166B1FB874FF5BF5370E977 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -192,6 +196,7 @@
 		3B32AD7AAB5F9EE534E7D525 /* Root */ = {
 			isa = PBXGroup;
 			children = (
+				306508AE113CC82FB8B90751 /* LockView.swift */,
 				7A75BF6BBCA5ED22868C2313 /* RootView.swift */,
 			);
 			path = Root;
@@ -213,6 +218,14 @@
 				E73E8C745A55720633BC696F /* Skills */,
 			);
 			path = Features;
+			sourceTree = "<group>";
+		};
+		4323A2CB85469C9645D6D326 /* Intents */ = {
+			isa = PBXGroup;
+			children = (
+				83F324A9FB710A8CFB0AEAE7 /* AskHermesIntent.swift */,
+			);
+			path = Intents;
 			sourceTree = "<group>";
 		};
 		4584E39F794FFA9097DBAFAB /* App */ = {
@@ -339,6 +352,7 @@
 				20411D60FAAD3A7BBA30D78A /* Core */,
 				778FFB7CB7DD7C020FC054BD /* DesignSystem */,
 				3B5E7A9832C90249EA4AB3A9 /* Features */,
+				4323A2CB85469C9645D6D326 /* Intents */,
 				7939F4EE56438D4A8D21FBD7 /* Resources */,
 			);
 			path = HermesCompanion;
@@ -515,6 +529,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				05E5C19B0956B80BBD050D60 /* AppStore.swift in Sources */,
+				F813946326B135954128EF70 /* AskHermesIntent.swift in Sources */,
 				560A6394F4F2E25F6F0FF4D3 /* ChatView.swift in Sources */,
 				192E8C22095A31D8296A9FB3 /* CommandPaletteView.swift in Sources */,
 				2C3601D636E637CEB80AB084 /* ConnectView.swift in Sources */,
@@ -531,6 +546,7 @@
 				5F41D44AD7D10680EEDECF6A /* HermesTransport.swift in Sources */,
 				5EEE77C49A9B6B8BB4351881 /* InspectorView.swift in Sources */,
 				819E7643A70CCE99A5C1FFD4 /* KeychainStore.swift in Sources */,
+				3C25CB8DB3DB2033F70B176A /* LockView.swift in Sources */,
 				0A916E402F7082D7F5DBA7FA /* MockHermesTransport.swift in Sources */,
 				7508FCC9765ED24281FA9B1F /* ModelPickerView.swift in Sources */,
 				B4F44C1295DC28BBBE693769 /* NotificationManager.swift in Sources */,
