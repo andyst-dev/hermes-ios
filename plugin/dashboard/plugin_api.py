@@ -783,6 +783,39 @@ async def mobile_session_delete(session_id: str) -> dict[str, Any]:
 
 @router.post("/chat")
 async def mobile_chat(body: _ChatRequest) -> StreamingResponse:
+    requested_session_id = body.sessionID
+    if requested_session_id:
+        try:
+            sessions = await _get_dashboard().list_sessions(limit=500, archived="include")
+            session = next((row for row in sessions if str(row.get("id")) == requested_session_id), None)
+        except Exception:
+            session = None
+        if session is None:
+            raise HTTPException(status_code=404, detail="Session not found")
+        if session.get("source") != "acp":
+            async def resume_existing_session():
+                result = await _run_cli(
+                    ["chat", "--quiet", "--resume", requested_session_id, "-q", body.text],
+                    timeout=1800,
+                )
+                if not result.get("ok"):
+                    detail = result.get("error") or result.get("output") or "Unable to resume session"
+                    yield f"data: {json.dumps({'type': 'error', 'detail': str(detail)[-500:]}, ensure_ascii=False)}\n\n"
+                    return
+                try:
+                    msgs = await _get_dashboard().get_session_messages(requested_session_id)
+                except Exception:
+                    msgs = []
+                payload = {
+                    "type": "transcript",
+                    "sessionID": requested_session_id,
+                    "messages": [_mobile_msg(m) for m in msgs],
+                }
+                yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+            return StreamingResponse(resume_existing_session(), media_type="text/event-stream")
+
     engine = _get_engine()
     # One in-flight prompt per ACP connection: abort any turn left running
     # by a previous (possibly relaunched) client before starting a new one,

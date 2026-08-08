@@ -341,6 +341,39 @@ def test_plugin_messages_shape(client):
     assert "git status --short" in messages[1]["toolCalls"][0]["command"]
 
 
+def test_plugin_chat_resumes_non_acp_session_without_forking(client, monkeypatch):
+    dashboard = FakeDashboard()
+
+    async def list_sessions(*, limit=100, archived="exclude"):
+        return [{"id": "telegram-session", "source": "telegram"}]
+
+    async def get_messages(session_id):
+        assert session_id == "telegram-session"
+        return [{"id": 1, "role": "assistant", "content": "same conversation", "timestamp": 1785900001}]
+
+    captured = {}
+
+    async def run_cli(args, timeout):
+        captured["args"] = args
+        return {"ok": True, "output": "same conversation"}
+
+    dashboard.list_sessions = list_sessions
+    dashboard.get_session_messages = get_messages
+    monkeypatch.setattr(plugin, "_get_dashboard", lambda: dashboard)
+    monkeypatch.setattr(plugin, "_run_cli", run_cli)
+
+    response = client.post(
+        "/api/plugins/hermes-mobile/chat",
+        json={"sessionID": "telegram-session", "text": "continue ici"},
+    )
+
+    assert response.status_code == 200
+    assert "--resume" in captured["args"]
+    assert "telegram-session" in captured["args"]
+    assert '"sessionID": "telegram-session"' in response.text
+    assert '"type": "done"' in response.text
+
+
 def test_plugin_models_shape(client):
     resp = client.get("/api/plugins/hermes-mobile/models")
     assert resp.status_code == 200

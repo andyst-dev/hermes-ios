@@ -313,8 +313,59 @@ async def mobile_archive(session_id: str, body: MobileArchiveRequest | None = No
 # ---------------------------------------------------------------------------
 
 
+async def _resume_non_acp_session(session_id: str, text: str) -> dict[str, Any]:
+    """Continue a Desktop/Telegram session through Hermes' native resume path."""
+    hermes = shutil.which("hermes")
+    if not hermes:
+        return {"ok": False, "error": "hermes CLI not found"}
+    proc = await asyncio.create_subprocess_exec(
+        hermes, "chat", "--quiet", "--resume", session_id, "-q", text,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+    )
+    try:
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=1800)
+    except asyncio.TimeoutError:
+        proc.kill()
+        return {"ok": False, "error": "Hermes resume timed out"}
+    return {
+        "ok": proc.returncode == 0,
+        "output": (stdout or b"").decode("utf-8", "replace"),
+    }
+
+
 @mobile_router.post("/chat")
 async def mobile_chat(body: MobileChatRequest) -> StreamingResponse:
+    requested_session_id = body.sessionID
+    if requested_session_id:
+        try:
+            sessions = await _get_dashboard().list_sessions(limit=500, archived="include")
+            session = next((row for row in sessions if str(row.get("id")) == requested_session_id), None)
+        except Exception:
+            session = None
+        if session is None:
+            raise HTTPException(status_code=404, detail="Session not found")
+        if session.get("source") != "acp":
+            async def resume_existing_session():
+                result = await _resume_non_acp_session(requested_session_id, body.text)
+                if not result.get("ok"):
+                    detail = result.get("error") or result.get("output") or "Unable to resume session"
+                    yield f"data: {json.dumps({'type': 'error', 'detail': str(detail)[-500:]}, ensure_ascii=False)}\n\n"
+                    return
+                try:
+                    msgs = await _get_dashboard().get_session_messages(requested_session_id)
+                except Exception:
+                    msgs = []
+                payload = {
+                    "type": "transcript",
+                    "sessionID": requested_session_id,
+                    "messages": [_mobile_msg(m) for m in msgs],
+                }
+                yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+            return StreamingResponse(resume_existing_session(), media_type="text/event-stream")
+
     engine = _get_engine()
     # One in-flight prompt per ACP connection: abort any turn left running
     # by a previous (possibly relaunched) client before starting a new one,
