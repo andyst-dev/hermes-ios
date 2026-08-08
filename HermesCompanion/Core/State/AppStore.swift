@@ -23,6 +23,10 @@ final class AppStore: ObservableObject {
     @Published var memory = HermesMemory(ok: true, memory: [], user: [])
 
     private let client: HermesClient
+    /// Foreground auto-refresh loop (30 s): keeps sessions, cron, memory and
+    /// pending approvals live without push. Suspended while a chat streams.
+    @Published var isAppActive = true
+    private var autoRefreshTask: Task<Void, Never>?
 
     init(client: HermesClient) {
         self.client = client
@@ -55,6 +59,7 @@ final class AppStore: ObservableObject {
             try await refreshCapabilities()
             await refreshReasoningEffort()
             await checkPendingApprovals()
+            startAutoRefresh()
         } catch {
             connection = .failed(error.localizedDescription)
         }
@@ -233,6 +238,7 @@ final class AppStore: ObservableObject {
     }
 
     func disconnect(clearPairing: Bool = false) {
+        stopAutoRefresh()
         connection = .disconnected
         selectedSessionID = nil
         sessions = []
@@ -243,6 +249,31 @@ final class AppStore: ObservableObject {
             UserDefaults.standard.removeObject(forKey: "hermes.host")
             UserDefaults.standard.removeObject(forKey: "hermes.profile")
         }
+    }
+
+    /// Foreground poll loop: refreshes sessions/cron/memory/approvals every
+    /// 30 s while the app is active and connected, so changes made on the
+    /// desktop show up without reopening screens. Never touches `messages`
+    /// while a chat streams (the stream owns those rows).
+    private func startAutoRefresh() {
+        stopAutoRefresh()
+        autoRefreshTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(30))
+                guard let self, !Task.isCancelled, self.isAppActive, case .connected = self.connection else { continue }
+                if !self.isStreaming {
+                    try? await self.refreshSessions()
+                }
+                await self.refreshCron()
+                await self.refreshSkillsMemory()
+                await self.checkPendingApprovals()
+            }
+        }
+    }
+
+    private func stopAutoRefresh() {
+        autoRefreshTask?.cancel()
+        autoRefreshTask = nil
     }
 
     // -- remote tunnel -------------------------------------------------

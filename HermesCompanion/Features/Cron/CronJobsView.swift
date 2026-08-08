@@ -33,6 +33,9 @@ struct CronJobsView: View {
                 .padding(.top, 10)
                 .padding(.bottom, 28)
             }
+            .refreshable {
+                await store.refreshCron()
+            }
         }
         .sheet(isPresented: $showingCreator) {
             CronJobCreatorView().environmentObject(store)

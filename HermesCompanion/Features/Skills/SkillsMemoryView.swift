@@ -30,6 +30,9 @@ struct SkillsMemoryView: View {
                 .padding(.top, 10)
                 .padding(.bottom, 28)
             }
+            .refreshable {
+                await store.refreshSkillsMemory()
+            }
         }
         .sheet(item: $selectedSkill) { skill in
             SkillDetailView(skill: skill)

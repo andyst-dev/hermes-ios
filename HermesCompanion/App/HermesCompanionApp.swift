@@ -54,6 +54,9 @@ struct HermesCompanionApp: App {
                 }
         }
         .onChange(of: scenePhase) { _, phase in
+            // Foreground auto-refresh lives in AppStore; keep it honest about
+            // whether the app is actually on screen.
+            store.isAppActive = (phase == .active)
             if phase == .background {
                 NotificationManager.shared.scheduleBackgroundCheck()
             }
