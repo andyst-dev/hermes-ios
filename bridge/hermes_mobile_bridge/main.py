@@ -339,8 +339,15 @@ async def mobile_chat(body: MobileChatRequest) -> StreamingResponse:
     requested_session_id = body.sessionID
     if requested_session_id:
         try:
-            sessions = await _get_dashboard().list_sessions(limit=500, archived="include")
-            session = next((row for row in sessions if str(row.get("id")) == requested_session_id), None)
+            sessions = await _get_dashboard().list_sessions(limit=100, archived="include")
+            session = next(
+                (
+                    row
+                    for row in sessions
+                    if str(row.get("id") or row.get("session_id") or "") == requested_session_id
+                ),
+                None,
+            )
         except Exception:
             session = None
         if session is None:

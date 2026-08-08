@@ -345,7 +345,10 @@ def test_plugin_chat_resumes_non_acp_session_without_forking(client, monkeypatch
     dashboard = FakeDashboard()
 
     async def list_sessions(*, limit=100, archived="exclude"):
-        return [{"id": "telegram-session", "source": "telegram"}]
+        assert limit <= 100
+        # The official dashboard uses `session_id`; the mobile response later
+        # normalizes it to `id`.
+        return [{"session_id": "telegram-session", "source": "telegram"}]
 
     async def get_messages(session_id):
         assert session_id == "telegram-session"
