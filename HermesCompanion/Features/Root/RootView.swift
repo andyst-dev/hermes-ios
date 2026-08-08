@@ -77,18 +77,21 @@ private struct MainShellView: View {
 
     private var compactShell: some View {
         ZStack {
+            // Opaque theme floor so the root gradient never bleeds
+            // between screens during transitions.
+            HermesTheme.background.ignoresSafeArea()
             if showingChat {
                 ChatView(
                     showingInspector: $showingInspector,
                     showingModels: $showingModels,
                     onBack: { withAnimation(.snappy) { showingChat = false } }
                 )
-                .transition(.move(edge: .trailing).combined(with: .opacity))
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             } else {
                 SessionListView(showingSettings: $showingSettings, onSessionSelected: {
                     withAnimation(.snappy) { showingChat = true }
                 }, onOpenCommands: { showingCommands = true })
-                .transition(.move(edge: .leading).combined(with: .opacity))
+                .transition(.opacity)
             }
         }
     }
