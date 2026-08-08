@@ -1965,7 +1965,9 @@ async def mobile_stats() -> dict[str, Any]:
                 dict(row)
                 for row in con.execute(
                     """
-                    SELECT COALESCE(NULLIF(billing_provider, ''), 'unknown')              AS provider,
+                    SELECT CASE WHEN (billing_provider IS NULL OR billing_provider = '')
+                                     AND model = 'openai/gpt-5.6-terra-pro'
+                                THEN 'nous' ELSE COALESCE(NULLIF(billing_provider, ''), 'unknown') END AS provider,
                            model,
                            COUNT(*)                                                      AS sessions,
                            COALESCE(SUM(message_count), 0)                               AS messages,

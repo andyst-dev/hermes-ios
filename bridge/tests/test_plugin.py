@@ -272,6 +272,8 @@ def test_plugin_stats_aggregates_models(tmp_path, monkeypatch, client):
             ("deepseek-v4-flash", 10, 1000, 500, 0, 0, 0.05, 0.0, 0, now - 172800, "estimated", "deepseek"),
             ("deepseek-v4-flash", 5, 500, 250, 0, 0, 0.02, 0.0, 0, now - 86400, "estimated", "nous"),
             ("gpt-5.5", 3, 2000, 100, 0, 0, 0.10, 0.0, 0, now - 86400, "included", "openai-codex"),
+            # terra-pro runs on the Nous portal; blank provider must roll under "nous".
+            ("openai/gpt-5.6-terra-pro", 0, 0, 0, 0, 0, 0.0, 0.0, 0, now - 3600, "", ""),
             ("archived-model", 1, 999, 999, 0, 0, 9.99, 0.0, 1, now, "estimated", "deepseek"),
         ],
     )
@@ -285,13 +287,13 @@ def test_plugin_stats_aggregates_models(tmp_path, monkeypatch, client):
     assert "nousPortal" in data  # live portal state; unavailable in tests
     total = data["total"]
     # Archived sessions are excluded.
-    assert total["sessions"] == 3
+    assert total["sessions"] == 4
     assert total["messages"] == 18
     assert total["inputTokens"] == 3500
     assert total["outputTokens"] == 850
     assert total["estimatedCostUsd"] == pytest.approx(0.17)
     models = {m["model"]: m for m in data["byModel"]}
-    assert set(models) == {"deepseek-v4-flash", "gpt-5.5"}
+    assert set(models) == {"deepseek-v4-flash", "gpt-5.5", "openai/gpt-5.6-terra-pro"}
     assert models["deepseek-v4-flash"]["sessions"] == 2
     assert models["deepseek-v4-flash"]["inputTokens"] == 1500
     assert models["deepseek-v4-flash"]["costStatus"] == "estimated"
@@ -299,14 +301,15 @@ def test_plugin_stats_aggregates_models(tmp_path, monkeypatch, client):
     assert models["deepseek-v4-flash"]["untrackedSessions"] == 0
     providers = {p["provider"]: p for p in data["byProvider"]}
     assert set(providers) == {"deepseek", "nous", "openai-codex"}
-    assert providers["nous"]["sessions"] == 1
+    assert providers["nous"]["sessions"] == 2
     assert providers["nous"]["estimatedCostUsd"] == pytest.approx(0.02)
     assert providers["openai-codex"]["costStatus"] == "included"
     # Each provider carries its per-model breakdown for the drill-down.
     nous_models = {m["model"]: m for m in providers["nous"]["models"]}
-    assert set(nous_models) == {"deepseek-v4-flash"}
+    assert set(nous_models) == {"deepseek-v4-flash", "openai/gpt-5.6-terra-pro"}
     assert nous_models["deepseek-v4-flash"]["sessions"] == 1
     assert nous_models["deepseek-v4-flash"]["tokens"] == 750
+    assert nous_models["openai/gpt-5.6-terra-pro"]["sessions"] == 1
     # Daily rows are present and sorted by day.
     days = [row["day"] for row in data["daily"]]
     assert days == sorted(days) and days
