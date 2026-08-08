@@ -42,8 +42,8 @@ enum HermesTheme {
     private static let emberRing = Color(red: 0.851, green: 0.451, blue: 0.086)             // #d97316
     private static let emberSidebar = Color(red: 0.063, green: 0.024, blue: 0.000)          // #100600
     private static let emberSidebarBorder = Color(red: 0.165, green: 0.063, blue: 0.016)    // #2a1004
-    private static let emberUserBubble = Color(red: 0.165, green: 0.063, blue: 0.000)       // #2a1000
-    private static let emberUserBubbleBorder = Color(red: 0.290, green: 0.125, blue: 0.063) // #4a2010
+    private static let emberUserBubble = Color(red: 0.165, green: 0.106, blue: 0.071)       // #2a1b12 — chocolate brown
+    private static let emberUserBubbleBorder = Color(red: 0.290, green: 0.196, blue: 0.122) // #4a321f
     private static let emberDestructive = Color(red: 0.769, green: 0.188, blue: 0.063)      // #c43010
     private static let emberGreen = Color(red: 0.384, green: 0.765, blue: 0.478)
     private static let emberPluto = Color(red: 0.490, green: 0.322, blue: 0.161)            // #7d5229
