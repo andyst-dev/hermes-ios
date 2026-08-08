@@ -15,12 +15,13 @@ struct AskHermesIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        guard let hostString = UserDefaults.standard.string(forKey: "hermes.host"),
-              let hostURL = URL(string: hostString),
-              KeychainStore.loadToken() != nil else {
+        guard KeychainStore.loadToken() != nil else {
             return .result(dialog: "Hermes is not paired. Open the app and scan the Desktop QR code first.")
         }
 
+        // Same host resolution as the app: stored host, else the dev default.
+        let storedHost = UserDefaults.standard.string(forKey: "hermes.host")
+        let hostURL = storedHost.flatMap(URL.init(string:)) ?? URL(string: "http://127.0.0.1:8765")!
         let profile = UserDefaults.standard.string(forKey: "hermes.profile") ?? "default"
         let transport = HTTPHermesTransport()
         _ = try? await transport.connect(to: HermesHost(name: "Desktop Hermes", baseURL: hostURL, profile: profile))
