@@ -1961,11 +1961,12 @@ async def mobile_stats() -> dict[str, Any]:
                     """
                 )
             ]
-            by_provider = [
+            provider_rows = [
                 dict(row)
                 for row in con.execute(
                     """
                     SELECT COALESCE(NULLIF(billing_provider, ''), 'unknown')              AS provider,
+                           model,
                            COUNT(*)                                                      AS sessions,
                            COALESCE(SUM(message_count), 0)                               AS messages,
                            COALESCE(SUM(input_tokens), 0)                                AS inputTokens,
@@ -1979,11 +1980,55 @@ async def mobile_stats() -> dict[str, Any]:
                                     THEN 1 ELSE 0 END)                                   AS untrackedSessions
                     FROM sessions
                     WHERE archived = 0
-                    GROUP BY provider
-                    ORDER BY (input_tokens + output_tokens) DESC
+                    GROUP BY provider, model
                     """
                 )
             ]
+            # Roll the (provider, model) rows up per provider, keeping the
+            # per-model breakdown attached so the app can drill down.
+            providers: dict[str, dict[str, Any]] = {}
+            for row in provider_rows:
+                provider = row["provider"]
+                agg = providers.setdefault(
+                    provider,
+                    {
+                        "provider": provider,
+                        "sessions": 0, "messages": 0,
+                        "inputTokens": 0, "outputTokens": 0,
+                        "cacheReadTokens": 0, "reasoningTokens": 0,
+                        "estimatedCostUsd": 0.0, "actualCostUsd": 0.0,
+                        "costStatus": "", "untrackedSessions": 0,
+                        "models": [],
+                    },
+                )
+                for key in (
+                    "sessions", "messages", "inputTokens", "outputTokens",
+                    "cacheReadTokens", "reasoningTokens",
+                    "estimatedCostUsd", "actualCostUsd", "untrackedSessions",
+                ):
+                    agg[key] += row[key]
+                if not agg["costStatus"]:
+                    agg["costStatus"] = row["costStatus"]
+                agg["models"].append(
+                    {
+                        "model": row["model"],
+                        "sessions": row["sessions"],
+                        "messages": row["messages"],
+                        "tokens": row["inputTokens"] + row["outputTokens"],
+                        "estimatedCostUsd": row["estimatedCostUsd"],
+                        "costStatus": row["costStatus"],
+                        "untrackedSessions": row["untrackedSessions"],
+                    }
+                )
+            by_provider = sorted(
+                providers.values(),
+                key=lambda p: p["inputTokens"] + p["outputTokens"],
+                reverse=True,
+            )
+            for agg in by_provider:
+                agg["models"].sort(
+                    key=lambda m: m["tokens"], reverse=True
+                )
         finally:
             con.close()
     except Exception as exc:  # noqa: BLE001 - report any DB hiccup

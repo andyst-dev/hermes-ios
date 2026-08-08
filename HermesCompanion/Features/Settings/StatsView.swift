@@ -114,30 +114,19 @@ struct StatsView: View {
             sectionTitle(eyebrow, title)
             let maxTokens = rows.map(\.tokens).max() ?? 1
             ForEach(rows) { stat in
-                VStack(alignment: .leading, spacing: 5) {
-                    HStack {
-                        Text(stat.name)
-                            .font(.system(size: 12.5, weight: .semibold))
-                            .foregroundStyle(HermesTheme.ink)
-                            .lineLimit(1)
-                        Spacer()
-                        costBadge(for: stat)
-                    }
-                    HStack(spacing: 8) {
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                Capsule().fill(HermesTheme.muted.opacity(0.7))
-                                Capsule()
-                                    .fill(HermesTheme.ring.gradient)
-                                    .frame(width: max(4, geo.size.width * CGFloat(stat.tokens) / CGFloat(maxTokens)))
-                            }
+                if stat.children.isEmpty {
+                    rowView(stat, maxTokens: maxTokens)
+                } else {
+                    DisclosureGroup {
+                        ForEach(stat.children) { child in
+                            childRow(child)
                         }
-                        .frame(height: 7)
-                        Text("\(compact(stat.tokens)) tok · \(stat.sessions) sess")
-                            .font(.system(size: 10))
-                            .foregroundStyle(HermesTheme.mutedText)
-                            .fixedSize()
+                        .padding(.leading, 12)
+                        .padding(.top, 6)
+                    } label: {
+                        rowView(stat, maxTokens: maxTokens)
                     }
+                    .disclosureGroupStyle(StatDisclosureStyle())
                 }
             }
             if rows.isEmpty {
@@ -149,6 +138,51 @@ struct StatsView: View {
         .padding(12)
         .background(HermesTheme.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(HermesTheme.stroke, lineWidth: 1))
+    }
+
+    private func rowView(_ stat: StatRow, maxTokens: Int) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack {
+                Text(stat.name)
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(HermesTheme.ink)
+                    .lineLimit(1)
+                Spacer()
+                costBadge(for: stat)
+            }
+            HStack(spacing: 8) {
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(HermesTheme.muted.opacity(0.7))
+                        Capsule()
+                            .fill(HermesTheme.ring.gradient)
+                            .frame(width: max(4, geo.size.width * CGFloat(stat.tokens) / CGFloat(maxTokens)))
+                    }
+                }
+                .frame(height: 7)
+                Text("\(compact(stat.tokens)) tok · \(stat.sessions) sess")
+                    .font(.system(size: 10))
+                    .foregroundStyle(HermesTheme.mutedText)
+                    .fixedSize()
+            }
+        }
+    }
+
+    private func childRow(_ child: StatRow) -> some View {
+        HStack(spacing: 8) {
+            Text(child.name)
+                .font(.system(size: 11.5, weight: .medium))
+                .foregroundStyle(HermesTheme.ink.opacity(0.9))
+                .lineLimit(1)
+            Spacer()
+            Text("\(compact(child.tokens)) tok · \(child.sessions) sess")
+                .font(.system(size: 10))
+                .foregroundStyle(HermesTheme.mutedText)
+                .fixedSize()
+            Text(money(child.cost))
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(child.cost > 0 ? HermesTheme.primary : HermesTheme.mutedText)
+        }
     }
 
     @ViewBuilder
@@ -239,6 +273,7 @@ private struct StatRow: Identifiable {
     let cost: Double
     let costStatus: String
     let untrackedSessions: Int
+    let children: [StatRow]
 
     init(model: HermesModelStat) {
         id = model.id
@@ -248,6 +283,7 @@ private struct StatRow: Identifiable {
         cost = model.estimatedCostUsd
         costStatus = model.costStatus
         untrackedSessions = model.untrackedSessions
+        children = []
     }
 
     init(provider: HermesProviderStat) {
@@ -258,6 +294,18 @@ private struct StatRow: Identifiable {
         cost = provider.estimatedCostUsd
         costStatus = provider.costStatus
         untrackedSessions = provider.untrackedSessions
+        children = provider.models.map(StatRow.init(providerModel:))
+    }
+
+    init(providerModel: HermesProviderModel) {
+        id = providerModel.id
+        name = providerModel.model.split(separator: "/").last.map(String.init) ?? providerModel.model
+        sessions = providerModel.sessions
+        tokens = providerModel.tokens
+        cost = providerModel.estimatedCostUsd
+        costStatus = providerModel.costStatus
+        untrackedSessions = providerModel.untrackedSessions
+        children = []
     }
 
     var isSubscriptionIncluded: Bool { costStatus.lowercased().contains("included") }
@@ -272,6 +320,33 @@ private struct StatRow: Identifiable {
         case "openai": return "OpenAI"
         case "anthropic": return "Anthropic"
         default: return "(non renseigné)"
+        }
+    }
+}
+
+/// Minimal themed disclosure: label + small chevron on the right,
+/// expanded content below — no default list chrome.
+private struct StatDisclosureStyle: DisclosureGroupStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    configuration.isExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    configuration.label
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(HermesTheme.mutedText)
+                        .rotationEffect(.degrees(configuration.isExpanded ? 90 : 0))
+                }
+            }
+            .buttonStyle(.plain)
+            if configuration.isExpanded {
+                configuration.content
+                    .transition(.opacity)
+            }
         }
     }
 }

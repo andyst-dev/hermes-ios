@@ -148,21 +148,31 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
                     inputTokens: 1_200_000, outputTokens: 220_000,
                     cacheReadTokens: 2_900_000, reasoningTokens: 20_000,
                     estimatedCostUsd: 8.5, actualCostUsd: 0,
-                    costStatus: "estimated", untrackedSessions: 2
+                    costStatus: "estimated", untrackedSessions: 2,
+                    models: [
+                        HermesProviderModel(model: "deepseek-v4-flash-0731", sessions: 12, messages: 420, tokens: 4_000_000, estimatedCostUsd: 7.2, costStatus: "estimated", untrackedSessions: 1),
+                        HermesProviderModel(model: "deepseek-v4-flash", sessions: 3, messages: 130, tokens: 320_000, estimatedCostUsd: 1.3, costStatus: "estimated", untrackedSessions: 1),
+                    ]
                 ),
                 HermesProviderStat(
                     provider: "deepseek", sessions: 18, messages: 420,
                     inputTokens: 700_000, outputTokens: 150_000,
                     cacheReadTokens: 2_100_000, reasoningTokens: 25_000,
                     estimatedCostUsd: 2.6, actualCostUsd: 0,
-                    costStatus: "estimated", untrackedSessions: 0
+                    costStatus: "estimated", untrackedSessions: 0,
+                    models: [
+                        HermesProviderModel(model: "deepseek-v4-flash", sessions: 18, messages: 420, tokens: 975_000, estimatedCostUsd: 2.6, costStatus: "estimated", untrackedSessions: 0),
+                    ]
                 ),
                 HermesProviderStat(
                     provider: "openai-codex", sessions: 9, messages: 230,
                     inputTokens: 100_000, outputTokens: 30_000,
                     cacheReadTokens: 0, reasoningTokens: 5_000,
                     estimatedCostUsd: 0, actualCostUsd: 0,
-                    costStatus: "included", untrackedSessions: 0
+                    costStatus: "included", untrackedSessions: 0,
+                    models: [
+                        HermesProviderModel(model: "gpt-5.5", sessions: 9, messages: 230, tokens: 135_000, estimatedCostUsd: 0, costStatus: "included", untrackedSessions: 0),
+                    ]
                 ),
             ],
             daily: [

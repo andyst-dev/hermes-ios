@@ -301,6 +301,11 @@ def test_plugin_stats_aggregates_models(tmp_path, monkeypatch, client):
     assert providers["nous"]["sessions"] == 1
     assert providers["nous"]["estimatedCostUsd"] == pytest.approx(0.02)
     assert providers["openai-codex"]["costStatus"] == "included"
+    # Each provider carries its per-model breakdown for the drill-down.
+    nous_models = {m["model"]: m for m in providers["nous"]["models"]}
+    assert set(nous_models) == {"deepseek-v4-flash"}
+    assert nous_models["deepseek-v4-flash"]["sessions"] == 1
+    assert nous_models["deepseek-v4-flash"]["tokens"] == 750
     # Daily rows are present and sorted by day.
     days = [row["day"] for row in data["daily"]]
     assert days == sorted(days) and days

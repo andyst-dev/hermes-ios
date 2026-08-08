@@ -57,7 +57,9 @@ struct HermesStatsTotal: Decodable, Equatable {
     let estimatedCostUsd: Double
     let actualCostUsd: Double
 
-    var totalTokens: Int { inputTokens + outputTokens + cacheReadTokens + reasoningTokens }
+    /// Billed usage (input + output). Cache reads are excluded: they are
+    /// far cheaper and would dwarf the visual bars.
+    var totalTokens: Int { inputTokens + outputTokens }
 }
 
 struct HermesModelStat: Decodable, Equatable, Identifiable {
@@ -78,7 +80,9 @@ struct HermesModelStat: Decodable, Equatable, Identifiable {
     /// real cost is missing from the estimate).
     let untrackedSessions: Int
 
-    var totalTokens: Int { inputTokens + outputTokens + cacheReadTokens + reasoningTokens }
+    /// Billed usage (input + output). Cache reads are excluded: they are
+    /// far cheaper and would dwarf the visual bars.
+    var totalTokens: Int { inputTokens + outputTokens }
 
     var isSubscriptionIncluded: Bool { costStatus.lowercased().contains("included") }
     var isFullyUntracked: Bool { untrackedSessions >= sessions && totalTokens == 0 }
@@ -107,12 +111,28 @@ struct HermesProviderStat: Decodable, Equatable, Identifiable {
     let actualCostUsd: Double
     let costStatus: String
     let untrackedSessions: Int
+    /// Per-model breakdown inside this provider (for the drill-down).
+    let models: [HermesProviderModel]
 
-    var totalTokens: Int { inputTokens + outputTokens + cacheReadTokens + reasoningTokens }
+    /// Billed usage (input + output). Cache reads are excluded: they are
+    /// far cheaper and would dwarf the visual bars.
+    var totalTokens: Int { inputTokens + outputTokens }
 
     var isSubscriptionIncluded: Bool { costStatus.lowercased().contains("included") }
     var isFullyUntracked: Bool { untrackedSessions >= sessions && totalTokens == 0 }
     var isPartiallyTracked: Bool { untrackedSessions > 0 && !isFullyUntracked }
+}
+
+/// One model line inside a provider's breakdown.
+struct HermesProviderModel: Decodable, Equatable, Identifiable {
+    var id: String { model }
+    let model: String
+    let sessions: Int
+    let messages: Int
+    let tokens: Int
+    let estimatedCostUsd: Double
+    let costStatus: String
+    let untrackedSessions: Int
 }
 
 struct HermesSession: Codable, Equatable, Identifiable {
