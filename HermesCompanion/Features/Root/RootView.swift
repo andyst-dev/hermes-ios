@@ -79,16 +79,13 @@ private struct MainShellView: View {
         SessionListView(showingSettings: $showingSettings, onSessionSelected: {
             withAnimation(.snappy) { showingChat = true }
         }, onOpenCommands: { showingCommands = true })
-        .sheet(isPresented: $showingChat) {
+        .fullScreenCover(isPresented: $showingChat) {
             ChatView(
                 showingInspector: $showingInspector,
                 showingModels: $showingModels,
                 onBack: { showingChat = false }
             )
             .environmentObject(store)
-            .presentationBackground(HermesTheme.background)
-            .presentationDetents([.large])
-            .presentationDragIndicator(.hidden)
         }
     }
 
