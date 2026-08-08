@@ -45,6 +45,20 @@ struct HermesStatsReport: Decodable, Equatable {
     let byModel: [HermesModelStat]
     let byProvider: [HermesProviderStat]
     let daily: [HermesDailyStat]
+    /// Live Nous-portal account state (best effort, may be unavailable).
+    let nousPortal: HermesNousPortal?
+}
+
+/// Live billing state of the user's Nous portal account, fetched from
+/// portal.nousresearch.com by the desktop.
+struct HermesNousPortal: Decodable, Equatable {
+    let ok: Bool
+    let balanceUsd: String?
+    let monthlyCapLimitUsd: String?
+    let monthlyCapSpentUsd: String?
+    let autoReload: Bool?
+    let org: String?
+    let error: String?
 }
 
 struct HermesStatsTotal: Decodable, Equatable {

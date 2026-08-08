@@ -2029,12 +2029,29 @@ async def mobile_stats() -> dict[str, Any]:
                 agg["models"].sort(
                     key=lambda m: m["tokens"], reverse=True
                 )
+            # Real Nous-portal account state (credits balance, monthly cap).
+            # Fetched live from the portal; best effort — never fails the route.
+            nous_portal: dict[str, Any] = {"ok": False, "error": "unavailable"}
+            try:
+                from hermes_cli.nous_billing import get_billing_state  # type: ignore[import-not-found]
+
+                state = get_billing_state(timeout=4)
+                nous_portal = {
+                    "ok": True,
+                    "balanceUsd": state.get("balanceUsd"),
+                    "monthlyCapLimitUsd": (state.get("monthlyCap") or {}).get("limitUsd"),
+                    "monthlyCapSpentUsd": (state.get("monthlyCap") or {}).get("spentThisMonthUsd"),
+                    "autoReload": state.get("autoReload"),
+                    "org": (state.get("org") or {}).get("slug"),
+                }
+            except Exception as exc:  # noqa: BLE001 - portal is optional data
+                nous_portal = {"ok": False, "error": str(exc)[:200]}
         finally:
             con.close()
     except Exception as exc:  # noqa: BLE001 - report any DB hiccup
-        return {"ok": False, "error": str(exc), "byModel": [], "byProvider": [], "daily": [], "total": {}}
+        return {"ok": False, "error": str(exc), "byModel": [], "byProvider": [], "daily": [], "total": {}, "nousPortal": {"ok": False, "error": str(exc)[:200]}}
 
-    return {"ok": True, "total": total, "byModel": by_model, "byProvider": by_provider, "daily": daily}
+    return {"ok": True, "total": total, "byModel": by_model, "byProvider": by_provider, "daily": daily, "nousPortal": nous_portal}
 
 
 @router.post("/update")

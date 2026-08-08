@@ -184,7 +184,16 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
                 HermesDailyStat(day: "2026-08-06", sessions: 5, tokens: 800_000),
                 HermesDailyStat(day: "2026-08-07", sessions: 2, tokens: 300_000),
                 HermesDailyStat(day: "2026-08-08", sessions: 1, tokens: 60_000),
-            ]
+            ],
+            nousPortal: HermesNousPortal(
+                ok: true,
+                balanceUsd: "-1.78",
+                monthlyCapLimitUsd: "1000",
+                monthlyCapSpentUsd: "0",
+                autoReload: false,
+                org: "andystoll",
+                error: nil
+            ),
         )
     }
 
