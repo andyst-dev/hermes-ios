@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RootView: View {
     @EnvironmentObject private var store: AppStore
+    @ObservedObject private var theme = ThemeManager.shared
     @State private var showingSettings = false
     @State private var showingCommands = false
     @State private var showingInspector = false

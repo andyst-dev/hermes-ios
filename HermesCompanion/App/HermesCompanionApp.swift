@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct HermesCompanionApp: App {
     @StateObject private var store: AppStore
+    @ObservedObject private var theme = ThemeManager.shared
     private let demoMode: Bool
     private let autoConnectHost: HermesHost?
 
@@ -47,7 +48,8 @@ struct HermesCompanionApp: App {
         WindowGroup {
             RootView()
                 .environmentObject(store)
-                .preferredColorScheme(.dark)
+                .environmentObject(theme)
+                .preferredColorScheme(theme.mode == .cream ? .light : .dark)
                 .task {
                     if demoMode {
                         await store.connect(host: HermesHost(name: "Desktop Hermes", baseURL: URL(string: "http://127.0.0.1:8765")!, profile: "default"))

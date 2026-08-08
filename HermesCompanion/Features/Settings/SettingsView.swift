@@ -13,6 +13,7 @@ struct SettingsView: View {
     @State private var actionStatus: String?
     @AppStorage("hermes.debugAutoConnect") private var debugAutoConnect = false
     @AppStorage("hermes.faceidLock") private var faceIDLock = false
+    @ObservedObject private var theme = ThemeManager.shared
 
     var body: some View {
         HermesMobileScreen(title: "Settings", subtitle: connectionLabel, icon: "gearshape", showsDone: true) {
@@ -84,6 +85,32 @@ struct SettingsView: View {
                         Task { await store.refreshCron() }
                         Task { await store.refreshSkillsMemory() }
                         Task { await store.refreshUpdateStatus() }
+                    }
+
+                    HermesMobileSection(title: "Appearance", icon: "paintpalette", accent: HermesTheme.ring) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "sun.max")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(HermesTheme.ring)
+                                .frame(width: 18)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Cream theme")
+                                    .font(.system(size: 13.5, weight: .semibold))
+                                    .foregroundStyle(HermesTheme.ink)
+                                Text("Hermès-style light: cream paper, chocolate ink, saddle-orange accents")
+                                    .font(.system(size: 10.5))
+                                    .foregroundStyle(HermesTheme.mutedForeground.opacity(0.78))
+                            }
+                            Spacer()
+                            Toggle("", isOn: Binding(
+                                get: { theme.mode == .cream },
+                                set: { theme.mode = $0 ? .cream : .ember }
+                            ))
+                            .labelsHidden()
+                            .toggleStyle(PlutoToggleStyle())
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
                     }
 
                     HermesMobileSection(title: "Desktop maintenance", icon: "wrench.and.screwdriver", accent: HermesTheme.primary) {
