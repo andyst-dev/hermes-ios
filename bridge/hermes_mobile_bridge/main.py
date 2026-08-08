@@ -313,13 +313,21 @@ async def mobile_archive(session_id: str, body: MobileArchiveRequest | None = No
 # ---------------------------------------------------------------------------
 
 
-async def _resume_non_acp_session(session_id: str, text: str) -> dict[str, Any]:
+async def _resume_non_acp_session(
+    session_id: str,
+    text: str,
+    provider: str | None = None,
+    model_id: str | None = None,
+) -> dict[str, Any]:
     """Continue a Desktop/Telegram session through Hermes' native resume path."""
     hermes = shutil.which("hermes")
     if not hermes:
         return {"ok": False, "error": "hermes CLI not found"}
+    args = [hermes, "chat", "--quiet", "--resume", session_id, "-q", text]
+    if provider and model_id:
+        args.extend(["--provider", provider, "--model", model_id])
     proc = await asyncio.create_subprocess_exec(
-        hermes, "chat", "--quiet", "--resume", session_id, "-q", text,
+        *args,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
     )
@@ -354,7 +362,13 @@ async def mobile_chat(body: MobileChatRequest) -> StreamingResponse:
             raise HTTPException(status_code=404, detail="Session not found")
         if session.get("source") != "acp":
             async def resume_existing_session():
-                result = await _resume_non_acp_session(requested_session_id, body.text)
+                engine = _get_engine()
+                result = await _resume_non_acp_session(
+                    requested_session_id,
+                    body.text,
+                    engine._provider,
+                    engine._model_id,
+                )
                 if not result.get("ok"):
                     detail = result.get("error") or result.get("output") or "Unable to resume session"
                     yield f"data: {json.dumps({'type': 'error', 'detail': str(detail)[-500:]}, ensure_ascii=False)}\n\n"
@@ -496,6 +510,7 @@ async def mobile_models() -> dict[str, Any]:
                 "supportsVision": supports_vision,
                 "supportsTools": True,
                 "description": r.get("description") or "",
+                "isActive": bool(r.get("is_active")),
             }
         )
     return {"models": models, "providers": sorted({m["provider"] for m in models})}
@@ -503,11 +518,19 @@ async def mobile_models() -> dict[str, Any]:
 
 @mobile_router.post("/model")
 async def mobile_model_set(body: MobileModelRequest) -> dict[str, Any]:
+    provider = body.provider or body.model.partition("/")[0]
     try:
-        result = await _get_dashboard().set_model(body.model)
+        result = await _get_dashboard().set_model(provider, body.model)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Dashboard unreachable: {exc}") from exc
-    return {"ok": True, "model": body.model, **result}
+    engine = _get_engine()
+    engine._provider = provider
+    engine._model_id = body.model
+    if engine._active_hermes_session:
+        acp_id = engine._session_map.get(engine._active_hermes_session)
+        if acp_id:
+            await engine._set_session_model(acp_id, body.model)
+    return {"ok": True, "provider": provider, "model": body.model, **result}
 
 
 @mobile_router.get("/model/effort")

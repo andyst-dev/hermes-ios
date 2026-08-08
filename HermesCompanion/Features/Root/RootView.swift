@@ -37,14 +37,7 @@ struct RootView: View {
         .sheet(isPresented: $showingCommands) {
             CommandPaletteView().environmentObject(store)
         }
-        .sheet(isPresented: $showingInspector) {
-            HermesMobileScreen(title: "Inspector", subtitle: "this conversation", icon: "sidebar.right", showsDone: true) {
-                InspectorView().environmentObject(store)
-            }
-        }
-        .sheet(isPresented: $showingModels) {
-            ModelPickerView().environmentObject(store)
-        }
+
     }
 }
 

@@ -465,7 +465,9 @@ class _DashboardProxy:
         resp = await self._client.get(f"{self._base}/api/model/options", headers=self._headers())
         resp.raise_for_status()
         payload = resp.json()
-        # Dashboard shape: {"providers": [{"slug", "name", "is_current", "models": [...]}]}
+        # Dashboard shape: {"model", "provider", "providers": [{...}]}
+        current_provider = payload.get("provider") or ""
+        current_model = payload.get("model") or ""
         rows = []
         for provider in payload.get("providers", []):
             slug = provider.get("slug") or ""
@@ -477,17 +479,17 @@ class _DashboardProxy:
                         "provider": slug,
                         "provider_name": name,
                         "name": model_id.split("/", 1)[-1],
+                        "is_active": slug == current_provider and model_id == current_model,
                     }
                 )
         return rows
 
-    async def set_model(self, model_id: str) -> dict[str, Any]:
+    async def set_model(self, provider: str, model_id: str) -> dict[str, Any]:
         # Dashboard POST /api/model/set expects ModelAssignment:
         # {"scope": "main", "provider": "...", "model": "..."}
-        provider, _, model = model_id.partition("/")
         resp = await self._client.post(
             f"{self._base}/api/model/set",
-            json={"scope": "main", "provider": provider, "model": model or model_id},
+            json={"scope": "main", "provider": provider, "model": model_id},
             headers=self._headers(),
         )
         resp.raise_for_status()
@@ -801,8 +803,12 @@ async def mobile_chat(body: _ChatRequest) -> StreamingResponse:
             raise HTTPException(status_code=404, detail="Session not found")
         if session.get("source") != "acp":
             async def resume_existing_session():
+                engine = _get_engine()
+                args = ["chat", "--quiet", "--resume", requested_session_id, "-q", body.text]
+                if engine._provider and engine._model_id:
+                    args.extend(["--provider", engine._provider, "--model", engine._model_id])
                 result = await _run_cli(
-                    ["chat", "--quiet", "--resume", requested_session_id, "-q", body.text],
+                    args,
                     timeout=1800,
                 )
                 if not result.get("ok"):
@@ -909,6 +915,7 @@ async def mobile_models() -> dict[str, Any]:
                 "supportsVision": supports_vision,
                 "supportsTools": True,
                 "description": r.get("description") or "",
+                "isActive": bool(r.get("is_active")),
             }
         )
     return {"models": models, "providers": sorted({m["provider"] for m in models})}
@@ -916,11 +923,19 @@ async def mobile_models() -> dict[str, Any]:
 
 @router.post("/model")
 async def mobile_model_set(body: _ModelRequest) -> dict[str, Any]:
+    provider = body.provider or body.model.partition("/")[0]
     try:
-        result = await _get_dashboard().set_model(body.model)
+        result = await _get_dashboard().set_model(provider, body.model)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Dashboard unreachable: {exc}") from exc
-    return {"ok": True, "model": body.model, **result}
+    engine = _get_engine()
+    engine._provider = provider
+    engine._model_id = body.model
+    if engine._active_hermes_session:
+        acp_id = engine._session_map.get(engine._active_hermes_session)
+        if acp_id:
+            await engine._set_session_model(acp_id, body.model)
+    return {"ok": True, "provider": provider, "model": body.model, **result}
 
 
 @router.get("/model/effort")

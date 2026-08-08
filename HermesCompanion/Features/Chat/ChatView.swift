@@ -52,6 +52,14 @@ struct ChatView: View {
             ComposerView()
         }
         .background(HermesTheme.background.ignoresSafeArea())
+        .sheet(isPresented: $showingInspector) {
+            HermesMobileScreen(title: "Inspector", subtitle: "this conversation", icon: "sidebar.right", showsDone: true) {
+                InspectorView().environmentObject(store)
+            }
+        }
+        .sheet(isPresented: $showingModels) {
+            ModelPickerView().environmentObject(store)
+        }
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {

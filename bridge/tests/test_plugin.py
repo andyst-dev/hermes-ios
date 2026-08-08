@@ -52,6 +52,8 @@ class FakeEngine:
     def __init__(self) -> None:
         self._session_map = {}
         self._active_hermes_session = None
+        self._provider = None
+        self._model_id = None
         self.resolved: list[tuple[str, str]] = []
 
     async def new_session(self, hermes_session_id=None):
@@ -188,10 +190,12 @@ class FakeDashboard:
                 "provider": "deepseek",
                 "provider_name": "DeepSeek",
                 "name": "deepseek-v4-flash",
+                "is_active": True,
             }
         ]
 
-    async def set_model(self, model_id):
+    async def set_model(self, provider, model_id):
+        self.selected_model = (provider, model_id)
         return {"ok": True}
 
 
@@ -384,8 +388,23 @@ def test_plugin_models_shape(client):
     assert len(models) == 1
     m = models[0]
     assert m["displayName"] == "deepseek-v4-flash"
+    assert m["isActive"] is True
     assert m["supportsVision"] is False
     assert m["supportsTools"] is True
+
+
+def test_plugin_model_set_preserves_explicit_provider(client, monkeypatch):
+    dashboard = FakeDashboard()
+    monkeypatch.setattr(plugin, "_get_dashboard", lambda: dashboard)
+
+    response = client.post(
+        "/api/plugins/hermes-mobile/model",
+        json={"provider": "nous", "model": "deepseek/deepseek-v4-flash-0731"},
+    )
+
+    assert response.status_code == 200
+    assert dashboard.selected_model == ("nous", "deepseek/deepseek-v4-flash-0731")
+    assert response.json()["provider"] == "nous"
 
 
 def test_plugin_files_shape(client):

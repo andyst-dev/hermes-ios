@@ -109,7 +109,9 @@ class DashboardClient:
         )
         resp.raise_for_status()
         payload = resp.json()
-        # Dashboard shape: {"providers": [{"slug", "name", "is_current", "models": [...]}]}
+        # Dashboard shape: {"model", "provider", "providers": [{...}]}
+        current_provider = payload.get("provider") or ""
+        current_model = payload.get("model") or ""
         rows = []
         for provider in payload.get("providers", []):
             slug = provider.get("slug") or ""
@@ -121,17 +123,17 @@ class DashboardClient:
                         "provider": slug,
                         "provider_name": name,
                         "name": model_id.split("/", 1)[-1],
+                        "is_active": slug == current_provider and model_id == current_model,
                     }
                 )
         return rows
 
-    async def set_model(self, model_id: str) -> dict[str, Any]:
+    async def set_model(self, provider: str, model_id: str) -> dict[str, Any]:
         # Dashboard POST /api/model/set expects ModelAssignment:
         # {"scope": "main", "provider": "...", "model": "..."}
-        provider, _, model = model_id.partition("/")
         resp = await self._client.post(
             f"{self.base_url}/api/model/set",
-            json={"scope": "main", "provider": provider, "model": model or model_id},
+            json={"scope": "main", "provider": provider, "model": model_id},
             headers=self._headers(),
         )
         resp.raise_for_status()
