@@ -9,7 +9,7 @@ struct SessionListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            MobileSessionsHeader(showingSettings: $showingSettings, onNewSession: openNewSession, onOpenCommands: onOpenCommands)
+            MobileSessionsHeader(showingSettings: $showingSettings, onNewSession: openNewSession, onOpenCommands: onOpenCommands, onOpenArchived: { showingArchived = true })
             ScrollView(showsIndicators: false) {
                 let allFilter = store.selectedSourceFilter == "all"
                 let hasResults = !visibleSessions().isEmpty
@@ -54,7 +54,12 @@ struct SessionListView: View {
             try? await store.refreshSessions()
             try? await store.refreshCapabilities()
         }
+        .sheet(isPresented: $showingArchived) {
+            ArchivedSessionsView().environmentObject(store)
+        }
     }
+
+    @State private var showingArchived = false
 
     private var selectedFilter: String { store.selectedSourceFilter.lowercased() }
 
@@ -107,6 +112,7 @@ private struct MobileSessionsHeader: View {
     @Binding var showingSettings: Bool
     let onNewSession: () -> Void
     let onOpenCommands: () -> Void
+    let onOpenArchived: () -> Void
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
@@ -132,6 +138,13 @@ private struct MobileSessionsHeader: View {
             .buttonStyle(.plain)
             Button(action: onOpenCommands) {
                 Image(systemName: "command")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(HermesTheme.mutedForeground)
+                    .frame(width: 32, height: 32)
+            }
+            .buttonStyle(.plain)
+            Button(action: onOpenArchived) {
+                Image(systemName: "archivebox")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(HermesTheme.mutedForeground)
                     .frame(width: 32, height: 32)
@@ -475,5 +488,80 @@ private struct SidebarFooter: View {
     private var profileLabel: String {
         if case .connected(let host) = store.connection { return host.profile }
         return "default"
+    }
+}
+
+// MARK: - Archived sessions
+
+private struct ArchivedSessionsView: View {
+    @EnvironmentObject private var store: AppStore
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        HermesMobileScreen(title: "Archived", subtitle: "chats hidden from the main list", icon: "archivebox", showsDone: true) {
+            ScrollView(showsIndicators: false) {
+                LazyVStack(spacing: 8) {
+                    if store.archivedSessions.isEmpty {
+                        VStack(spacing: 8) {
+                            Image(systemName: "archivebox")
+                                .font(.system(size: 22))
+                                .foregroundStyle(HermesTheme.mutedForeground.opacity(0.4))
+                            Text("Nothing archived")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(HermesTheme.mutedForeground)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 60)
+                    } else {
+                        ForEach(store.archivedSessions) { session in
+                            HStack(spacing: 10) {
+                                Image(systemName: SessionSource.icon(session.source ?? "desktop"))
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(HermesTheme.mutedForeground.opacity(0.6))
+                                    .frame(width: 26)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(session.title)
+                                        .font(.system(size: 13.5, weight: .semibold))
+                                        .foregroundStyle(HermesTheme.ink)
+                                        .lineLimit(1)
+                                    Text(session.subtitle)
+                                        .font(.system(size: 10.5))
+                                        .foregroundStyle(HermesTheme.mutedForeground)
+                                        .lineLimit(1)
+                                }
+                                Spacer(minLength: 0)
+                                Button {
+                                    Task { try? await store.restoreSession(id: session.id) }
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "arrow.uturn.backward")
+                                            .font(.system(size: 10, weight: .semibold))
+                                        Text("Restore")
+                                            .font(.system(size: 11, weight: .semibold))
+                                    }
+                                    .foregroundStyle(HermesTheme.primary)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(HermesTheme.userBubble, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .background(HermesTheme.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        }
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.top, 8)
+                .padding(.bottom, 24)
+            }
+            .refreshable {
+                await store.loadArchivedSessions()
+            }
+        }
+        .task {
+            await store.loadArchivedSessions()
+        }
     }
 }

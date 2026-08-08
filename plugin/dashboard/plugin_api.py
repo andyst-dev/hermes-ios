@@ -418,10 +418,10 @@ class _DashboardProxy:
         except Exception as exc:
             return {"ok": False, "error": str(exc)[:200]}
 
-    async def list_sessions(self, *, limit: int = 100) -> list[dict[str, Any]]:
+    async def list_sessions(self, *, limit: int = 100, archived: str = "exclude") -> list[dict[str, Any]]:
         resp = await self._client.get(
             f"{self._base}/api/sessions",
-            params={"limit": limit, "archived": "exclude"},
+            params={"limit": limit, "archived": archived},
             headers=self._headers(),
         )
         resp.raise_for_status()
@@ -692,8 +692,8 @@ async def mobile_capabilities() -> dict[str, Any]:
 
 
 @router.get("/sessions")
-async def mobile_sessions() -> dict[str, Any]:
-    rows = await _get_dashboard().list_sessions(limit=100)
+async def mobile_sessions(archived: str = "exclude") -> dict[str, Any]:
+    rows = await _get_dashboard().list_sessions(limit=100, archived=archived)
     return {"sessions": [_mobile_session_row(r) for r in rows]}
 
 

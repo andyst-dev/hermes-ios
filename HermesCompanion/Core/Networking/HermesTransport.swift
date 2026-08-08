@@ -3,6 +3,7 @@ import Foundation
 protocol HermesTransport: Sendable {
     func connect(to host: HermesHost) async throws -> HermesHost
     func fetchSessions() async throws -> [HermesSession]
+    func fetchArchivedSessions() async throws -> [HermesSession]
     func fetchMessages(sessionID: String) async throws -> [HermesMessage]
     func fetchCapabilities() async throws -> HermesCapabilitySnapshot
     func fetchModels() async throws -> [HermesModel]
@@ -21,7 +22,7 @@ protocol HermesTransport: Sendable {
     func readFile(path: String) async throws -> HermesFileContent
     func renameSession(id: String, title: String) async throws
     func pinSession(id: String, pinned: Bool) async throws
-    func archiveSession(id: String) async throws
+    func archiveSession(id: String, archived: Bool) async throws
     func uploadAttachment(fileURL: URL) async throws -> String
     func attachDesktopFile(path: String) async throws -> HermesDesktopAttachment
     /// Remote access tunnel (cloudflared quick tunnel / ngrok) — lets the

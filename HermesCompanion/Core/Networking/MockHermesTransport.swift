@@ -12,6 +12,10 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
         sessionList
     }
 
+    func fetchArchivedSessions() async throws -> [HermesSession] {
+        sessionList.filter { $0.pinned == true }  // pretend a pinned one is archived (preview data only)
+    }
+
     func fetchMessages(sessionID: String) async throws -> [HermesMessage] {
         PreviewData.messages
     }
@@ -63,8 +67,12 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
         }
     }
 
-    func archiveSession(id: String) async throws {
-        sessionList.removeAll { $0.id == id }
+    func archiveSession(id: String, archived: Bool) async throws {
+        if archived {
+            sessionList.removeAll { $0.id == id }
+        } else {
+            sessionList.insert(PreviewData.sessions[0], at: 0)
+        }
     }
 
     func uploadAttachment(fileURL: URL) async throws -> String {

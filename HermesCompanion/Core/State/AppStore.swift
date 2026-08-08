@@ -4,6 +4,8 @@ import Foundation
 final class AppStore: ObservableObject {
     @Published var connection: HermesConnectionState = .disconnected
     @Published var sessions: [HermesSession] = []
+    /// Archived chats (hidden from the main list), shown in the archive sheet.
+    @Published var archivedSessions: [HermesSession] = []
     @Published var selectedSessionID: String?
     @Published var messages: [HermesMessage] = []
     @Published var composerText: String = ""
@@ -503,6 +505,19 @@ final class AppStore: ObservableObject {
             selectedSessionID = nil
             messages = []
         }
+        try? await refreshSessions()
+    }
+
+    /// Loads the archived chats (hidden from the main list) for the
+    /// archived-sessions sheet.
+    func loadArchivedSessions() async {
+        archivedSessions = (try? await client.archivedSessions()) ?? []
+    }
+
+    /// Un-archives a chat and moves it back to the main list.
+    func restoreSession(id: String) async throws {
+        try await client.archiveSession(id: id, archived: false)
+        archivedSessions.removeAll { $0.id == id }
         try? await refreshSessions()
     }
 

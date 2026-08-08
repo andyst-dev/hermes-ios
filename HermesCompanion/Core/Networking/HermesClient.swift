@@ -16,6 +16,10 @@ final class HermesClient: ObservableObject {
         try await transport.fetchSessions()
     }
 
+    func archivedSessions() async throws -> [HermesSession] {
+        try await transport.fetchArchivedSessions()
+    }
+
     func messages(sessionID: String) async throws -> [HermesMessage] {
         try await transport.fetchMessages(sessionID: sessionID)
     }
@@ -76,8 +80,8 @@ final class HermesClient: ObservableObject {
         try await transport.pinSession(id: id, pinned: pinned)
     }
 
-    func archiveSession(id: String) async throws {
-        try await transport.archiveSession(id: id)
+    func archiveSession(id: String, archived: Bool = true) async throws {
+        try await transport.archiveSession(id: id, archived: archived)
     }
 
     func uploadAttachment(fileURL: URL) async throws -> String {

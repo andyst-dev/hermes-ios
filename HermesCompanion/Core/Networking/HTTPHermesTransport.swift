@@ -40,6 +40,11 @@ actor HTTPHermesTransport: HermesTransport {
         return response.sessions
     }
 
+    func fetchArchivedSessions() async throws -> [HermesSession] {
+        let response: MobileSessionsResponse = try await get("api/mobile/sessions", queryItems: [URLQueryItem(name: "archived", value: "only")])
+        return response.sessions
+    }
+
     func fetchMessages(sessionID: String) async throws -> [HermesMessage] {
         let response: MobileMessagesResponse = try await get("api/mobile/sessions/\(sessionID)/messages")
         return response.messages.filter(\.isTranscriptVisible)
@@ -313,8 +318,8 @@ actor HTTPHermesTransport: HermesTransport {
         let _: MobileSessionActionResponse = try await post("api/mobile/sessions/\(id)/pin", body: MobilePinRequest(pinned: pinned))
     }
 
-    func archiveSession(id: String) async throws {
-        let _: MobileSessionActionResponse = try await post("api/mobile/sessions/\(id)/archive", body: MobileArchiveRequest(archived: true))
+    func archiveSession(id: String, archived: Bool = true) async throws {
+        let _: MobileSessionActionResponse = try await post("api/mobile/sessions/\(id)/archive", body: MobileArchiveRequest(archived: archived))
     }
 
     func attachDesktopFile(path: String) async throws -> HermesDesktopAttachment {
@@ -482,8 +487,8 @@ actor HTTPHermesTransport: HermesTransport {
         }
     }
 
-    private func get<T: Decodable>(_ path: String, timeout: TimeInterval = 12) async throws -> T {
-        try await dataRequest(path: path, method: "GET", body: Optional<Data>.none, timeout: timeout)
+    private func get<T: Decodable>(_ path: String, timeout: TimeInterval = 12, queryItems: [URLQueryItem] = []) async throws -> T {
+        try await dataRequest(path: path, method: "GET", body: Optional<Data>.none, timeout: timeout, queryItems: queryItems)
     }
 
     private func post<T: Decodable, Body: Encodable>(_ path: String, body: Body, timeout: TimeInterval = 12) async throws -> T {

@@ -113,8 +113,8 @@ class FakeDashboard:
         self.effort = effort
         return {"ok": True, "effort": effort}
 
-    async def list_sessions(self, *, limit=100):
-        return [
+    async def list_sessions(self, *, limit=100, archived="exclude"):
+        sessions = [
             {
                 "id": "20260805_plugin_session",
                 "title": "Session plugin",
@@ -124,8 +124,12 @@ class FakeDashboard:
                 "updated_at": 1785900000,
                 "is_active": True,
                 "pinned": False,
+                "archived": False,
             }
         ]
+        if archived == "only":
+            return [s for s in sessions if s["archived"]]
+        return sessions
 
     async def get_session_messages(self, session_id):
         return [
@@ -235,6 +239,12 @@ def test_plugin_sessions_shape(client):
     assert row["id"] == "20260805_plugin_session"
     assert row["status"] == "running"  # is_active -> running (iOS enum)
     assert row["updatedAt"].endswith("Z")
+
+
+def test_plugin_sessions_archived_filter_forwards(client):
+    resp = client.get("/api/plugins/hermes-mobile/sessions", params={"archived": "only"})
+    assert resp.status_code == 200
+    assert resp.json()["sessions"] == []  # FakeDashboard returns only non-archived
 
 
 def test_plugin_messages_shape(client):
