@@ -40,8 +40,8 @@ struct ModelPickerView: View {
                     ForEach(groupedProviderNames, id: \.self) { provider in
                         HermesMobileSection(title: provider, icon: "server.rack", accent: HermesTheme.primary) {
                             VStack(alignment: .leading, spacing: 2) {
-                                ForEach(filteredModels.filter { displayProvider($0) == provider }) { model in
-                                    let active = model.id == store.activeModelID && model.provider == store.activeProviderID
+                                ForEach(models(for: provider)) { model in
+                                    let active = isActive(model)
                                     Button {
                                         Task {
                                             await store.selectModel(model)
@@ -76,7 +76,30 @@ struct ModelPickerView: View {
     }
 
     private var groupedProviderNames: [String] {
-        Array(Set(filteredModels.map(displayProvider))).sorted()
+        let names = Set(filteredModels.map(displayProvider))
+        let activeProvider = store.activeModel.map(displayProvider)
+        return names.sorted { lhs, rhs in
+            if lhs == activeProvider { return true }
+            if rhs == activeProvider { return false }
+            return lhs.localizedCaseInsensitiveCompare(rhs) == .orderedAscending
+        }
+    }
+
+    private func models(for provider: String) -> [HermesModel] {
+        filteredModels
+            .enumerated()
+            .filter { displayProvider($0.element) == provider }
+            .sorted { lhs, rhs in
+                let lhsActive = isActive(lhs.element)
+                let rhsActive = isActive(rhs.element)
+                if lhsActive != rhsActive { return lhsActive }
+                return lhs.offset < rhs.offset
+            }
+            .map(\.element)
+    }
+
+    private func isActive(_ model: HermesModel) -> Bool {
+        model.id == store.activeModelID && model.provider == store.activeProviderID
     }
 
     private func displayProvider(_ model: HermesModel) -> String {
