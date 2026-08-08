@@ -1,47 +1,182 @@
 import SwiftUI
 import WidgetKit
 
-// MARK: - Medium overview
+// MARK: - Home screen overview (small / medium / large)
 
 struct HermesOverviewView: View {
     let entry: HermesEntry
 
+    @Environment(\.widgetFamily) private var family
+
     var body: some View {
-        let snapshot = entry.snapshot
+        let s = entry.snapshot
         VStack(alignment: .leading, spacing: 0) {
-            header(snapshot)
-            Spacer(minLength: 4)
-            activeSession(snapshot)
-            Divider()
-                .overlay(Color.white.opacity(0.08))
-                .padding(.vertical, 7)
-            nextCron(snapshot)
+            statusBar(s)
+            switch family {
+            case .systemSmall:
+                smallBody(s)
+            case .systemLarge:
+                largeBody(s)
+            default:
+                mediumBody(s)
+            }
         }
-        .widgetURL(sessionURL(snapshot))
+        .padding(.top, 2)
+        .widgetURL(sessionURL(s))
     }
 
-    private func header(_ s: HermesWidgetSnapshot) -> some View {
-        HStack(spacing: 6) {
-            Text("HERMES")
-                .font(.system(size: 10, weight: .heavy, design: .serif))
-                .tracking(1.4)
-                .foregroundStyle(.white.opacity(0.9))
-            Text("AGENT")
-                .font(.system(size: 8, weight: .heavy, design: .serif))
-                .tracking(1.2)
-                .foregroundStyle(.white.opacity(0.45))
-            Spacer()
+    // Compact status line replaces the old heavy brand header, so the
+    // content starts right at the top with no dead space.
+    private func statusBar(_ s: HermesWidgetSnapshot) -> some View {
+        HStack(spacing: 5) {
             Circle()
                 .fill(statusColor(s.gatewayStatus))
                 .frame(width: 6, height: 6)
             Text(s.gatewayStatus.label.uppercased())
                 .font(.system(size: 8, weight: .bold))
-                .tracking(0.8)
-                .foregroundStyle(.white.opacity(0.55))
+                .tracking(1.0)
+                .foregroundStyle(.white.opacity(0.6))
+            Spacer()
+            Text("HERMES")
+                .font(.system(size: 7.5, weight: .heavy, design: .serif))
+                .tracking(1.2)
+                .foregroundStyle(.white.opacity(0.3))
+        }
+        .padding(.bottom, 8)
+    }
+
+    private func sectionLabel(_ text: String) -> some View {
+        Text(text.uppercased())
+            .font(.system(size: 7.5, weight: .bold))
+            .tracking(1.0)
+            .foregroundStyle(.white.opacity(0.35))
+    }
+
+    private func smallBody(_ s: HermesWidgetSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionLabel("Session")
+            if s.sessionID.isEmpty {
+                Text("No active session")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.6))
+                    .padding(.top, 2)
+            } else {
+                Text(s.sessionTitle)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .padding(.top, 2)
+            }
+            Spacer(minLength: 6)
+            sectionLabel("Cron")
+            if let next = s.nextCronDate, !s.nextCronTitle.isEmpty {
+                Text("\\(s.nextCronTitle)")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .lineLimit(1)
+                    .padding(.top, 2)
+                Text(HermesOverviewView.relativeTime(from: next))
+                    .font(.system(size: 9.5))
+                    .foregroundStyle(.white.opacity(0.45))
+            } else {
+                Text("No cron scheduled")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.white.opacity(0.35))
+                    .padding(.top, 2)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func mediumBody(_ s: HermesWidgetSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 0) {
+                    sectionLabel("Session")
+                    activeSession(s, compact: true)
+                }
+                Spacer(minLength: 8)
+                if !s.sessionID.isEmpty {
+                    Link(destination: URL(string: "hermes://session/\\(s.sessionID)")!) {
+                        Text("Open")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.black)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 4)
+                            .background(.white.opacity(0.9), in: Capsule())
+                    }
+                }
+            }
+            Spacer(minLength: 6)
+            Divider()
+                .overlay(Color.white.opacity(0.08))
+                .padding(.vertical, 6)
+            nextCron(s)
         }
     }
 
-    private func activeSession(_ s: HermesWidgetSnapshot) -> some View {
+    private func largeBody(_ s: HermesWidgetSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionLabel("Session")
+            if s.sessionID.isEmpty {
+                Text("No active session")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.6))
+                    .padding(.top, 3)
+            } else {
+                Text(s.sessionTitle)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .padding(.top, 3)
+                if !s.lastMessagePreview.isEmpty {
+                    Text(s.lastMessagePreview)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.65))
+                        .lineLimit(2)
+                        .padding(.top, 3)
+                }
+            }
+            Spacer(minLength: 8)
+            Divider()
+                .overlay(Color.white.opacity(0.08))
+                .padding(.vertical, 6)
+            sectionLabel("Cron")
+            if let next = s.nextCronDate, !s.nextCronTitle.isEmpty {
+                Text("\\(s.nextCronTitle)")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.8))
+                    .lineLimit(1)
+                    .padding(.top, 3)
+                Text(HermesOverviewView.relativeTime(from: next))
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.white.opacity(0.5))
+                    .padding(.top, 1)
+            } else {
+                Text("No cron scheduled")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.35))
+                    .padding(.top, 3)
+            }
+            Spacer(minLength: 6)
+            HStack {
+                Text("Updated \\(HermesOverviewView.relativeTime(from: s.updatedAt))")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.white.opacity(0.3))
+                Spacer()
+                Link(destination: URL(string: "hermes://new-chat")!) {
+                    Text("New chat")
+                        .font(.system(size: 9.5, weight: .bold))
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4)
+                        .background(.white.opacity(0.9), in: Capsule())
+                }
+            }
+        }
+    }
+
+    private func activeSession(_ s: HermesWidgetSnapshot, compact: Bool) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             if s.sessionID.isEmpty {
                 Text("No active session")
@@ -52,16 +187,15 @@ struct HermesOverviewView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
-                if !s.sessionSubtitle.isEmpty {
-                    Text(s.sessionSubtitle)
-                        .font(.system(size: 9.5))
-                        .foregroundStyle(.white.opacity(0.45))
-                        .lineLimit(1)
-                }
-                if !s.lastMessagePreview.isEmpty {
+                if compact, !s.lastMessagePreview.isEmpty {
                     Text(s.lastMessagePreview)
                         .font(.system(size: 10.5))
                         .foregroundStyle(.white.opacity(0.65))
+                        .lineLimit(1)
+                } else if !s.sessionSubtitle.isEmpty {
+                    Text(s.sessionSubtitle)
+                        .font(.system(size: 9.5))
+                        .foregroundStyle(.white.opacity(0.45))
                         .lineLimit(1)
                 }
             }

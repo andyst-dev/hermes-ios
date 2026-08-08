@@ -26,7 +26,7 @@ struct HermesOverviewWidget: Widget {
         }
         .configurationDisplayName("Hermes")
         .description("Gateway status, active session and next cron run.")
-        .supportedFamilies([.systemMedium])
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
 
