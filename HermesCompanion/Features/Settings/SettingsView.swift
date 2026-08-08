@@ -8,6 +8,7 @@ struct SettingsView: View {
     @State private var showingSkillsMemory = false
     @State private var showingForgetPairingAlert = false
     @State private var actionStatus: String?
+    @AppStorage("hermes.debugAutoConnect") private var debugAutoConnect = false
 
     var body: some View {
         HermesMobileScreen(title: "Settings", subtitle: connectionLabel, icon: "gearshape", showsDone: true) {
@@ -78,6 +79,34 @@ struct SettingsView: View {
                         Task { await store.refreshTunnelStatus() }
                         Task { await store.refreshCron() }
                         Task { await store.refreshSkillsMemory() }
+                    }
+
+                    HermesMobileSection(title: "Debug", icon: "wrench.and.screwdriver", accent: HermesTheme.mutedForeground) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "bolt.horizontal.circle")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(HermesTheme.mutedForeground)
+                                .frame(width: 18)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Auto-connect local desktop")
+                                    .font(.system(size: 13.5, weight: .semibold))
+                                    .foregroundStyle(HermesTheme.ink)
+                                Text("Skip the Connect screen: open 127.0.0.1:8765 directly (dev only)")
+                                    .font(.system(size: 10.5))
+                                    .foregroundStyle(HermesTheme.mutedForeground.opacity(0.78))
+                            }
+                            Spacer()
+                            Toggle("", isOn: $debugAutoConnect)
+                                .labelsHidden()
+                                .toggleStyle(PlutoToggleStyle())
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        Text("The app still needs a saved pairing token — set it once via the QR screen and it will auto-connect on every launch.")
+                            .font(.system(size: 10))
+                            .foregroundStyle(HermesTheme.mutedForeground.opacity(0.6))
+                            .padding(.horizontal, 10)
+                            .padding(.bottom, 6)
                     }
 
                     HermesMobileSection(title: "Privacy", icon: "eye.slash", accent: HermesTheme.warm) {

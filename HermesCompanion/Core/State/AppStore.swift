@@ -76,8 +76,14 @@ final class AppStore: ObservableObject {
     /// app was closed (and keeps the local-notification dedup state warm).
     func checkPendingApprovals() async {
         guard case .connected = connection else { return }
-        guard let approval = await NotificationManager.shared.checkInForeground(using: client) else { return }
-        pendingApproval = ApprovalRequest(id: approval.id, command: approval.command, description: approval.command)
+        if let approval = await NotificationManager.shared.checkInForeground(using: client) {
+            pendingApproval = ApprovalRequest(id: approval.id, command: approval.command, description: approval.command)
+        } else {
+            // The desktop approval is gone (approved / denied / expired) —
+            // clear the stale state so the widget and the approval card
+            // don't keep showing "Approval waiting" forever.
+            pendingApproval = nil
+        }
     }
 
     func refreshSessions() async throws {

@@ -30,7 +30,10 @@ struct HermesCompanionApp: App {
         }
         print("HERMES: hasToken=\(env["HERMES_DASHBOARD_SESSION_TOKEN"] != nil || KeychainStore.loadToken() != nil) host=\(hostURL.absoluteString)")
         let hasToken = env["HERMES_DASHBOARD_SESSION_TOKEN"] != nil || KeychainStore.loadToken() != nil
-        autoConnectHost = hasToken ? HermesHost(name: "Desktop Hermes", baseURL: hostURL, profile: profile) : nil
+        // Debug toggle (Settings → Debug): skip the Connect screen and always
+        // open the local dev desktop at 127.0.0.1:8765 on launch.
+        let debugAutoConnect = UserDefaults.standard.bool(forKey: "hermes.debugAutoConnect")
+        autoConnectHost = (hasToken || debugAutoConnect) ? HermesHost(name: "Desktop Hermes", baseURL: hostURL, profile: profile) : nil
         let transport: any HermesTransport = isDemo
             ? MockHermesTransport()
             : HTTPHermesTransport(tokenProvider: {
