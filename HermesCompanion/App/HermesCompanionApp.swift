@@ -52,6 +52,9 @@ struct HermesCompanionApp: App {
                         await store.connect(host: autoConnectHost)
                     }
                 }
+                .onOpenURL { url in
+                    store.handleDeepLink(url)
+                }
         }
         .onChange(of: scenePhase) { _, phase in
             // Foreground auto-refresh lives in AppStore; keep it honest about

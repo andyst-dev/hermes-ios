@@ -53,10 +53,19 @@ private struct MainShellView: View {
     @State private var showingChat = false
 
     var body: some View {
-        if horizontalSizeClass == .compact {
-            compactShell
-        } else {
-            splitShell
+        Group {
+            if horizontalSizeClass == .compact {
+                compactShell
+            } else {
+                splitShell
+            }
+        }
+        .onChange(of: store.deepLinkSessionID) { _, _ in
+            // Widget deep link (hermes://session/… or hermes://new-chat):
+            // bring up the chat pane, then clear the flag.
+            guard store.deepLinkSessionID != nil else { return }
+            withAnimation(.snappy) { showingChat = true }
+            store.deepLinkSessionID = nil
         }
     }
 

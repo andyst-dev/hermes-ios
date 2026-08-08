@@ -16,17 +16,26 @@ targets:
     platform: iOS
     sources:
       - path: HermesCompanion
+      - path: Shared
+    dependencies:
+      - target: HermesCompanionWidget
+        embed: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.hermes.companion
         PRODUCT_NAME: HermesCompanion
         INFOPLIST_FILE: HermesCompanion/Resources/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_ENTITLEMENTS: HermesCompanion/Resources/HermesCompanion.entitlements
         ENABLE_PREVIEWS: YES
     info:
       path: HermesCompanion/Resources/Info.plist
       properties:
         CFBundleDisplayName: Hermes
+        CFBundleURLTypes:
+          - CFBundleURLName: dev.hermes.companion.deep
+            CFBundleURLSchemes:
+              - hermes
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
@@ -57,6 +66,24 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.hermes.companion.tests
         GENERATE_INFOPLIST_FILE: YES
+  HermesCompanionWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: HermesCompanionWidget
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.hermes.companion.widget
+        PRODUCT_NAME: HermesCompanionWidget
+        CODE_SIGN_ENTITLEMENTS: HermesCompanionWidget/HermesCompanionWidget.entitlements
+        SWIFT_VERSION: 6.0
+    info:
+      path: HermesCompanionWidget/Info.plist
+      properties:
+        CFBundleDisplayName: Hermes
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
 schemes:
   HermesCompanion:
     build:

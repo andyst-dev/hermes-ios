@@ -300,4 +300,45 @@ final class HermesCompanionTests: XCTestCase {
         let afterDelete = try await client.memoryDelete(target: "memory", index: 1)
         XCTAssertTrue(afterDelete.isEmpty)
     }
+
+    func testWidgetSnapshotCodableRoundTrip() throws {
+        var snapshot = HermesWidgetSnapshot()
+        snapshot.gatewayUp = true
+        snapshot.sessionID = "abc"
+        snapshot.sessionTitle = "Test chat"
+        snapshot.sessionSubtitle = "3 messages · Telegram"
+        snapshot.lastMessagePreview = "Hello world"
+        snapshot.nextCronTitle = "Daily briefing"
+        snapshot.nextCronDate = Date(timeIntervalSince1970: 1_750_000_000)
+        snapshot.pendingApprovalCommand = "rm -rf /"
+        snapshot.updatedAt = Date(timeIntervalSince1970: 1_750_000_100)
+
+        let data = try JSONEncoder().encode(snapshot)
+        let decoded = try JSONDecoder().decode(HermesWidgetSnapshot.self, from: data)
+
+        XCTAssertTrue(decoded.gatewayUp)
+        XCTAssertEqual(decoded.sessionID, "abc")
+        XCTAssertEqual(decoded.sessionTitle, "Test chat")
+        XCTAssertEqual(decoded.sessionSubtitle, "3 messages · Telegram")
+        XCTAssertEqual(decoded.lastMessagePreview, "Hello world")
+        XCTAssertEqual(decoded.nextCronTitle, "Daily briefing")
+        XCTAssertEqual(decoded.nextCronDate, snapshot.nextCronDate)
+        XCTAssertEqual(decoded.pendingApprovalCommand, "rm -rf /")
+        XCTAssertEqual(decoded.updatedAt, snapshot.updatedAt)
+    }
+
+    func testWidgetSnapshotGatewayStatusDerivation() {
+        var up = HermesWidgetSnapshot()
+        up.gatewayUp = true
+        XCTAssertEqual(up.gatewayStatus.label, "Gateway ready")
+
+        var approval = HermesWidgetSnapshot()
+        approval.gatewayUp = true
+        approval.pendingApprovalCommand = "sudo rm"
+        XCTAssertEqual(approval.gatewayStatus.label, "Approval waiting")
+
+        var down = HermesWidgetSnapshot()
+        down.gatewayUp = false
+        XCTAssertEqual(down.gatewayStatus.label, "Offline")
+    }
 }

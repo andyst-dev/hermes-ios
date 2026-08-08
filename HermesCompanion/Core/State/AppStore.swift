@@ -27,6 +27,9 @@ final class AppStore: ObservableObject {
     /// pending approvals live without push. Suspended while a chat streams.
     @Published var isAppActive = true
     private var autoRefreshTask: Task<Void, Never>?
+    /// Set by a widget deep link (hermes://session/… or hermes://new-chat);
+    /// MainShellView watches it to bring up the chat.
+    @Published var deepLinkSessionID: String?
 
     init(client: HermesClient) {
         self.client = client
@@ -60,6 +63,7 @@ final class AppStore: ObservableObject {
             await refreshReasoningEffort()
             await checkPendingApprovals()
             startAutoRefresh()
+            writeWidgetSnapshot()
         } catch {
             connection = .failed(error.localizedDescription)
         }
@@ -244,6 +248,8 @@ final class AppStore: ObservableObject {
         sessions = []
         messages = []
         isStreaming = false
+        deepLinkSessionID = nil
+        writeWidgetSnapshot()
         if clearPairing {
             KeychainStore.deleteToken()
             UserDefaults.standard.removeObject(forKey: "hermes.host")
@@ -267,8 +273,49 @@ final class AppStore: ObservableObject {
                 await self.refreshCron()
                 await self.refreshSkillsMemory()
                 await self.checkPendingApprovals()
+                self.writeWidgetSnapshot()
             }
         }
+    }
+
+    /// Publishes the current app state to the shared App Group container so
+    /// the home-screen and lock-screen widgets can render it. Called on
+    /// connect, on every foreground refresh tick and on disconnect.
+    func writeWidgetSnapshot() {
+        var snapshot = HermesWidgetSnapshot()
+        if case .connected = connection {
+            snapshot.gatewayUp = true
+        }
+        if let session = selectedSession {
+            snapshot.sessionID = session.id
+            snapshot.sessionTitle = session.title
+            snapshot.sessionSubtitle = session.subtitle
+        }
+        if let last = messages.last, !last.text.isEmpty {
+            snapshot.lastMessagePreview = String(last.text.prefix(80))
+        }
+        let nextJob = cronJobs
+            .filter { $0.enabled && $0.state != "paused" }
+            .compactMap { job -> (title: String, date: Date)? in
+                guard let raw = job.nextRunAt, let date = Self.isoDate(raw) else { return nil }
+                return (job.name, date)
+            }
+            .min { $0.date < $1.date }
+        if let nextJob {
+            snapshot.nextCronTitle = nextJob.title
+            snapshot.nextCronDate = nextJob.date
+        }
+        snapshot.pendingApprovalCommand = pendingApproval?.command ?? ""
+        snapshot.updatedAt = .now
+        snapshot.write()
+    }
+
+    private static func isoDate(_ raw: String) -> Date? {
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let standard = ISO8601DateFormatter()
+        standard.formatOptions = [.withInternetDateTime]
+        return fractional.date(from: raw) ?? standard.date(from: raw)
     }
 
     private func stopAutoRefresh() {
@@ -467,6 +514,7 @@ final class AppStore: ObservableObject {
                 selectedSessionID = sessionID
                 messages = []
                 try? await refreshSessions()
+                writeWidgetSnapshot()
             } catch {
                 messages.append(HermesMessage(id: UUID().uuidString, role: .system, text: error.localizedDescription, createdAt: .now, toolCalls: []))
             }
@@ -480,6 +528,26 @@ final class AppStore: ObservableObject {
         case .refresh:
             try? await refreshSessions()
             try? await refreshCapabilities()
+        }
+    }
+
+    /// Handles widget deep links: `hermes://session/<id>` selects a chat,
+    /// `hermes://new-chat` starts one. The session id is mirrored into
+    /// `deepLinkSessionID` so the shell knows to bring up the chat pane.
+    func handleDeepLink(_ url: URL) {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              components.scheme == "hermes" else { return }
+        let path = components.path
+        if path == "/new-chat" {
+            Task { await runCommand(.newChat) }
+            deepLinkSessionID = "new-chat"
+        } else if path.hasPrefix("/session/") {
+            let id = String(path.dropFirst("/session/".count))
+            guard !id.isEmpty else { return }
+            if let session = sessions.first(where: { $0.id == id }) {
+                Task { await select(session: session) }
+            }
+            deepLinkSessionID = id
         }
     }
 }
