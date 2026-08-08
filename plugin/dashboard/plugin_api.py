@@ -2032,20 +2032,57 @@ async def mobile_stats() -> dict[str, Any]:
                 agg["models"].sort(
                     key=lambda m: m["tokens"], reverse=True
                 )
-            # Live account state per provider (best effort — never fails the
-            # route). Nous portal: credits balance + monthly cap. DeepSeek:
-            # API account balance. Providers without a public balance
-            # endpoint (OpenAI Codex, Anthropic) are simply omitted.
+            # Build one account entry for EVERY provider found in the local
+            # sessions DB. This part is fully generic: a future provider works
+            # immediately, even without a dedicated live-balance connector.
+            # Known connectors below only enrich their matching entry.
+            def _provider_label(provider: str) -> str:
+                if provider == "unknown":
+                    return "Non renseigné"
+                if provider == "nous":
+                    return "Nous portal"
+                return provider.replace("_", " ").replace("-", " ").title()
+
             accounts: list[dict[str, Any]] = []
+            account_by_provider: dict[str, dict[str, Any]] = {}
+            for provider_stat in by_provider:
+                provider = provider_stat["provider"]
+                model_count = len(provider_stat.get("models") or [])
+                account = {
+                    "provider": provider,
+                    "label": _provider_label(provider),
+                    "ok": True,
+                    "liveBalance": False,
+                    "balanceUsd": None,
+                    "detail": (
+                        f"{provider_stat['sessions']} sessions · "
+                        f"{model_count} modèle{'s' if model_count != 1 else ''} · "
+                        f"estimation locale ${provider_stat['estimatedCostUsd']:.2f}"
+                    ),
+                    "error": None,
+                }
+                accounts.append(account)
+                account_by_provider[provider] = account
+
+            # Live account state (best effort — never fails the route).
+            # Nous and DeepSeek currently expose usable account endpoints.
             try:
                 from hermes_cli.nous_billing import get_billing_state  # type: ignore[import-not-found]
 
                 state = get_billing_state(timeout=4)
-                accounts.append(
+                nous_account = account_by_provider.get("nous")
+                if nous_account is None:
+                    nous_account = {
+                        "provider": "nous", "label": "Nous portal", "ok": True,
+                        "liveBalance": False, "balanceUsd": None,
+                        "detail": "Aucune session locale", "error": None,
+                    }
+                    accounts.append(nous_account)
+                    account_by_provider["nous"] = nous_account
+                nous_account.update(
                     {
-                        "provider": "nous",
-                        "label": "Nous portal",
                         "ok": True,
+                        "liveBalance": True,
                         "balanceUsd": state.get("balanceUsd"),
                         "detail": f"Cap mensuel : ${(state.get('monthlyCap') or {}).get('spentThisMonthUsd') or '0'} / ${(state.get('monthlyCap') or {}).get('limitUsd') or '0'}"
                         + (" · auto-reload off" if state.get("autoReload") is False else ""),
@@ -2053,7 +2090,8 @@ async def mobile_stats() -> dict[str, Any]:
                     }
                 )
             except Exception as exc:  # noqa: BLE001 - portal is optional data
-                accounts.append({"provider": "nous", "label": "Nous portal", "ok": False, "balanceUsd": None, "detail": None, "error": str(exc)[:200]})
+                if "nous" in account_by_provider:
+                    account_by_provider["nous"]["error"] = str(exc)[:200]
 
             # DeepSeek API balance (official /user/balance endpoint).
             deepseek_key: str | None = None
@@ -2074,18 +2112,27 @@ async def mobile_stats() -> dict[str, Any]:
                         payload = json.loads(resp.read().decode())
                     infos = payload.get("balance_infos") or []
                     balance = infos[0].get("total_balance") if infos else None
-                    accounts.append(
+                    deepseek_account = account_by_provider.get("deepseek")
+                    if deepseek_account is None:
+                        deepseek_account = {
+                            "provider": "deepseek", "label": "Deepseek", "ok": True,
+                            "liveBalance": False, "balanceUsd": None,
+                            "detail": "Aucune session locale", "error": None,
+                        }
+                        accounts.append(deepseek_account)
+                        account_by_provider["deepseek"] = deepseek_account
+                    deepseek_account.update(
                         {
-                            "provider": "deepseek",
-                            "label": "DeepSeek",
                             "ok": True,
+                            "liveBalance": True,
                             "balanceUsd": balance,
                             "detail": "Solde du compte API",
                             "error": None,
                         }
                     )
                 except Exception as exc:  # noqa: BLE001 - balance is optional data
-                    accounts.append({"provider": "deepseek", "label": "DeepSeek", "ok": False, "balanceUsd": None, "detail": None, "error": str(exc)[:200]})
+                    if "deepseek" in account_by_provider:
+                        account_by_provider["deepseek"]["error"] = str(exc)[:200]
         finally:
             con.close()
     except Exception as exc:  # noqa: BLE001 - report any DB hiccup

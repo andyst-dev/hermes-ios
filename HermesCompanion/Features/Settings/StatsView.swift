@@ -43,7 +43,7 @@ struct StatsView: View {
 
     private func accountCards(_ accounts: [HermesProviderAccount]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionTitle("ACCOUNTS", "Live balance per provider")
+            sectionTitle("PROVIDER SOURCES", "Local usage for all · live balance when available")
             ForEach(accounts) { account in
                 accountCard(account)
             }
@@ -60,15 +60,17 @@ struct StatsView: View {
                     .font(HermesTheme.brandSerif(size: 15))
                     .foregroundStyle(HermesTheme.ink)
                 Spacer()
-                if account.ok {
-                    Text("LIVE")
-                        .font(.system(size: 8.5, weight: .bold))
-                        .foregroundStyle(HermesTheme.green)
-                        .tracking(1)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(HermesTheme.green.opacity(0.12), in: Capsule())
-                }
+                Text(account.liveBalance ? "LIVE" : "LOCAL")
+                    .font(.system(size: 8.5, weight: .bold))
+                    .foregroundStyle(account.liveBalance ? HermesTheme.green : HermesTheme.mutedText)
+                    .tracking(1)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(
+                        (account.liveBalance ? HermesTheme.green : HermesTheme.mutedText)
+                            .opacity(0.12),
+                        in: Capsule()
+                    )
             }
             if account.ok {
                 if let balance = account.balanceValue {

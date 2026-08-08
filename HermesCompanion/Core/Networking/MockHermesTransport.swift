@@ -188,12 +188,14 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
             accounts: [
                 HermesProviderAccount(
                     provider: "nous", label: "Nous portal", ok: true,
+                    liveBalance: true,
                     balanceUsd: "-1.78",
                     detail: "Cap mensuel : $0 / $1000 · auto-reload off",
                     error: nil
                 ),
                 HermesProviderAccount(
                     provider: "deepseek", label: "DeepSeek", ok: true,
+                    liveBalance: true,
                     balanceUsd: "0.15",
                     detail: "Solde du compte API",
                     error: nil

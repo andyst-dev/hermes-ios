@@ -56,6 +56,8 @@ struct HermesProviderAccount: Decodable, Equatable, Identifiable {
     let provider: String
     let label: String
     let ok: Bool
+    /// True only when balanceUsd came from the provider's official endpoint.
+    let liveBalance: Bool
     let balanceUsd: String?
     let detail: String?
     let error: String?

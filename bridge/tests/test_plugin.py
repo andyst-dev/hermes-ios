@@ -302,6 +302,10 @@ def test_plugin_stats_aggregates_models(tmp_path, monkeypatch, client):
     assert models["deepseek-v4-flash"]["untrackedSessions"] == 0
     providers = {p["provider"]: p for p in data["byProvider"]}
     assert set(providers) == {"deepseek", "nous", "openai-codex"}
+    # Every detected billing provider gets an account entry. Live balance is
+    # optional; local usage/model data must still work for future providers.
+    account_providers = {a["provider"] for a in data["accounts"]}
+    assert set(providers) <= account_providers
     assert providers["nous"]["sessions"] == 2
     assert providers["nous"]["estimatedCostUsd"] == pytest.approx(0.02)
     assert providers["openai-codex"]["costStatus"] == "included"
