@@ -339,6 +339,10 @@ actor HTTPHermesTransport: HermesTransport {
         try await get("api/mobile/update/status", timeout: 150)
     }
 
+    func fetchStats() async throws -> HermesStatsReport {
+        try await get("api/mobile/stats", timeout: 60)
+    }
+
     func attachDesktopFile(path: String) async throws -> HermesDesktopAttachment {
         try await post("api/mobile/files/attach", body: MobileDesktopFileAttachmentRequest(path: path))
     }

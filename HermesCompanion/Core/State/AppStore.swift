@@ -371,6 +371,19 @@ final class AppStore: ObservableObject {
         updateStatus = try? await client.fetchUpdateStatus()
     }
 
+    @Published var stats: HermesStatsReport?
+    @Published var statsError: String?
+
+    func refreshStats() async {
+        guard case .connected = connection else { return }
+        do {
+            stats = try await client.fetchStats()
+            statsError = nil
+        } catch {
+            statsError = error.localizedDescription
+        }
+    }
+
     enum DesktopTool {
         case doctor, update
         var title: String { self == .doctor ? "Hermes doctor" : "Hermes update" }

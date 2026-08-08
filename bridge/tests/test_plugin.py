@@ -247,6 +247,56 @@ def test_plugin_sessions_archived_filter_forwards(client):
     assert resp.json()["sessions"] == []  # FakeDashboard returns only non-archived
 
 
+def test_plugin_stats_aggregates_models(tmp_path, monkeypatch, client):
+    import sqlite3
+    import time
+
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    db = tmp_path / "state.db"
+    con = sqlite3.connect(db)
+    con.execute(
+        """
+        CREATE TABLE sessions (
+            model TEXT, message_count INTEGER, input_tokens INTEGER,
+            output_tokens INTEGER, cache_read_tokens INTEGER,
+            reasoning_tokens INTEGER, estimated_cost_usd REAL,
+            actual_cost_usd REAL, archived INTEGER, started_at REAL
+        )
+        """
+    )
+    now = time.time()
+    con.executemany(
+        "INSERT INTO sessions VALUES (?,?,?,?,?,?,?,?,?,?)",
+        [
+            ("deepseek-v4-flash", 10, 1000, 500, 0, 0, 0.05, 0.0, 0, now - 172800),
+            ("deepseek-v4-flash", 5, 500, 250, 0, 0, 0.02, 0.0, 0, now - 86400),
+            ("gpt-5.5", 3, 2000, 100, 0, 0, 0.10, 0.0, 0, now - 86400),
+            ("archived-model", 1, 999, 999, 0, 0, 9.99, 0.0, 1, now),
+        ],
+    )
+    con.commit()
+    con.close()
+
+    resp = client.get("/api/plugins/hermes-mobile/stats")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ok"] is True
+    total = data["total"]
+    # Archived sessions are excluded.
+    assert total["sessions"] == 3
+    assert total["messages"] == 18
+    assert total["inputTokens"] == 3500
+    assert total["outputTokens"] == 850
+    assert total["estimatedCostUsd"] == pytest.approx(0.17)
+    models = {m["model"]: m for m in data["byModel"]}
+    assert set(models) == {"deepseek-v4-flash", "gpt-5.5"}
+    assert models["deepseek-v4-flash"]["sessions"] == 2
+    assert models["deepseek-v4-flash"]["inputTokens"] == 1500
+    # Daily rows are present and sorted by day.
+    days = [row["day"] for row in data["daily"]]
+    assert days == sorted(days) and days
+
+
 def test_plugin_messages_shape(client):
     resp = client.get("/api/plugins/hermes-mobile/sessions/x/messages")
     assert resp.status_code == 200

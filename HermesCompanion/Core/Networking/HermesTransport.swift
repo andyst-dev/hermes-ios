@@ -30,6 +30,7 @@ protocol HermesTransport: Sendable {
     func runDoctor() async throws -> HermesDoctorReport
     func runUpdate() async throws -> String
     func fetchUpdateStatus() async throws -> HermesUpdateStatus
+    func fetchStats() async throws -> HermesStatsReport
     func uploadAttachment(fileURL: URL) async throws -> String
     func attachDesktopFile(path: String) async throws -> HermesDesktopAttachment
     /// Remote access tunnel (cloudflared quick tunnel / ngrok) — lets the

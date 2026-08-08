@@ -28,6 +28,7 @@ import os
 import re
 import secrets
 import shutil
+import sqlite3
 import time
 import uuid
 from pathlib import Path
@@ -1887,6 +1888,82 @@ async def mobile_update_status() -> dict[str, Any]:
         "fullChangelog": full_changelog,
         "output": output,
     }
+
+
+@router.get("/stats")
+async def mobile_stats() -> dict[str, Any]:
+    """Aggregate per-model token and cost stats from the local state DB.
+
+    Reads `~/.hermes/state.db` (sessions table only — the messages table is
+    huge and never touched). Returns totals, per-model breakdown and the
+    last 14 days of activity, all unarchived sessions.
+    """
+    db_path = _hermes_home_dir() / "state.db"
+    if not db_path.exists():
+        return {"ok": False, "error": "state.db not found", "byModel": [], "daily": [], "total": {}}
+
+    try:
+        con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        con.row_factory = sqlite3.Row
+        try:
+            by_model = [
+                dict(row)
+                for row in con.execute(
+                    """
+                    SELECT model,
+                           COUNT(*)                                                      AS sessions,
+                           COALESCE(SUM(message_count), 0)                               AS messages,
+                           COALESCE(SUM(input_tokens), 0)                                AS inputTokens,
+                           COALESCE(SUM(output_tokens), 0)                               AS outputTokens,
+                           COALESCE(SUM(cache_read_tokens), 0)                           AS cacheReadTokens,
+                           COALESCE(SUM(reasoning_tokens), 0)                            AS reasoningTokens,
+                           COALESCE(SUM(estimated_cost_usd), 0)                          AS estimatedCostUsd,
+                           COALESCE(SUM(actual_cost_usd), 0)                             AS actualCostUsd
+                    FROM sessions
+                    WHERE archived = 0
+                    GROUP BY model
+                    ORDER BY (input_tokens + output_tokens) DESC
+                    LIMIT 15
+                    """
+                )
+            ]
+            total = dict(
+                con.execute(
+                    """
+                    SELECT COUNT(*)                                                      AS sessions,
+                           COALESCE(SUM(message_count), 0)                               AS messages,
+                           COALESCE(SUM(input_tokens), 0)                                AS inputTokens,
+                           COALESCE(SUM(output_tokens), 0)                               AS outputTokens,
+                           COALESCE(SUM(cache_read_tokens), 0)                           AS cacheReadTokens,
+                           COALESCE(SUM(reasoning_tokens), 0)                            AS reasoningTokens,
+                           COALESCE(SUM(estimated_cost_usd), 0)                          AS estimatedCostUsd,
+                           COALESCE(SUM(actual_cost_usd), 0)                             AS actualCostUsd
+                    FROM sessions
+                    WHERE archived = 0
+                    """
+                ).fetchone()
+            )
+            daily = [
+                {"day": row["day"], "sessions": row["sessions"], "tokens": row["tokens"]}
+                for row in con.execute(
+                    """
+                    SELECT date(started_at, 'unixepoch')                                 AS day,
+                           COUNT(*)                                                      AS sessions,
+                           COALESCE(SUM(input_tokens + output_tokens), 0)                AS tokens
+                    FROM sessions
+                    WHERE archived = 0
+                      AND started_at > strftime('%s', 'now', '-14 days')
+                    GROUP BY day
+                    ORDER BY day
+                    """
+                )
+            ]
+        finally:
+            con.close()
+    except Exception as exc:  # noqa: BLE001 - report any DB hiccup
+        return {"ok": False, "error": str(exc), "byModel": [], "daily": [], "total": {}}
+
+    return {"ok": True, "total": total, "byModel": by_model, "daily": daily}
 
 
 @router.post("/update")

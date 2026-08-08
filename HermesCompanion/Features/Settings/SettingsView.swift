@@ -10,6 +10,7 @@ struct SettingsView: View {
     @State private var showingUpdateConfirmation = false
     @State private var showingToolOutput = false
     @State private var showingWhatsNew = false
+    @State private var showingStats = false
     @State private var actionStatus: String?
     @AppStorage("hermes.debugAutoConnect") private var debugAutoConnect = false
     @AppStorage("hermes.faceidLock") private var faceIDLock = false
@@ -137,6 +138,12 @@ struct SettingsView: View {
                         Text("Pulls the latest hermes from git and reinstalls dependencies. Restart the dashboard after it finishes.")
                     }
 
+                    HermesMobileSection(title: "Usage", icon: "chart.bar.xaxis", accent: HermesTheme.warm) {
+                        SettingsButtonRow(title: "Usage stats", subtitle: "Tokens and cost per model", icon: "chart.bar.xaxis", accent: HermesTheme.warm) {
+                            showingStats = true
+                        }
+                    }
+
                     HermesMobileSection(title: "Security", icon: "lock.shield", accent: HermesTheme.green) {
                         HStack(spacing: 10) {
                             Image(systemName: "faceid")
@@ -258,6 +265,10 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showingWhatsNew) {
             WhatsNewView()
+                .environmentObject(store)
+        }
+        .sheet(isPresented: $showingStats) {
+            StatsView()
                 .environmentObject(store)
         }
         .alert("Forget pairing?", isPresented: $showingForgetPairingAlert) {

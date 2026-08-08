@@ -37,6 +37,50 @@ struct HermesUpdateStatus: Decodable, Equatable {
     let output: String
 }
 
+/// Aggregated desktop usage: totals, per-model breakdown and the last
+/// 14 days of activity (from the local state DB).
+struct HermesStatsReport: Decodable, Equatable {
+    let ok: Bool
+    let total: HermesStatsTotal
+    let byModel: [HermesModelStat]
+    let daily: [HermesDailyStat]
+}
+
+struct HermesStatsTotal: Decodable, Equatable {
+    let sessions: Int
+    let messages: Int
+    let inputTokens: Int
+    let outputTokens: Int
+    let cacheReadTokens: Int
+    let reasoningTokens: Int
+    let estimatedCostUsd: Double
+    let actualCostUsd: Double
+
+    var totalTokens: Int { inputTokens + outputTokens + cacheReadTokens + reasoningTokens }
+}
+
+struct HermesModelStat: Decodable, Equatable, Identifiable {
+    var id: String { model }
+    let model: String
+    let sessions: Int
+    let messages: Int
+    let inputTokens: Int
+    let outputTokens: Int
+    let cacheReadTokens: Int
+    let reasoningTokens: Int
+    let estimatedCostUsd: Double
+    let actualCostUsd: Double
+
+    var totalTokens: Int { inputTokens + outputTokens + cacheReadTokens + reasoningTokens }
+}
+
+struct HermesDailyStat: Decodable, Equatable, Identifiable {
+    var id: String { day }
+    let day: String
+    let sessions: Int
+    let tokens: Int
+}
+
 struct HermesSession: Codable, Equatable, Identifiable {
     let id: String
     var title: String

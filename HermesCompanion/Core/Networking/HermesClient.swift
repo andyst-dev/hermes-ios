@@ -100,6 +100,10 @@ final class HermesClient: ObservableObject {
         try await transport.fetchUpdateStatus()
     }
 
+    func fetchStats() async throws -> HermesStatsReport {
+        try await transport.fetchStats()
+    }
+
     func uploadAttachment(fileURL: URL) async throws -> String {
         try await transport.uploadAttachment(fileURL: fileURL)
     }

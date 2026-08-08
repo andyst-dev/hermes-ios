@@ -110,6 +110,48 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
         )
     }
 
+    func fetchStats() async throws -> HermesStatsReport {
+        HermesStatsReport(
+            ok: true,
+            total: HermesStatsTotal(
+                sessions: 42, messages: 1200,
+                inputTokens: 2_000_000, outputTokens: 400_000,
+                cacheReadTokens: 5_000_000, reasoningTokens: 50_000,
+                estimatedCostUsd: 12.5, actualCostUsd: 0
+            ),
+            byModel: [
+                HermesModelStat(
+                    model: "deepseek-v4-flash", sessions: 20, messages: 700,
+                    inputTokens: 1_400_000, outputTokens: 280_000,
+                    cacheReadTokens: 3_500_000, reasoningTokens: 30_000,
+                    estimatedCostUsd: 8.9, actualCostUsd: 0
+                ),
+                HermesModelStat(
+                    model: "gpt-5.5", sessions: 12, messages: 300,
+                    inputTokens: 500_000, outputTokens: 90_000,
+                    cacheReadTokens: 1_200_000, reasoningTokens: 15_000,
+                    estimatedCostUsd: 2.4, actualCostUsd: 0
+                ),
+                HermesModelStat(
+                    model: "gpt-5.6-sol", sessions: 10, messages: 200,
+                    inputTokens: 100_000, outputTokens: 30_000,
+                    cacheReadTokens: 300_000, reasoningTokens: 5_000,
+                    estimatedCostUsd: 1.2, actualCostUsd: 0
+                ),
+            ],
+            daily: [
+                HermesDailyStat(day: "2026-08-01", sessions: 6, tokens: 900_000),
+                HermesDailyStat(day: "2026-08-02", sessions: 3, tokens: 500_000),
+                HermesDailyStat(day: "2026-08-03", sessions: 9, tokens: 1_400_000),
+                HermesDailyStat(day: "2026-08-04", sessions: 4, tokens: 700_000),
+                HermesDailyStat(day: "2026-08-05", sessions: 12, tokens: 2_100_000),
+                HermesDailyStat(day: "2026-08-06", sessions: 5, tokens: 800_000),
+                HermesDailyStat(day: "2026-08-07", sessions: 2, tokens: 300_000),
+                HermesDailyStat(day: "2026-08-08", sessions: 1, tokens: 60_000),
+            ]
+        )
+    }
+
     func uploadAttachment(fileURL: URL) async throws -> String {
         "/mock/\(fileURL.lastPathComponent)"
     }

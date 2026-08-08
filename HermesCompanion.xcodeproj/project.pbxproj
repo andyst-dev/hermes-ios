@@ -19,6 +19,7 @@
 		446DC2E70EAC2BF83E38A382 /* SkillsMemoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCDA8F1DC7098D0CBFCBF06F /* SkillsMemoryView.swift */; };
 		4A6BCE064C87F1DDF6F1FD19 /* FilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 381D91433351994202DB41EA /* FilesView.swift */; };
 		4B4AF3B3F33E742893D44901 /* HermesModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB54ED8BDAFA6616791A3EAD /* HermesModels.swift */; };
+		51A87D5C293EA434E772E931 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 558E82506E6E5DAEB2DFC5F8 /* StatsView.swift */; };
 		52CECB25AACB6F968A72CF67 /* HermesWidgetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A8826C3DD13940ADDD66C2C /* HermesWidgetViews.swift */; };
 		55F17EC5D159F2EAC6C7EB7E /* PairingQRCodeScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9731219EC46C17B43EF0CF0 /* PairingQRCodeScanner.swift */; };
 		560A6394F4F2E25F6F0FF4D3 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC4B1DB07C0A3801DF37BC7C /* ChatView.swift */; };
@@ -96,6 +97,7 @@
 		45A26AE0A0B6C0BA9CD7EBB8 /* Collapse-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Collapse-Regular.ttf"; sourceTree = "<group>"; };
 		482DFD3630EAAC5A5D148E16 /* HermesCompanion.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HermesCompanion.entitlements; sourceTree = "<group>"; };
 		50C05059C56AC8B54ABC5F3A /* ConnectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectView.swift; sourceTree = "<group>"; };
+		558E82506E6E5DAEB2DFC5F8 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		5E37458716472E19A8BFE529 /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
 		656C66F60EFEAFD69D224098 /* CronJobCreatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CronJobCreatorView.swift; sourceTree = "<group>"; };
 		6BC9D15A54119CCFEBB3196C /* HermesTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesTheme.swift; sourceTree = "<group>"; };
@@ -299,6 +301,7 @@
 			isa = PBXGroup;
 			children = (
 				E7648E66B2DD012CD0B2915E /* SettingsView.swift */,
+				558E82506E6E5DAEB2DFC5F8 /* StatsView.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -560,6 +563,7 @@
 				AC2256F103AB39E715CA0557 /* SessionListView.swift in Sources */,
 				5AA5B52F16DDF4A8785F5105 /* SettingsView.swift in Sources */,
 				446DC2E70EAC2BF83E38A382 /* SkillsMemoryView.swift in Sources */,
+				51A87D5C293EA434E772E931 /* StatsView.swift in Sources */,
 				E285B0D1C23F30E172220236 /* VoiceTranscriber.swift in Sources */,
 				8306DD83E0B345BF7A88AA3B /* WidgetSnapshot.swift in Sources */,
 			);
