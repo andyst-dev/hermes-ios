@@ -56,9 +56,9 @@ struct SessionListView: View {
         .background(HermesTheme.sidebar)
         .toolbar(.hidden, for: .navigationBar)
         .refreshable {
-            try? await store.refreshSessions()
-            try? await store.refreshCapabilities()
+            await store.refreshSessionListForPull()
         }
+        .tint(HermesTheme.sendReady)
         .sheet(isPresented: $showingArchived) {
             ArchivedSessionsView().environmentObject(store)
         }

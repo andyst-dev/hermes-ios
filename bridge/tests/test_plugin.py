@@ -360,14 +360,20 @@ def test_plugin_chat_resumes_non_acp_session_without_forking(client, monkeypatch
 
     captured = {}
 
-    async def run_cli(args, timeout):
-        captured["args"] = args
-        return {"ok": True, "output": "same conversation"}
+    async def stream_resume(session_id, text, provider, model_id):
+        captured.update(
+            session_id=session_id,
+            text=text,
+            provider=provider,
+            model_id=model_id,
+        )
+        yield {"type": "delta", "text": "same "}
+        yield {"type": "delta", "text": "conversation"}
 
     dashboard.list_sessions = list_sessions
     dashboard.get_session_messages = get_messages
     monkeypatch.setattr(plugin, "_get_dashboard", lambda: dashboard)
-    monkeypatch.setattr(plugin, "_run_cli", run_cli)
+    monkeypatch.setattr(plugin, "_stream_non_acp_session", stream_resume)
 
     response = client.post(
         "/api/plugins/hermes-mobile/chat",
@@ -375,8 +381,11 @@ def test_plugin_chat_resumes_non_acp_session_without_forking(client, monkeypatch
     )
 
     assert response.status_code == 200
-    assert "--resume" in captured["args"]
-    assert "telegram-session" in captured["args"]
+    assert captured["session_id"] == "telegram-session"
+    assert captured["text"] == "continue ici"
+    assert '"type": "delta"' in response.text
+    assert '"text": "same "' in response.text
+    assert '"text": "conversation"' in response.text
     assert '"sessionID": "telegram-session"' in response.text
     assert '"type": "done"' in response.text
 

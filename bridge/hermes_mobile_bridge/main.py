@@ -21,6 +21,7 @@ import logging
 import os
 import re
 import shutil
+import sys
 import time
 import uuid
 from typing import Any, Optional
@@ -313,33 +314,133 @@ async def mobile_archive(session_id: str, body: MobileArchiveRequest | None = No
 # ---------------------------------------------------------------------------
 
 
-async def _resume_non_acp_session(
+_STREAMING_RESUME_SCRIPT = r'''
+import json
+import sys
+from cli import HermesCLI
+
+payload = json.loads(sys.argv[1])
+cli = None
+
+def emit(kind, **fields):
+    sys.stdout.write(json.dumps({"type": kind, **fields}, ensure_ascii=False) + "\n")
+    sys.stdout.flush()
+
+try:
+    cli = HermesCLI(model=payload.get("model"), provider=payload.get("provider"), resume=payload["sessionID"])
+    cli.streaming_enabled = True
+    cli.tool_progress_mode = "off"
+    cli._single_query_mode = True
+    if not cli._claim_active_session("cli", stderr=True):
+        raise RuntimeError("Session is already active")
+    if not cli._ensure_runtime_credentials():
+        raise RuntimeError("Provider credentials unavailable")
+    route = cli._resolve_turn_agent_config(payload["text"])
+    if route["signature"] != cli._active_agent_route_signature:
+        cli.agent = None
+    if not cli._init_agent(model_override=route["model"], runtime_override=route["runtime"], request_overrides=route.get("request_overrides")):
+        raise RuntimeError("Unable to initialize Hermes agent")
+    cli.agent.quiet_mode = True
+    cli.agent.suppress_status_output = True
+    cli.agent.tool_gen_callback = None
+    cli.agent.stream_delta_callback = lambda text: emit("delta", text=str(text)) if text else None
+    result = cli.agent.run_conversation(user_message=payload["text"], conversation_history=cli.conversation_history)
+    if getattr(cli.agent, "session_id", None):
+        cli.session_id = cli.agent.session_id
+    final = result.get("final_response", "") if isinstance(result, dict) else str(result)
+    emit("result", text=final, sessionID=cli.session_id, failed=bool(isinstance(result, dict) and result.get("failed")), error=(result.get("error") if isinstance(result, dict) else None))
+except BaseException as exc:
+    emit("error", detail=str(exc))
+    raise
+finally:
+    if cli is not None:
+        try:
+            cli._release_active_session()
+        except Exception:
+            pass
+'''
+
+
+def _hermes_runtime() -> tuple[str, str] | None:
+    hermes = shutil.which("hermes")
+    if not hermes:
+        return None
+    resolved = os.path.realpath(hermes)
+    try:
+        first = open(resolved, "rb").readline().decode("utf-8", "replace").strip()
+    except OSError:
+        first = ""
+    python = first[2:].split()[0] if first.startswith("#!") else sys.executable
+    # Standard editable install: <repo>/venv/bin/hermes.
+    cwd = os.path.dirname(os.path.dirname(os.path.dirname(resolved)))
+    return python, cwd
+
+
+async def _stream_non_acp_session(
     session_id: str,
     text: str,
     provider: str | None = None,
     model_id: str | None = None,
-) -> dict[str, Any]:
-    """Continue a Desktop/Telegram session through Hermes' native resume path."""
-    hermes = shutil.which("hermes")
-    if not hermes:
-        return {"ok": False, "error": "hermes CLI not found"}
-    args = [hermes, "chat", "--quiet", "--resume", session_id, "-q", text]
-    if provider and model_id:
-        args.extend(["--provider", provider, "--model", model_id])
+) :
+    """Stream a Desktop/Telegram/Cron continuation through HermesCLI."""
+    runtime = _hermes_runtime()
+    if runtime is None:
+        yield {"type": "error", "detail": "hermes CLI not found"}
+        return
+    python, cwd = runtime
+    payload = json.dumps({"sessionID": session_id, "text": text, "provider": provider, "model": model_id}, ensure_ascii=False)
+    env = os.environ.copy()
+    for inherited in ("HERMES_SESSION_PLATFORM", "HERMES_GATEWAY_SESSION", "HERMES_EXEC_ASK"):
+        env.pop(inherited, None)
+    env["PYTHONUNBUFFERED"] = "1"
     proc = await asyncio.create_subprocess_exec(
-        *args,
+        python, "-u", "-c", _STREAMING_RESUME_SCRIPT, payload,
+        cwd=cwd,
+        env=env,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
     )
+    emitted = ""
+    saw_result = False
     try:
-        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=1800)
+        assert proc.stdout is not None
+        while True:
+            raw = await asyncio.wait_for(proc.stdout.readline(), timeout=1800)
+            if not raw:
+                break
+            try:
+                event = json.loads(raw.decode("utf-8", "replace"))
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                continue
+            kind = event.get("type")
+            if kind == "delta":
+                delta = str(event.get("text") or "")
+                emitted += delta
+                if delta:
+                    yield {"type": "delta", "text": delta}
+            elif kind == "result":
+                saw_result = True
+                final = str(event.get("text") or "")
+                if final.startswith(emitted):
+                    suffix = final[len(emitted):]
+                    if suffix:
+                        yield {"type": "delta", "text": suffix}
+                if event.get("failed"):
+                    yield {"type": "error", "detail": str(event.get("error") or "Hermes turn failed")}
+                    return
+            elif kind == "error":
+                yield {"type": "error", "detail": str(event.get("detail") or "Hermes resume failed")}
+                return
+        await proc.wait()
+        if proc.returncode != 0 and not saw_result:
+            yield {"type": "error", "detail": f"Hermes resume exited with status {proc.returncode}"}
     except asyncio.TimeoutError:
         proc.kill()
-        return {"ok": False, "error": "Hermes resume timed out"}
-    return {
-        "ok": proc.returncode == 0,
-        "output": (stdout or b"").decode("utf-8", "replace"),
-    }
+        yield {"type": "error", "detail": "Hermes resume timed out"}
+    finally:
+        if proc.returncode is None:
+            proc.kill()
+            await proc.wait()
 
 
 @mobile_router.post("/chat")
@@ -363,16 +464,17 @@ async def mobile_chat(body: MobileChatRequest) -> StreamingResponse:
         if session.get("source") != "acp":
             async def resume_existing_session():
                 engine = _get_engine()
-                result = await _resume_non_acp_session(
+                async for event in _stream_non_acp_session(
                     requested_session_id,
                     body.text,
                     engine._provider,
                     engine._model_id,
-                )
-                if not result.get("ok"):
-                    detail = result.get("error") or result.get("output") or "Unable to resume session"
-                    yield f"data: {json.dumps({'type': 'error', 'detail': str(detail)[-500:]}, ensure_ascii=False)}\n\n"
-                    return
+                ):
+                    if event.get("type") == "error":
+                        yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+                        return
+                    if event.get("type") == "delta":
+                        yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
                 try:
                     msgs = await _get_dashboard().get_session_messages(requested_session_id)
                 except Exception:

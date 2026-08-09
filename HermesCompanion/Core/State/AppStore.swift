@@ -219,6 +219,19 @@ final class AppStore: ObservableObject {
         }
     }
 
+    /// Keep pull-to-refresh visible long enough to communicate that the
+    /// desktop state was checked, even when both local requests return almost
+    /// instantly. The refresh itself and the minimum display delay run in
+    /// parallel, so slow networks are never delayed further.
+    func refreshSessionListForPull() async {
+        let minimumDisplay = Task {
+            try? await Task.sleep(for: .milliseconds(700))
+        }
+        try? await refreshSessions()
+        try? await refreshCapabilities()
+        _ = await minimumDisplay.value
+    }
+
     func sendComposer() async {
         let text = composerText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty || !pendingAttachments.isEmpty else { return }
