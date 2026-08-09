@@ -51,14 +51,16 @@ struct SessionListView: View {
                 .padding(.top, 10)
                 .padding(.bottom, 96)
             }
+            .scrollBounceBehavior(.always)
+            .refreshable {
+                await store.refreshSessionListForPull()
+            }
+            .tint(HermesTheme.sendReady)
+            .background(HermesTheme.sidebar.ignoresSafeArea())
             SidebarFooter()
         }
         .background(HermesTheme.sidebar)
         .toolbar(.hidden, for: .navigationBar)
-        .refreshable {
-            await store.refreshSessionListForPull()
-        }
-        .tint(HermesTheme.sendReady)
         .sheet(isPresented: $showingArchived) {
             ArchivedSessionsView().environmentObject(store)
         }
