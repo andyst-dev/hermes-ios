@@ -189,6 +189,17 @@ struct HermesMessage: Codable, Equatable, Identifiable {
     }
 }
 
+/// Best-effort live assistant text for a turn started outside the iOS app.
+/// `text` is the complete draft at `sequence`, not an incremental delta.
+struct HermesLiveDraft: Codable, Equatable, Sendable {
+    let active: Bool
+    let sequence: Int
+    let text: String
+    let done: Bool
+
+    static let inactive = HermesLiveDraft(active: false, sequence: 0, text: "", done: false)
+}
+
 extension HermesMessage {
     var isTranscriptVisible: Bool {
         guard role == .user || role == .assistant else { return false }

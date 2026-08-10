@@ -301,6 +301,71 @@ final class HermesCompanionTests: XCTestCase {
         XCTAssertTrue(afterDelete.isEmpty)
     }
 
+    func testExternalLiveDraftContractDecodes() throws {
+        let data = Data(#"{"active":true,"sequence":7,"text":"Working…","done":false}"#.utf8)
+        let draft = try JSONDecoder().decode(HermesLiveDraft.self, from: data)
+        XCTAssertTrue(draft.active)
+        XCTAssertEqual(draft.sequence, 7)
+        XCTAssertEqual(draft.text, "Working…")
+        XCTAssertFalse(draft.done)
+    }
+
+    func testExternalLiveDraftProgressivelyReplacesOneMessage() async {
+        let store = AppStore(client: HermesClient(transport: MockHermesTransport()))
+        store.selectedSessionID = "external-session"
+        store.messages = [
+            HermesMessage(id: "user-1", role: .user, text: "Status?", createdAt: .now, toolCalls: [])
+        ]
+
+        await store.consumeLiveDraft(
+            HermesLiveDraft(active: true, sequence: 1, text: "Work", done: false),
+            sessionID: "external-session"
+        )
+        await store.consumeLiveDraft(
+            HermesLiveDraft(active: true, sequence: 2, text: "Working on it", done: false),
+            sessionID: "external-session"
+        )
+
+        XCTAssertEqual(store.messages.count, 2)
+        XCTAssertEqual(store.messages.last?.id, "external-live-draft-external-session")
+        XCTAssertEqual(store.messages.last?.text, "Working on it")
+        XCTAssertEqual(store.messages.last?.role, .assistant)
+    }
+
+    func testExternalLiveDraftDoneReloadsCanonicalTranscriptWithoutDuplicate() async {
+        let store = AppStore(client: HermesClient(transport: MockHermesTransport()))
+        store.selectedSessionID = "external-session"
+        store.messages = []
+
+        await store.consumeLiveDraft(
+            HermesLiveDraft(active: true, sequence: 1, text: "Draft answer", done: false),
+            sessionID: "external-session"
+        )
+        XCTAssertEqual(store.messages.filter { $0.id.hasPrefix("external-live-draft-") }.count, 1)
+
+        await store.consumeLiveDraft(
+            HermesLiveDraft(active: false, sequence: 2, text: "Final answer", done: true),
+            sessionID: "external-session"
+        )
+
+        XCTAssertEqual(store.messages, PreviewData.messages)
+        XCTAssertFalse(store.messages.contains { $0.id.hasPrefix("external-live-draft-") })
+    }
+
+    func testExternalLiveDraftIgnoresSnapshotAfterSessionSwitch() async {
+        let store = AppStore(client: HermesClient(transport: MockHermesTransport()))
+        store.selectedSessionID = "new-session"
+        let current = HermesMessage(id: "new-user", role: .user, text: "New chat", createdAt: .now, toolCalls: [])
+        store.messages = [current]
+
+        await store.consumeLiveDraft(
+            HermesLiveDraft(active: true, sequence: 4, text: "Old session answer", done: false),
+            sessionID: "old-session"
+        )
+
+        XCTAssertEqual(store.messages, [current])
+    }
+
     func testWidgetSnapshotCodableRoundTrip() throws {
         var snapshot = HermesWidgetSnapshot()
         snapshot.gatewayUp = true

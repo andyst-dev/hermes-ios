@@ -30,6 +30,16 @@ final class AppStore: ObservableObject {
     /// pending approvals live without push. Suspended while a chat streams.
     @Published var isAppActive = true
     private var autoRefreshTask: Task<Void, Never>?
+    /// High-frequency poll used only while ChatView is visible. Mobile turns
+    /// still use their existing SSE stream; this task only mirrors turns
+    /// started by another Hermes surface.
+    private var liveDraftTask: Task<Void, Never>?
+    private var liveDraftPollGeneration = 0
+    private var liveDraftSessionID: String?
+    private var liveDraftMessageID: String?
+    private var liveDraftSequence = -1
+    private var liveDraftCompletedSequence: Int?
+    private var liveDraftIsActive = false
     /// Set by a widget deep link (hermes://session/… or hermes://new-chat);
     /// MainShellView watches it to bring up the chat.
     @Published var deepLinkSessionID: String?
@@ -211,12 +221,149 @@ final class AppStore: ObservableObject {
     }
 
     func select(session: HermesSession) async {
+        resetLiveDraftTracking(removeMessage: true)
         selectedSessionID = session.id
         do {
-            messages = try await client.messages(sessionID: session.id)
+            let fresh = try await client.messages(sessionID: session.id)
+            guard selectedSessionID == session.id else { return }
+            messages = fresh
         } catch {
+            guard selectedSessionID == session.id else { return }
             messages = [HermesMessage(id: UUID().uuidString, role: .system, text: error.localizedDescription, createdAt: .now, toolCalls: [])]
         }
+    }
+
+    // MARK: - External-session live draft
+
+    /// Starts mirroring a turn initiated by Desktop/CLI/Telegram while this
+    /// chat is on screen. Repeated starts replace the prior task, which keeps
+    /// SwiftUI appearance changes and compact/wide layout switches safe.
+    func startLiveDraftPolling() {
+        stopLiveDraftPolling()
+        liveDraftPollGeneration &+= 1
+        let generation = liveDraftPollGeneration
+        liveDraftTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.pollLiveDrafts(generation: generation)
+        }
+    }
+
+    func stopLiveDraftPolling() {
+        liveDraftPollGeneration &+= 1
+        liveDraftTask?.cancel()
+        liveDraftTask = nil
+        resetLiveDraftTracking(removeMessage: true)
+    }
+
+    private func pollLiveDrafts(generation: Int) async {
+        while !Task.isCancelled, generation == liveDraftPollGeneration {
+            var delay: Duration = .seconds(1)
+
+            if isAppActive, case .connected = connection, let sessionID = selectedSessionID {
+                prepareLiveDraftTracking(for: sessionID)
+
+                // The existing mobile SSE stream owns `messages` for its
+                // entire turn. Never poll or merge over it.
+                if isStreaming {
+                    delay = .milliseconds(250)
+                } else {
+                    do {
+                        let draft = try await client.liveDraft(sessionID: sessionID)
+                        guard !Task.isCancelled,
+                              generation == liveDraftPollGeneration,
+                              selectedSessionID == sessionID else { continue }
+                        await consumeLiveDraft(draft, sessionID: sessionID, generation: generation)
+                        delay = draft.active && !draft.done ? .milliseconds(150) : .seconds(1)
+                    } catch is CancellationError {
+                        return
+                    } catch {
+                        // Live state is best effort (and older dashboards do
+                        // not expose it). Keep the chat usable and retry at the
+                        // inactive cadence instead of publishing an error row.
+                        delay = .seconds(1)
+                    }
+                }
+            }
+
+            do {
+                try await Task.sleep(for: delay)
+            } catch {
+                return
+            }
+        }
+    }
+
+    private func prepareLiveDraftTracking(for sessionID: String) {
+        guard liveDraftSessionID != sessionID else { return }
+        resetLiveDraftTracking(removeMessage: true)
+        liveDraftSessionID = sessionID
+    }
+
+    /// Applies one full-text live snapshot. Kept internal so focused tests can
+    /// exercise merge/dedup/session-race behavior without timing a poll loop.
+    func consumeLiveDraft(_ draft: HermesLiveDraft, sessionID: String, generation: Int? = nil) async {
+        guard selectedSessionID == sessionID else { return }
+        if let generation, generation != liveDraftPollGeneration { return }
+        prepareLiveDraftTracking(for: sessionID)
+
+        // A fresh active turn may restart its sequence after the previous
+        // terminal snapshot. Treat activity as authoritative in that case.
+        if draft.active, !draft.done,
+           let completed = liveDraftCompletedSequence,
+           draft.sequence <= completed {
+            liveDraftCompletedSequence = nil
+            liveDraftSequence = -1
+        }
+
+        liveDraftIsActive = draft.active && !draft.done
+        let hasDraftText = !draft.text.isEmpty && (draft.active || draft.done)
+        if hasDraftText,
+           draft.sequence >= liveDraftSequence,
+           liveDraftCompletedSequence != draft.sequence {
+            let messageID = liveDraftMessageID ?? "external-live-draft-\(sessionID)"
+            if let index = messages.firstIndex(where: { $0.id == messageID }) {
+                messages[index].text = draft.text
+            } else {
+                messages.append(HermesMessage(
+                    id: messageID,
+                    role: .assistant,
+                    text: draft.text,
+                    createdAt: .now,
+                    toolCalls: []
+                ))
+            }
+            liveDraftMessageID = messageID
+            liveDraftSequence = draft.sequence
+        }
+
+        // `done` is the normal terminal signal. If a terminal poll was missed
+        // and the route already returns inactive/404, a local draft is also a
+        // reason to reconcile with the canonical persisted transcript.
+        let shouldRefreshPersisted = draft.done || (!draft.active && liveDraftMessageID != nil)
+        guard shouldRefreshPersisted,
+              liveDraftCompletedSequence != draft.sequence,
+              let fresh = try? await client.messages(sessionID: sessionID),
+              selectedSessionID == sessionID else { return }
+        if let generation, generation != liveDraftPollGeneration { return }
+
+        messages = fresh
+        liveDraftMessageID = nil
+        liveDraftIsActive = false
+        liveDraftSequence = draft.sequence
+        if draft.done {
+            liveDraftCompletedSequence = draft.sequence
+        }
+    }
+
+    private func resetLiveDraftTracking(removeMessage: Bool) {
+        if removeMessage, let liveDraftMessageID {
+            messages.removeAll { $0.id == liveDraftMessageID }
+        }
+        liveDraftSessionID = nil
+        liveDraftMessageID = nil
+        liveDraftSequence = -1
+        liveDraftCompletedSequence = nil
+        liveDraftIsActive = false
     }
 
     /// Keep pull-to-refresh visible long enough to communicate that the
@@ -331,6 +478,7 @@ final class AppStore: ObservableObject {
     }
 
     func disconnect(clearPairing: Bool = false) {
+        stopLiveDraftPolling()
         stopAutoRefresh()
         connection = .disconnected
         selectedSessionID = nil
@@ -413,7 +561,7 @@ final class AppStore: ObservableObject {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(30))
                 guard let self, !Task.isCancelled, self.isAppActive, case .connected = self.connection else { continue }
-                if !self.isStreaming {
+                if !self.isStreaming && !self.liveDraftIsActive {
                     try? await self.refreshSessions()
                 }
                 await self.refreshCron()

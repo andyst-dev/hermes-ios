@@ -60,6 +60,12 @@ struct ChatView: View {
         .sheet(isPresented: $showingModels) {
             ModelPickerView().environmentObject(store)
         }
+        .onAppear {
+            store.startLiveDraftPolling()
+        }
+        .onDisappear {
+            store.stopLiveDraftPolling()
+        }
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {

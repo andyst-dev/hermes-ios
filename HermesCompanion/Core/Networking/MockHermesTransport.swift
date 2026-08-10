@@ -20,6 +20,10 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
         PreviewData.messages
     }
 
+    func fetchLiveDraft(sessionID: String) async throws -> HermesLiveDraft {
+        .inactive
+    }
+
     func fetchCapabilities() async throws -> HermesCapabilitySnapshot {
         PreviewData.capabilities
     }

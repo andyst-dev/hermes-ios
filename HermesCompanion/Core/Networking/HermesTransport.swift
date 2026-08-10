@@ -5,6 +5,9 @@ protocol HermesTransport: Sendable {
     func fetchSessions() async throws -> [HermesSession]
     func fetchArchivedSessions() async throws -> [HermesSession]
     func fetchMessages(sessionID: String) async throws -> [HermesMessage]
+    /// Live assistant draft for turns started by Desktop/CLI/Telegram.
+    /// A missing backend draft (HTTP 404) is returned as inactive.
+    func fetchLiveDraft(sessionID: String) async throws -> HermesLiveDraft
     func fetchCapabilities() async throws -> HermesCapabilitySnapshot
     func fetchModels() async throws -> [HermesModel]
     func selectModel(provider: String, model: String) async throws

@@ -50,6 +50,36 @@ actor HTTPHermesTransport: HermesTransport {
         return response.messages.filter(\.isTranscriptVisible)
     }
 
+    func fetchLiveDraft(sessionID: String) async throws -> HermesLiveDraft {
+        guard let baseURL else { throw HermesTransportError.notConnected }
+        var request = URLRequest(url: endpointURL(
+            baseURL: baseURL,
+            path: "api/mobile/sessions/\(sessionID)/live"
+        ))
+        request.httpMethod = "GET"
+        request.timeoutInterval = 5
+        addAuth(to: &request)
+
+        let (data, response) = try await urlSession.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw HermesTransportError.invalidResponse
+        }
+        // Older sessions and idle sessions do not have a live buffer. This
+        // is normal poll state, not an error worth surfacing in the chat.
+        if http.statusCode == 404 {
+            return .inactive
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            let message = String(data: data, encoding: .utf8) ?? "HTTP \(http.statusCode)"
+            throw HermesTransportError.server(message)
+        }
+        do {
+            return try decoder.decode(HermesLiveDraft.self, from: data)
+        } catch {
+            throw HermesTransportError.server("Could not decode Hermes live draft: \(error.localizedDescription)")
+        }
+    }
+
     func fetchCapabilities() async throws -> HermesCapabilitySnapshot {
         try await get("api/mobile/capabilities")
     }

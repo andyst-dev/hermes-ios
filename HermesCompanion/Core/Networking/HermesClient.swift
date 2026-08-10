@@ -24,6 +24,10 @@ final class HermesClient: ObservableObject {
         try await transport.fetchMessages(sessionID: sessionID)
     }
 
+    func liveDraft(sessionID: String) async throws -> HermesLiveDraft {
+        try await transport.fetchLiveDraft(sessionID: sessionID)
+    }
+
     func capabilities() async throws -> HermesCapabilitySnapshot {
         try await transport.fetchCapabilities()
     }

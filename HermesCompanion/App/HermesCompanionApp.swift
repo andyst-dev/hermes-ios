@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 @main
 struct HermesCompanionApp: App {
@@ -8,6 +9,15 @@ struct HermesCompanionApp: App {
     private let autoConnectHost: HermesHost?
 
     init() {
+        // SwiftUI's `.tint` is not consistently forwarded to the native
+        // UIRefreshControl hosted inside ScrollView. Set the Ember cream
+        // directly so pull-to-refresh never falls back to system white.
+        UIRefreshControl.appearance().tintColor = UIColor(
+            red: 0.851,
+            green: 0.659,
+            blue: 0.471,
+            alpha: 1
+        )
         let env = ProcessInfo.processInfo.environment
         let isDemo = env["HERMES_DEMO_CONNECTED"] == "1"
         demoMode = isDemo

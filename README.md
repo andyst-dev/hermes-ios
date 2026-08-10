@@ -41,13 +41,13 @@ hermes-ios
 │   ├── plugin.yaml
 │   └── dashboard/
 │       ├── manifest.json
-│       └── plugin_api.py # 38 mobile routes, ACP engine, dashboard proxy, remote tunnel, cron CRUD, alerts, skills/memory
+│       └── plugin_api.py # 44 mobile routes, ACP engine, dashboard proxy, remote tunnel, cron CRUD, alerts, skills/memory
 ├── HermesCompanion/     # SwiftUI app (dark, terminal-like Hermes chrome)
 ├── HermesCompanionWidget/ # WidgetKit: home-screen overview + lock-screen status
 ├── Shared/              # App-Group snapshot shared by app and widget
 ├── bridge/               # Standalone backend bridge (same code as plugin, dev server)
 │   ├── hermes_mobile_bridge/  # main.py (routes), acp_client.py (ACP), dashboard.py (proxy)
-│   └── tests/            # fake hermes-acp stdio server + mocked dashboard (43 tests)
+│   └── tests/            # fake hermes-acp stdio server + mocked dashboard (61 tests)
 └── docs/                 # Mobile API contract
 ```
 
