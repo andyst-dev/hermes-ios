@@ -345,6 +345,55 @@ def test_plugin_messages_shape(client):
     assert "git status --short" in messages[1]["toolCalls"][0]["command"]
 
 
+def test_plugin_projects_codex_commentary_as_visible_message():
+    row = {
+        "id": 54,
+        "role": "assistant",
+        "content": "",
+        "reasoning_content": (
+            "**Investigating app launch and crash**\n\n"
+            "The network error is gone; I am checking app launch."
+        ),
+        "codex_reasoning_items": json.dumps([
+            {
+                "type": "reasoning",
+                "summary": [{"type": "summary_text", "text": "**Investigating app launch and crash**"}],
+            }
+        ]),
+        "codex_message_items": json.dumps([
+            {
+                "type": "message",
+                "phase": "commentary",
+                "content": [{"type": "output_text", "text": "The network error is gone; I am checking app launch."}],
+            }
+        ]),
+    }
+
+    projected = plugin._mobile_msg(row)
+
+    assert projected["text"] == "The network error is gone; I am checking app launch."
+    assert projected["thinking"] == "**Investigating app launch and crash**"
+    assert "network error" not in projected["thinking"]
+
+
+def test_plugin_does_not_repeat_commentary_as_thinking_without_summary_item():
+    commentary = "I’m running the requested terminal check now."
+    projected = plugin._mobile_msg({
+        "id": 55,
+        "role": "assistant",
+        "content": "",
+        "reasoning_content": commentary,
+        "codex_message_items": [{
+            "type": "message",
+            "phase": "commentary",
+            "content": [{"type": "output_text", "text": commentary}],
+        }],
+    })
+
+    assert projected["text"] == commentary
+    assert "thinking" not in projected
+
+
 def test_plugin_chat_resumes_non_acp_session_without_forking(client, monkeypatch):
     dashboard = FakeDashboard()
 
@@ -1102,3 +1151,122 @@ def test_plugin_session_delete_runs_cli(client, monkeypatch):
     assert r.json()["ok"] is True
     cli = " ".join(str(x) for x in calls[0])
     assert "sess-123" in cli and "delete" in cli and "--yes" in cli
+
+
+class _FakeStream:
+    """Async line stream standing in for a subprocess stdout pipe."""
+
+    def __init__(self, lines):
+        self._lines = [line if isinstance(line, bytes) else line.encode() for line in lines]
+        self._i = 0
+
+    async def readline(self):
+        if self._i >= len(self._lines):
+            return b""
+        line = self._lines[self._i]
+        self._i += 1
+        return line + b"\n"
+
+
+class _FakeProc:
+    def __init__(self, lines, returncode=0):
+        self.stdout = _FakeStream(lines)
+        self.returncode = returncode
+
+    async def wait(self):
+        return self.returncode
+
+    def kill(self):
+        pass
+
+
+def test_stream_resume_error_event_surfaces_stderr_diagnostic(monkeypatch):
+    """A generic error event keeps the real cause when stderr carried one."""
+    import asyncio
+
+    async def fake_exec(*args, **kwargs):
+        return _FakeProc(
+            [
+                "Failed to initialize agent: model not reachable",
+                json.dumps({"type": "error", "detail": "Unable to initialize Hermes agent"}),
+            ]
+        )
+
+    monkeypatch.setattr(plugin.asyncio, "create_subprocess_exec", fake_exec)
+
+    async def collect():
+        return [e async for e in plugin._stream_non_acp_session("s1", "hello", None, None)]
+
+    events = asyncio.run(collect())
+    assert events[-1]["type"] == "error"
+    detail = events[-1]["detail"]
+    assert "Unable to initialize Hermes agent" in detail
+    assert "Failed to initialize agent" in detail
+    assert "[desktop]" in detail
+
+
+def test_stream_resume_exit_status_surfaces_stderr_diagnostic(monkeypatch):
+    """A nonzero exit without a result includes the subprocess diagnostic."""
+    import asyncio
+
+    async def fake_exec(*args, **kwargs):
+        return _FakeProc(["Traceback (most recent call last):", "RuntimeError: boom"], returncode=1)
+
+    monkeypatch.setattr(plugin.asyncio, "create_subprocess_exec", fake_exec)
+
+    async def collect():
+        return [e async for e in plugin._stream_non_acp_session("s1", "hello", None, None)]
+
+    events = asyncio.run(collect())
+    assert events[-1]["type"] == "error"
+    detail = events[-1]["detail"]
+    assert "exited with status 1" in detail
+    assert "RuntimeError: boom" in detail
+
+
+def test_stream_resume_ignores_benign_stderr_lines(monkeypatch):
+    """Resume banners and other status noise never leak into the error detail."""
+    import asyncio
+
+    async def fake_exec(*args, **kwargs):
+        return _FakeProc(
+            [
+                "↻ Resumed session 20260810_153843_179097 (1 user message, 1 total messages)",
+                json.dumps({"type": "error", "detail": "Unable to initialize Hermes agent"}),
+            ]
+        )
+
+    monkeypatch.setattr(plugin.asyncio, "create_subprocess_exec", fake_exec)
+
+    async def collect():
+        return [e async for e in plugin._stream_non_acp_session("s1", "hello", None, None)]
+
+    events = asyncio.run(collect())
+    detail = events[-1]["detail"]
+    assert "Unable to initialize Hermes agent" in detail
+    assert "Resumed session" not in detail
+    assert "[desktop]" not in detail
+
+
+def test_stream_resume_pins_pythonpath_to_repo(monkeypatch):
+    """The subprocess must not inherit a mixed-checkout PYTHONPATH."""
+    import asyncio
+
+    captured = {}
+
+    async def fake_exec(*args, **kwargs):
+        captured["kwargs"] = kwargs
+        return _FakeProc([json.dumps({"type": "error", "detail": "boom"})])
+
+    monkeypatch.setattr(plugin.asyncio, "create_subprocess_exec", fake_exec)
+
+    async def collect():
+        return [e async for e in plugin._stream_non_acp_session("s1", "hello", None, None)]
+
+    asyncio.run(collect())
+    env = captured["kwargs"]["env"]
+    cwd = captured["kwargs"]["cwd"]
+    assert env["PYTHONPATH"] == cwd
+    assert "HERMES_SESSION_PLATFORM" not in env
+    assert "HERMES_GATEWAY_SESSION" not in env
+    assert "HERMES_EXEC_ASK" not in env

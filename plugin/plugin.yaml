@@ -1,3 +1,7 @@
 name: hermes-mobile
-description: Hermes Companion mobile bridge — exposes the Hermes mobile API (chat streaming + dangerous-command approvals) to the iOS companion app over the official Agent Client Protocol. No core patch.
-version: 1.0.0
+description: Hermes Companion mobile bridge - exposes chat streaming, external-session live mirroring, and dangerous-command approvals to the iOS companion app.
+version: 1.1.0
+hooks:
+  - pre_llm_call
+  - on_stream_delta
+  - post_llm_call

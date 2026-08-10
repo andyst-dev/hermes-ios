@@ -214,6 +214,46 @@ def test_session_messages_filtered(client):
     assert messages[1]["text"] == "bonjour"
 
 
+def test_bridge_projects_codex_commentary_like_desktop():
+    row = {
+        "id": 54,
+        "role": "assistant",
+        "content": "",
+        "reasoning_content": "**Investigating**\n\nVisible progress update.",
+        "codex_reasoning_items": [{
+            "type": "reasoning",
+            "summary": [{"type": "summary_text", "text": "**Investigating**"}],
+        }],
+        "codex_message_items": [{
+            "type": "message",
+            "phase": "commentary",
+            "content": [{"type": "output_text", "text": "Visible progress update."}],
+        }],
+    }
+
+    projected = bridge_main._mobile_msg(row)
+
+    assert projected["text"] == "Visible progress update."
+    assert projected["thinking"] == "**Investigating**"
+
+
+def test_bridge_removes_commentary_from_reasoning_fallback():
+    projected = bridge_main._mobile_msg({
+        "id": 55,
+        "role": "assistant",
+        "content": "",
+        "reasoning_content": "Visible progress update.",
+        "codex_message_items": [{
+            "type": "message",
+            "phase": "commentary",
+            "content": [{"type": "output_text", "text": "Visible progress update."}],
+        }],
+    })
+
+    assert projected["text"] == "Visible progress update."
+    assert "thinking" not in projected
+
+
 def test_new_chat_and_stop(client):
     created = client.post("/api/mobile/new-chat", json={})
     assert created.status_code == 200

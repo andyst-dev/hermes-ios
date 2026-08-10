@@ -376,6 +376,26 @@ def _hermes_runtime() -> tuple[str, str] | None:
     return python, cwd
 
 
+def _is_error_stderr_line(line: str) -> bool:
+    """True when a non-JSON subprocess line looks like a diagnostic worth surfacing."""
+    lowered = line.lower()
+    return any(
+        marker in lowered
+        for marker in (
+            "error",
+            "traceback",
+            "failed",
+            "exception",
+            "unable",
+            "not found",
+            "denied",
+            "forbidden",
+            "timeout",
+            "insufficient",
+        )
+    )
+
+
 async def _stream_non_acp_session(
     session_id: str,
     text: str,
@@ -393,6 +413,11 @@ async def _stream_non_acp_session(
     for inherited in ("HERMES_SESSION_PLATFORM", "HERMES_GATEWAY_SESSION", "HERMES_EXEC_ASK"):
         env.pop(inherited, None)
     env["PYTHONUNBUFFERED"] = "1"
+    # Pin PYTHONPATH to the repo: the session restore can chdir() away from
+    # the repo mid-import, and an inherited PYTHONPATH pointing at an
+    # installed copy would mix two hermes-agent versions (unexpected-kwarg
+    # TypeError on agent init). See plugin/dashboard/plugin_api.py.
+    env["PYTHONPATH"] = cwd
     proc = await asyncio.create_subprocess_exec(
         python, "-u", "-c", _STREAMING_RESUME_SCRIPT, payload,
         cwd=cwd,
@@ -402,6 +427,14 @@ async def _stream_non_acp_session(
     )
     emitted = ""
     saw_result = False
+    stderr_tail: list[str] = []
+
+    def _stderr_hint() -> str:
+        """Surface the subprocess's own diagnostics (the real failure cause)."""
+        if not stderr_tail:
+            return ""
+        return "\n[desktop] " + " | ".join(stderr_tail[-3:])[:600]
+
     try:
         assert proc.stdout is not None
         while True:
@@ -411,6 +444,9 @@ async def _stream_non_acp_session(
             try:
                 event = json.loads(raw.decode("utf-8", "replace"))
             except (json.JSONDecodeError, UnicodeDecodeError):
+                line = raw.decode("utf-8", "replace").strip()
+                if line and len(stderr_tail) < 8 and _is_error_stderr_line(line):
+                    stderr_tail.append(line)
                 continue
             kind = event.get("type")
             if kind == "delta":
@@ -429,11 +465,13 @@ async def _stream_non_acp_session(
                     yield {"type": "error", "detail": str(event.get("error") or "Hermes turn failed")}
                     return
             elif kind == "error":
-                yield {"type": "error", "detail": str(event.get("detail") or "Hermes resume failed")}
+                detail = str(event.get("detail") or "Hermes resume failed")
+                yield {"type": "error", "detail": detail + _stderr_hint()}
                 return
         await proc.wait()
         if proc.returncode != 0 and not saw_result:
-            yield {"type": "error", "detail": f"Hermes resume exited with status {proc.returncode}"}
+            detail = f"Hermes resume exited with status {proc.returncode}"
+            yield {"type": "error", "detail": detail + _stderr_hint()}
     except asyncio.TimeoutError:
         proc.kill()
         yield {"type": "error", "detail": "Hermes resume timed out"}
@@ -548,11 +586,67 @@ async def mobile_chat(body: MobileChatRequest) -> StreamingResponse:
     return StreamingResponse(stream_events(), media_type="text/event-stream")
 
 
+def _json_list(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str) and value.strip():
+        try:
+            decoded = json.loads(value)
+        except (TypeError, json.JSONDecodeError):
+            return []
+        return decoded if isinstance(decoded, list) else []
+    return []
+
+
+def _codex_visible_commentary(m: dict[str, Any]) -> list[str]:
+    messages: list[str] = []
+    for item in _json_list(m.get("codex_message_items")):
+        if not isinstance(item, dict) or item.get("type") != "message":
+            continue
+        if str(item.get("phase") or "").strip().lower() != "commentary":
+            continue
+        parts = item.get("content")
+        if not isinstance(parts, list):
+            continue
+        text = "".join(
+            str(part.get("text") or "")
+            for part in parts
+            if isinstance(part, dict) and part.get("type") == "output_text"
+        ).strip()
+        if text:
+            messages.append(text)
+    return messages
+
+
+def _codex_reasoning_summaries(m: dict[str, Any]) -> list[str]:
+    summaries: list[str] = []
+    for item in _json_list(m.get("codex_reasoning_items")):
+        if not isinstance(item, dict) or item.get("type") != "reasoning":
+            continue
+        raw_summary = item.get("summary")
+        if not isinstance(raw_summary, list):
+            continue
+        text = "".join(
+            str(part.get("text") or "")
+            for part in raw_summary
+            if isinstance(part, dict) and part.get("type") == "summary_text"
+        ).strip()
+        if text:
+            summaries.append(text)
+    return summaries
+
+
 def _mobile_msg(m: dict[str, Any]) -> dict[str, Any]:
     role = m.get("role")
     text = m.get("content") or m.get("text") or ""
     if isinstance(text, list):
         text = " ".join(b.get("text", "") for b in text if isinstance(b, dict) and b.get("type") == "text")
+    commentary = _codex_visible_commentary(m)
+    if commentary:
+        visible_parts = list(commentary)
+        if isinstance(text, str) and text.strip() and text.strip() not in {part.strip() for part in commentary}:
+            visible_parts.append(text.strip())
+        text = "\n\n".join(visible_parts)
     msg = {
         "id": str(m.get("id") or uuid.uuid4()),
         "role": role,
@@ -560,9 +654,15 @@ def _mobile_msg(m: dict[str, Any]) -> dict[str, Any]:
         "createdAt": _iso_ts(m.get("created_at") or m.get("timestamp") or m.get("started_at")),
         "toolCalls": _tool_calls_from_row(m),
     }
-    # Desktop parity: persisted reasoning travels in its own field so the
-    # app can show the collapsible thinking pane even after the turn.
-    reasoning = m.get("reasoning_content") or m.get("reasoning")
+    reasoning_summaries = _codex_reasoning_summaries(m)
+    if reasoning_summaries:
+        reasoning = "\n\n".join(reasoning_summaries)
+    else:
+        reasoning = m.get("reasoning_content") or m.get("reasoning")
+        if commentary and isinstance(reasoning, str):
+            for visible in commentary:
+                reasoning = reasoning.replace(visible, "")
+            reasoning = reasoning.strip()
     if isinstance(reasoning, str) and reasoning.strip():
         msg["thinking"] = reasoning
     return msg

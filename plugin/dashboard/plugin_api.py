@@ -2,15 +2,14 @@
 
 Mounted at ``/api/plugins/hermes-mobile/`` by the dashboard plugin system
 (``web_server._mount_plugin_api_routes``). Serves the mobile API consumed by
-the Hermes Companion iOS app: live SSE chat streaming and dangerous-command
-approvals over the official Agent Client Protocol (``hermes-acp``), plus
+the Hermes Companion iOS app: live chat streaming, cross-process stream
+mirroring, and dangerous-command approvals over the official Agent Client
+Protocol (``hermes-acp``), plus
 sessions/files/models proxied from the dashboard REST API.
 
-No Hermes core is patched. The plugin talks to the same official surfaces
-Zed/VS Code use: the ACP server for chat/approvals and the dashboard REST API
-for the rest. This file is intentionally self-contained (the dashboard's venv
-has fastapi/httpx/agent-client-protocol already) so installing the plugin is
-the only step needed.
+Mobile-initiated chat uses the same official ACP/CLI surfaces as Zed/VS Code.
+For turns initiated by another Hermes process, a small observer hook mirrors
+sanitized visible deltas into an ephemeral local snapshot consumed here.
 
 Security: plugin HTTP routes go through the dashboard's session-token auth
 middleware like core API routes, so every ``/api/plugins/...`` request must
@@ -22,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import atexit
 import base64
+import hashlib
 import json
 import logging
 import os
@@ -621,11 +621,68 @@ def _tool_calls_from_row(m: dict[str, Any]) -> list[dict[str, Any]]:
     return calls
 
 
+def _json_list(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str) and value.strip():
+        try:
+            decoded = json.loads(value)
+        except (TypeError, json.JSONDecodeError):
+            return []
+        return decoded if isinstance(decoded, list) else []
+    return []
+
+
+def _codex_visible_commentary(m: dict[str, Any]) -> list[str]:
+    """Project Codex phase=commentary items like Hermes Desktop does."""
+    messages: list[str] = []
+    for item in _json_list(m.get("codex_message_items")):
+        if not isinstance(item, dict) or item.get("type") != "message":
+            continue
+        if str(item.get("phase") or "").strip().lower() != "commentary":
+            continue
+        parts = item.get("content")
+        if not isinstance(parts, list):
+            continue
+        text = "".join(
+            str(part.get("text") or "")
+            for part in parts
+            if isinstance(part, dict) and part.get("type") == "output_text"
+        ).strip()
+        if text:
+            messages.append(text)
+    return messages
+
+
+def _codex_reasoning_summaries(m: dict[str, Any]) -> list[str]:
+    summaries: list[str] = []
+    for item in _json_list(m.get("codex_reasoning_items")):
+        if not isinstance(item, dict) or item.get("type") != "reasoning":
+            continue
+        raw_summary = item.get("summary")
+        if not isinstance(raw_summary, list):
+            continue
+        text = "".join(
+            str(part.get("text") or "")
+            for part in raw_summary
+            if isinstance(part, dict) and part.get("type") == "summary_text"
+        ).strip()
+        if text:
+            summaries.append(text)
+    return summaries
+
+
 def _mobile_msg(m: dict[str, Any]) -> dict[str, Any]:
     role = m.get("role")
     text = m.get("content") or m.get("text") or ""
     if isinstance(text, list):
         text = " ".join(b.get("text", "") for b in text if isinstance(b, dict) and b.get("type") == "text")
+    commentary = _codex_visible_commentary(m)
+    if commentary:
+        visible_parts = list(commentary)
+        if isinstance(text, str) and text.strip() and text.strip() not in {part.strip() for part in commentary}:
+            visible_parts.append(text.strip())
+        text = "\n\n".join(visible_parts)
     msg = {
         "id": str(m.get("id") or uuid.uuid4()),
         "role": role,
@@ -633,9 +690,21 @@ def _mobile_msg(m: dict[str, Any]) -> dict[str, Any]:
         "createdAt": _iso_ts(m.get("created_at") or m.get("timestamp") or m.get("started_at")),
         "toolCalls": _tool_calls_from_row(m),
     }
-    # Desktop parity: persisted reasoning travels in its own field so the
-    # app can show the collapsible thinking pane even after the turn.
-    reasoning = m.get("reasoning_content") or m.get("reasoning")
+    # Codex persists visible commentary inside the broad reasoning text, but
+    # also keeps exact phase metadata. Desktop projects commentary as assistant
+    # prose and only reasoning summaries into Thinking; mirror that contract.
+    reasoning_summaries = _codex_reasoning_summaries(m)
+    if reasoning_summaries:
+        reasoning = "\n\n".join(reasoning_summaries)
+    else:
+        reasoning = m.get("reasoning_content") or m.get("reasoning")
+        # Some Codex responses persist commentary in the broad reasoning field
+        # without a separate reasoning summary item. Remove the exact visible
+        # commentary before exposing the remainder as Thinking.
+        if commentary and isinstance(reasoning, str):
+            for visible in commentary:
+                reasoning = reasoning.replace(visible, "")
+            reasoning = reasoning.strip()
     if isinstance(reasoning, str) and reasoning.strip():
         msg["thinking"] = reasoning
     return msg
@@ -713,6 +782,41 @@ async def mobile_capabilities() -> dict[str, Any]:
 async def mobile_sessions(archived: str = "exclude") -> dict[str, Any]:
     rows = await _get_dashboard().list_sessions(limit=100, archived=archived)
     return {"sessions": [_mobile_session_row(r) for r in rows]}
+
+
+def _live_snapshot_path(session_id: str) -> Path:
+    digest = hashlib.sha256(session_id.encode("utf-8")).hexdigest()
+    return _hermes_home_dir() / "mobile-streams" / f"{digest}.json"
+
+
+@router.get("/sessions/{session_id}/live")
+async def mobile_session_live(session_id: str) -> dict[str, Any]:
+    """Return the latest cross-process assistant snapshot for a session."""
+    path = _live_snapshot_path(session_id)
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, ValueError, TypeError):
+        return {"active": False, "sequence": 0, "text": "", "done": False}
+
+    if payload.get("session_id") != session_id:
+        return {"active": False, "sequence": 0, "text": "", "done": False}
+
+    updated_at = float(payload.get("updated_at") or 0.0)
+    done = bool(payload.get("done"))
+    max_age = 60.0 if done else 120.0
+    if updated_at <= 0.0 or time.time() - updated_at > max_age:
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        return {"active": False, "sequence": 0, "text": "", "done": False}
+
+    return {
+        "active": bool(payload.get("active")),
+        "sequence": max(0, int(payload.get("sequence") or 0)),
+        "text": str(payload.get("text") or ""),
+        "done": done,
+    }
 
 
 @router.get("/sessions/{session_id}/messages")
@@ -1909,6 +2013,26 @@ finally:
 '''
 
 
+def _is_error_stderr_line(line: str) -> bool:
+    """True when a non-JSON subprocess line looks like a diagnostic worth surfacing."""
+    lowered = line.lower()
+    return any(
+        marker in lowered
+        for marker in (
+            "error",
+            "traceback",
+            "failed",
+            "exception",
+            "unable",
+            "not found",
+            "denied",
+            "forbidden",
+            "timeout",
+            "insufficient",
+        )
+    )
+
+
 async def _stream_non_acp_session(
     session_id: str,
     text: str,
@@ -1929,19 +2053,35 @@ async def _stream_non_acp_session(
     for inherited in ("HERMES_SESSION_PLATFORM", "HERMES_GATEWAY_SESSION", "HERMES_EXEC_ASK"):
         env.pop(inherited, None)
     env["PYTHONUNBUFFERED"] = "1"
+    repo = _hermes_cli_cwd()
+    # The session restore inside the script can chdir() away from the repo
+    # mid-import. Pin PYTHONPATH to the repo so every module resolves from
+    # the SAME checkout as `cli` — an inherited PYTHONPATH (e.g. the app's
+    # profile pointing at an installed copy) would otherwise mix two
+    # hermes-agent versions and crash agent init with an unexpected-kwarg
+    # TypeError (observed on desktop sessions whose cwd != repo).
+    env["PYTHONPATH"] = repo
     proc = await asyncio.create_subprocess_exec(
         sys.executable,
         "-u",
         "-c",
         _STREAMING_RESUME_SCRIPT,
         payload,
-        cwd=_hermes_cli_cwd(),
+        cwd=repo,
         env=env,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
     )
     emitted = ""
     saw_result = False
+    stderr_tail: list[str] = []
+
+    def _stderr_hint() -> str:
+        """Surface the subprocess's own diagnostics (the real failure cause)."""
+        if not stderr_tail:
+            return ""
+        return "\n[desktop] " + " | ".join(stderr_tail[-3:])[:600]
+
     try:
         assert proc.stdout is not None
         while True:
@@ -1951,6 +2091,9 @@ async def _stream_non_acp_session(
             try:
                 event = json.loads(raw.decode("utf-8", "replace"))
             except (json.JSONDecodeError, UnicodeDecodeError):
+                line = raw.decode("utf-8", "replace").strip()
+                if line and len(stderr_tail) < 8 and _is_error_stderr_line(line):
+                    stderr_tail.append(line)
                 continue
             kind = event.get("type")
             if kind == "delta":
@@ -1971,11 +2114,13 @@ async def _stream_non_acp_session(
                     yield {"type": "error", "detail": str(event.get("error") or "Hermes turn failed")}
                     return
             elif kind == "error":
-                yield {"type": "error", "detail": str(event.get("detail") or "Hermes resume failed")}
+                detail = str(event.get("detail") or "Hermes resume failed")
+                yield {"type": "error", "detail": detail + _stderr_hint()}
                 return
         await proc.wait()
         if proc.returncode != 0 and not saw_result:
-            yield {"type": "error", "detail": f"Hermes resume exited with status {proc.returncode}"}
+            detail = f"Hermes resume exited with status {proc.returncode}"
+            yield {"type": "error", "detail": detail + _stderr_hint()}
     except asyncio.TimeoutError:
         proc.kill()
         yield {"type": "error", "detail": "Hermes resume timed out"}
