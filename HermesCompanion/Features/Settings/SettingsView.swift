@@ -122,6 +122,7 @@ struct SettingsView: View {
                         SettingsButtonRow(title: "Hermes update", subtitle: updateSubtitle, icon: "arrow.down.circle", accent: updateAccent) {
                             showingUpdateConfirmation = true
                         }
+                        .disabled(store.updateStatus?.updateAvailable != true)
                         if store.updateStatus?.updateAvailable == true {
                             SettingsButtonRow(title: "What's new", subtitle: "\(store.updateStatus?.highlights.count ?? 0) incoming changes", icon: "sparkles", accent: HermesTheme.warm) {
                                 showingWhatsNew = true
