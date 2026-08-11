@@ -135,7 +135,7 @@ struct SettingsView: View {
                         }
                         Button("Cancel", role: .cancel) {}
                     } message: {
-                        Text(updateConfirmationMessage)
+                        Text("Pulls the latest hermes from git and reinstalls dependencies. Restart the dashboard after it finishes.")
                     }
 
                     HermesMobileSection(title: "Usage", icon: "chart.bar.xaxis", accent: HermesTheme.warm) {
@@ -297,24 +297,6 @@ struct SettingsView: View {
             return "Update available — \(status.highlights.count) incoming changes"
         }
         return "You're up to date"
-    }
-
-    /// Shown in the "Update Hermes?" confirmation so tapping the update row
-    /// reveals the human-readable release notes before anything runs.
-    private var updateConfirmationMessage: String {
-        var lines: [String] = []
-        if let status = store.updateStatus, status.updateAvailable, !status.notes.isEmpty {
-            lines.append("What's new:")
-            for noteSection in status.notes {
-                lines.append(noteSection.section + ":")
-                for item in noteSection.items {
-                    lines.append("  • " + item)
-                }
-            }
-            lines.append("")
-        }
-        lines.append("Pulls the latest hermes from git and reinstalls dependencies. Restart the dashboard after it finishes.")
-        return lines.joined(separator: "\n")
     }
 
     private var updateAccent: Color {
