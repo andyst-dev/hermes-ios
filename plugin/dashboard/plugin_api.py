@@ -2130,14 +2130,60 @@ async def _stream_non_acp_session(
             await proc.wait()
 
 
+def _canonical_hermes_repo() -> str:
+    """Resolve the repo the terminal `hermes` actually uses (the installed copy).
+
+    The `hermes` on PATH is a bash shim (`~/.local/bin/hermes`) that execs
+    `<install>/venv/bin/hermes`. The dashboard's own checkout may be a dev
+    fork whose `origin` is a personal repo — running `hermes update` there
+    trips the fork-sync logic and never pulls the official repo. Desktop
+    maintenance must target the same install the terminal command does.
+    """
+    import shutil
+
+    try:
+        import sys as _sys
+
+        hermes = shutil.which("hermes")
+        if hermes:
+            try:
+                lines = open(hermes, "r", encoding="utf-8", errors="replace").read().splitlines()
+            except OSError:
+                lines = []
+            for line in lines:
+                # bash shim: exec "/abs/path/venv/bin/hermes" "$@"
+                if line.startswith("exec ") and "venv/bin/" in line and '"' in line:
+                    inner = line.split('"')[1]
+                    return str(Path(inner).resolve().parents[2])
+        # Fall back to the running dashboard's venv parent.
+        return str(Path(_sys.executable).resolve().parents[2])
+    except Exception:  # noqa: BLE001
+        return _hermes_cli_cwd()
+
+
 async def _run_cli(args: list[str], timeout: int) -> dict[str, Any]:
-    """Run a `hermes` CLI subcommand in the dashboard's own environment."""
-    import sys
+    """Run a `hermes` CLI subcommand exactly like the terminal launcher.
+
+    Uses the `hermes` binary on PATH (canonical install, origin = official
+    repo) and clears PYTHONPATH/PYTHONHOME the way the launcher does.
+    Running `sys.executable -m hermes_cli.main` from the dashboard's own
+    checkout instead would resolve against a dev/fork copy and trip the
+    update fork-sync logic.
+    """
+    import shutil
+    import sys as _sys
+
+    hermes = shutil.which("hermes")
+    cmd = [hermes, *args] if hermes else [_sys.executable, "-m", "hermes_cli.main", *args]
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+    env.pop("PYTHONHOME", None)
     proc = None
     try:
         proc = await asyncio.create_subprocess_exec(
-            sys.executable, "-m", "hermes_cli.main", *args,
-            cwd=_hermes_cli_cwd(),
+            *cmd,
+            cwd=_canonical_hermes_repo(),
+            env=env,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
         )
@@ -2157,7 +2203,7 @@ async def _run_git(args: list[str], timeout: int = 30) -> str:
     try:
         proc = await asyncio.create_subprocess_exec(
             "git", *args,
-            cwd=_hermes_cli_cwd(),
+            cwd=_canonical_hermes_repo(),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
         )
@@ -2276,6 +2322,20 @@ def _human_release_notes(commits: list[str]) -> list[dict[str, Any]]:
     return [{"section": section, "items": sections[section]} for section in order]
 
 
+async def _official_remote() -> str:
+    """Name of the remote tracking the official repo (NousResearch/hermes-agent).
+
+    The canonical install names it `origin`; a dev/fork checkout may call it
+    `upstream`. Desktop maintenance targets the canonical install, so the
+    status git commands must compare against whichever remote is official.
+    """
+    for remote in (await _run_git(["remote"])).splitlines():
+        url = (await _run_git(["remote", "get-url", remote])).strip()
+        if "NousResearch/hermes-agent" in url:
+            return remote
+    return "origin"
+
+
 @router.get("/update/status")
 async def mobile_update_status() -> dict[str, Any]:
     """Check whether an update is available and what it brings.
@@ -2289,8 +2349,9 @@ async def mobile_update_status() -> dict[str, Any]:
     highlights: list[str] = []
     notes: list[dict[str, Any]] = []
     if available:
+        remote = await _official_remote()
         highlights = [
-            line for line in (await _run_git(["log", "HEAD..upstream/main", "--oneline", "-15"])).splitlines()
+            line for line in (await _run_git(["log", f"HEAD..{remote}/main", "--oneline", "-15"])).splitlines()
             if line.strip()
         ]
         notes = _human_release_notes(highlights)

@@ -1028,7 +1028,8 @@ def test_plugin_doctor_and_update_run_cli(client, monkeypatch):
     assert body["ok"] is True
     assert "doctor report" in body["output"]
     doc_args = calls[0][0]
-    assert doc_args[1] == "-m" and doc_args[2] == "hermes_cli.main" and "doctor" in doc_args
+    assert "doctor" in doc_args
+    assert doc_args[0].endswith("hermes") or "hermes_cli.main" in doc_args
 
     update = client.post("/api/plugins/hermes-mobile/update")
     assert update.status_code == 200
@@ -1092,8 +1093,12 @@ def test_plugin_update_status_contract(client, monkeypatch):
 
     async def fake_exec(*args, **kwargs):
         calls.append(args)
-        if list(args[1:3]) == ["-m", "hermes_cli.main"] and "--check" in args:
+        if "--check" in args:
             return CliProc()
+        if "get-url" in args:
+            return GitProc(b"https://github.com/NousResearch/hermes-agent.git\n")
+        if list(args[1:]) == ["remote"]:
+            return GitProc(b"origin\n")
         if "log" in args:
             return GitProc(b"abc1234 feat: shiny new thing\ncdef567 fix: bug\n")
         raise AssertionError(f"unexpected exec: {args}")
@@ -1333,8 +1338,12 @@ def test_update_status_route_sends_notes(client, monkeypatch):
             return self._data, None
 
     async def fake_exec(*args, **kwargs):
-        if list(args[1:3]) == ["-m", "hermes_cli.main"] and "--check" in args:
+        if "--check" in args:
             return CliProc()
+        if "get-url" in args:
+            return GitProc(b"https://github.com/NousResearch/hermes-agent.git\n")
+        if list(args[1:]) == ["remote"]:
+            return GitProc(b"origin\n")
         if "log" in args:
             return GitProc(
                 b"abc1234 feat: stream resumed sessions live\n"
