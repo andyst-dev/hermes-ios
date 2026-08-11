@@ -344,6 +344,17 @@ try:
     cli.agent.suppress_status_output = True
     cli.agent.tool_gen_callback = None
     cli.agent.stream_delta_callback = lambda text: emit("delta", text=str(text)) if text else None
+    cli.agent.thinking_callback = lambda text: emit("thinking", text=str(text)) if text else None
+    cli.agent.tool_start_callback = lambda tc_id, name, args: emit(
+        "tool",
+        action="start",
+        id=str(tc_id),
+        name=str(name),
+        args=json.dumps(args, ensure_ascii=False)[:400],
+    )
+    cli.agent.tool_complete_callback = lambda tc_id, name, _args, _result: emit(
+        "tool", action="complete", id=str(tc_id), name=str(name)
+    )
     result = cli.agent.run_conversation(user_message=payload["text"], conversation_history=cli.conversation_history)
     if getattr(cli.agent, "session_id", None):
         cli.session_id = cli.agent.session_id

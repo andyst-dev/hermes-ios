@@ -145,11 +145,12 @@ actor HTTPHermesTransport: HermesTransport {
                     var streamID: String?
                     var streamText = ""
                     var streamThinking = ""
+                    var streamToolCalls: [HermesToolCall] = []
 
                     func yieldAssistant(id: String) {
                         continuation.yield(HermesMessage(
                             id: id, role: .assistant, text: streamText,
-                            createdAt: .now, toolCalls: [],
+                            createdAt: .now, toolCalls: streamToolCalls,
                             thinking: streamThinking.isEmpty ? nil : streamThinking
                         ))
                     }
@@ -163,6 +164,22 @@ actor HTTPHermesTransport: HermesTransport {
                             streamID = id
                             streamThinking += text
                             yieldAssistant(id: id)
+                        case .toolStart(let id, let name, let args):
+                            let mid = streamID ?? "stream-\(UUID().uuidString)"
+                            streamID = mid
+                            if let idx = streamToolCalls.firstIndex(where: { $0.id == id }) {
+                                streamToolCalls[idx].status = .running
+                            } else {
+                                streamToolCalls.append(HermesToolCall(id: id, name: name, command: args, status: .running, summary: name))
+                            }
+                            yieldAssistant(id: mid)
+                        case .toolComplete(let id, let name, _):
+                            if let idx = streamToolCalls.firstIndex(where: { $0.id == id }) {
+                                streamToolCalls[idx].status = .succeeded
+                            }
+                            let mid = streamID ?? "stream-\(UUID().uuidString)"
+                            streamID = mid
+                            yieldAssistant(id: mid)
                         case .delta(let text):
                             let id = streamID ?? "stream-\(UUID().uuidString)"
                             streamID = id
@@ -278,6 +295,13 @@ actor HTTPHermesTransport: HermesTransport {
         case "thinking":
             guard let text = dict["text"] as? String else { return nil }
             return SSEEvent(kind: .thinking(text))
+        case "tool":
+            guard let action = dict["action"] as? String, let id = dict["id"] as? String, let name = dict["name"] as? String else { return nil }
+            let argText = dict["args"] as? String
+            if action == "complete" {
+                return SSEEvent(kind: .toolComplete(id, name, dict["result"] as? String))
+            }
+            return SSEEvent(kind: .toolStart(id, name, argText))
         case "transcript":
             let sessionID = dict["sessionID"] as? String
             var messages: [HermesMessage] = []
@@ -608,8 +632,9 @@ enum SSEEventKind {
     case approval(String, String, String)
     case error(String)
     case done
+    case toolStart(String, String, String?)
+    case toolComplete(String, String, String?)
 }
-
 struct SSEEvent {
     let kind: SSEEventKind
 }
