@@ -8,6 +8,7 @@ struct ChatView: View {
     @Binding var showingInspector: Bool
     @Binding var showingModels: Bool
     var onBack: (() -> Void)? = nil
+    @State private var isNearBottom = true
 
     var body: some View {
         VStack(spacing: 0) {
@@ -35,15 +36,24 @@ struct ChatView: View {
                     .padding(.horizontal, 18)
                     .padding(.bottom, 18)
                 }
+                .onScrollGeometryChange(for: Bool.self) { geometry in
+                    let maxOffset = geometry.contentSize.height - geometry.containerSize.height
+                    return maxOffset <= 0 || geometry.contentOffset.y >= maxOffset - 24
+                } action: { _, nearBottom in
+                    isNearBottom = nearBottom
+                }
                 .onAppear {
-                    scrollToBottom(proxy)
+                    scrollToBottom(proxy, animated: true)
                 }
                 .onChange(of: store.selectedSessionID) { _, _ in
-                    scrollToBottom(proxy)
+                    scrollToBottom(proxy, animated: true)
                 }
                 .onChange(of: store.messages) { _, messages in
-                    guard !messages.isEmpty else { return }
-                    scrollToBottom(proxy)
+                    guard !messages.isEmpty, isNearBottom else { return }
+                    // During streaming, pin to the bottom immediately (no
+                    // per-delta animation) so the list flows like Telegram
+                    // instead of snapping on every chunk.
+                    scrollToBottom(proxy, animated: false)
                 }
             }
             if let approval = store.pendingApproval {
@@ -68,9 +78,13 @@ struct ChatView: View {
         }
     }
 
-    private func scrollToBottom(_ proxy: ScrollViewProxy) {
+    private func scrollToBottom(_ proxy: ScrollViewProxy, animated: Bool = true) {
         DispatchQueue.main.async {
-            withAnimation(.snappy) { proxy.scrollTo("chat-bottom", anchor: .bottom) }
+            if animated {
+                withAnimation(.snappy) { proxy.scrollTo("chat-bottom", anchor: .bottom) }
+            } else {
+                proxy.scrollTo("chat-bottom", anchor: .bottom)
+            }
         }
     }
 }
