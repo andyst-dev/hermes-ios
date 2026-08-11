@@ -2,12 +2,20 @@ import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
 
+/// Scroll geometry snapshot used to detect the user leaving the bottom while
+/// a turn streams (offset decreasing) vs. content simply growing.
+private struct ScrollState: Equatable {
+    var offset: CGFloat
+    var nearBottom: Bool
+}
+
 struct ChatView: View {
     @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
     @Binding var showingInspector: Bool
     @Binding var showingModels: Bool
     var onBack: (() -> Void)? = nil
+    @State private var userScrolledUp = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -35,18 +43,36 @@ struct ChatView: View {
                     .padding(.horizontal, 18)
                     .padding(.bottom, 18)
                 }
+                .onScrollGeometryChange(for: ScrollState.self) { geometry in
+                    let maxOffset = geometry.contentSize.height - geometry.containerSize.height
+                    let nearBottom = maxOffset <= 0 || geometry.contentOffset.y >= maxOffset - 30
+                    return ScrollState(offset: geometry.contentOffset.y, nearBottom: nearBottom)
+                } action: { old, new in
+                    // Only an active scroll UP (offset decreasing) means the
+                    // user left the bottom. Content growth while pinned keeps
+                    // the offset the same, so it never looks like a scroll-up.
+                    if new.offset < old.offset - 8 {
+                        userScrolledUp = true
+                    } else if new.nearBottom {
+                        userScrolledUp = false
+                    }
+                }
                 .onAppear {
+                    userScrolledUp = false
                     scrollToBottom(proxy)
                 }
                 .onChange(of: store.selectedSessionID) { _, _ in
                     // Open a conversation already at the end: jump straight
                     // to the latest message, no animated scroll.
+                    userScrolledUp = false
                     scrollToBottom(proxy)
                 }
                 .onChange(of: store.messages) { _, messages in
                     guard !messages.isEmpty else { return }
-                    // Follow the stream: keep the list pinned to the latest
-                    // message as it is written (no per-delta animation).
+                    // Follow the stream, but respect the user reading higher
+                    // up: once they scroll up, stop pulling to the bottom
+                    // until they scroll back down.
+                    guard !userScrolledUp else { return }
                     scrollToBottom(proxy)
                 }
             }
