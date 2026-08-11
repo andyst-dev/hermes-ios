@@ -441,12 +441,35 @@ private struct WhatsNewView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     if let status = store.updateStatus {
                         if status.updateAvailable {
-                            ForEach(Array(status.highlights.enumerated()), id: \.offset) { _, line in
-                                Text(line)
-                                    .font(.system(size: 12, design: .monospaced))
-                                    .foregroundStyle(HermesTheme.ink.opacity(0.85))
-                                    .textSelection(.enabled)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            if !status.notes.isEmpty {
+                                ForEach(status.notes, id: \.section) { noteSection in
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text(noteSection.section.uppercased())
+                                            .font(.system(size: 11, weight: .bold))
+                                            .tracking(0.9)
+                                            .foregroundStyle(HermesTheme.warm)
+                                        ForEach(noteSection.items, id: \.self) { item in
+                                            HStack(alignment: .top, spacing: 7) {
+                                                Circle()
+                                                    .fill(HermesTheme.primary)
+                                                    .frame(width: 5, height: 5)
+                                                    .padding(.top, 5)
+                                                Text(item)
+                                                    .font(.system(size: 12.5))
+                                                    .foregroundStyle(HermesTheme.ink.opacity(0.9))
+                                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                ForEach(Array(status.highlights.enumerated()), id: \.offset) { _, line in
+                                    Text(line)
+                                        .font(.system(size: 12, design: .monospaced))
+                                        .foregroundStyle(HermesTheme.ink.opacity(0.85))
+                                        .textSelection(.enabled)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
                             }
                             Button {
                                 showFullChangelog.toggle()

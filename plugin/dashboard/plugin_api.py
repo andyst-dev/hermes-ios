@@ -2220,6 +2220,62 @@ async def mobile_doctor() -> dict[str, Any]:
     return result
 
 
+_SECTION_BY_TYPE = {
+    "feat": "New features",
+    "fix": "Fixes",
+    "perf": "Performance",
+    "refactor": "Improvements",
+    "docs": "Documentation",
+    "test": "Improvements",
+    "build": "Improvements",
+    "ci": "Improvements",
+    "style": "Improvements",
+    "chore": "Improvements",
+}
+
+
+def _clean_release_subject(subject: str) -> str:
+    """Turn a conventional-commit subject into a readable bullet."""
+    subject = re.sub(r"\(\s*#\d+\s*\)", "", subject)  # "(#1234)"
+    subject = re.sub(r"\s+#\d+\s*$", "", subject)  # trailing " #1234"
+    subject = subject.strip().rstrip(".,;: ")
+    if not subject:
+        return ""
+    return subject[0].upper() + subject[1:]
+
+
+def _human_release_notes(commits: list[str]) -> list[dict[str, Any]]:
+    """Group `git log --oneline` lines into human-readable release sections.
+
+    Strips the conventional-commit prefix/scope and PR references so the
+    app can show what actually changed instead of raw commit lines.
+    """
+    sections: dict[str, list[str]] = {}
+    order: list[str] = []
+    for line in commits:
+        line = line.strip()
+        if not line:
+            continue
+        body = re.sub(r"^[0-9a-f]{7,}\s+", "", line)  # leading commit hash
+        match = re.match(r"^([a-zA-Z]+)(?:\([^)]*\))?:\s*(.*)$", body)
+        if match:
+            subject = match.group(2)
+            if not subject:
+                continue  # type-only line ("feat:") carries no information
+            section = _SECTION_BY_TYPE.get(match.group(1).lower(), "Other")
+            cleaned = _clean_release_subject(subject)
+        else:
+            section = "Other"
+            cleaned = _clean_release_subject(body)
+        if not cleaned:
+            continue
+        if section not in sections:
+            sections[section] = []
+            order.append(section)
+        sections[section].append(cleaned)
+    return [{"section": section, "items": sections[section]} for section in order]
+
+
 @router.get("/update/status")
 async def mobile_update_status() -> dict[str, Any]:
     """Check whether an update is available and what it brings.
@@ -2231,12 +2287,14 @@ async def mobile_update_status() -> dict[str, Any]:
     output = check.get("output", "")
     available = "update available" in output.lower()
     highlights: list[str] = []
+    notes: list[dict[str, Any]] = []
     full_changelog = ""
     if available:
         highlights = [
             line for line in (await _run_git(["log", "HEAD..upstream/main", "--oneline", "-15"])).splitlines()
             if line.strip()
         ]
+        notes = _human_release_notes(highlights)
         full_changelog = await _run_git(["log", "HEAD..upstream/main", "--stat", "--no-color", "-25"])
         if len(full_changelog) > 20000:
             full_changelog = full_changelog[:20000] + "\n… (truncated)"
@@ -2244,6 +2302,7 @@ async def mobile_update_status() -> dict[str, Any]:
         "ok": check.get("ok", False),
         "updateAvailable": available,
         "highlights": highlights,
+        "notes": notes,
         "fullChangelog": full_changelog,
         "output": output,
     }

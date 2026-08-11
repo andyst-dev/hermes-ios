@@ -1270,3 +1270,84 @@ def test_stream_resume_pins_pythonpath_to_repo(monkeypatch):
     assert "HERMES_SESSION_PLATFORM" not in env
     assert "HERMES_GATEWAY_SESSION" not in env
     assert "HERMES_EXEC_ASK" not in env
+
+
+def test_release_notes_group_and_clean_commits():
+    """Conventional commits become grouped, human-readable bullets."""
+    commits = [
+        "a1b2c3d feat(gateway): make drain force-kill reachable",
+        "e4f5a6b fix: keep seeded draft across full-page handoff",
+        "c7d8e9f0 fix(ui): present chat edge-to-edge from the bottom (#6231)",
+        "a1a2a3a4 refactor(host-service): prioritize origin in parallel probes",
+        "b2b3b4b5 docs: update README counts",
+        "c3c4c5c6 chore: bump plugin version to 1.1.0",
+        "d4d5d6d7 some plain message without prefix",
+    ]
+    notes = plugin._human_release_notes(commits)
+    sections = {n["section"]: n["items"] for n in notes}
+    assert sections["New features"] == ["Make drain force-kill reachable"]
+    assert sections["Fixes"] == [
+        "Keep seeded draft across full-page handoff",
+        "Present chat edge-to-edge from the bottom",
+    ]
+    assert sections["Improvements"] == [
+        "Prioritize origin in parallel probes",
+        "Bump plugin version to 1.1.0",
+    ]
+    assert sections["Documentation"] == ["Update README counts"]
+    assert sections["Other"] == ["Some plain message without prefix"]
+    # First-seen order preserved
+    assert [n["section"] for n in notes] == [
+        "New features", "Fixes", "Improvements", "Documentation", "Other",
+    ]
+
+
+def test_release_notes_edge_cases():
+    """Hash prefix, PR refs, empty subjects and type-only lines are handled."""
+    assert plugin._clean_release_subject("  make it work (#42) ") == "Make it work"
+    assert plugin._clean_release_subject("  fix typo. ") == "Fix typo"
+    assert plugin._clean_release_subject("   ") == ""
+    notes = plugin._human_release_notes(
+        ["deadbeef fix: only a hash-prefixed line", "feat: ", "  "]
+    )
+    assert notes == [{"section": "Fixes", "items": ["Only a hash-prefixed line"]}]
+
+
+def test_update_status_route_sends_notes(client, monkeypatch):
+    """GET /update/status carries grouped human notes alongside highlights."""
+
+    class CliProc:
+        returncode = 0
+
+        async def communicate(self):
+            return b"\u2695 Update available (behind upstream/main).\n", None
+
+    class GitProc:
+        def __init__(self, data: bytes):
+            self._data = data
+            self.returncode = 0
+
+        async def communicate(self):
+            return self._data, None
+
+    async def fake_exec(*args, **kwargs):
+        if list(args[1:3]) == ["-m", "hermes_cli.main"] and "--check" in args:
+            return CliProc()
+        if "log" in args:
+            if "--stat" in args:
+                return GitProc(b"full changelog detail\n")
+            return GitProc(
+                b"abc1234 feat: stream resumed sessions live\n"
+                b"def5678 fix(chat): restore model switching in full screen\n"
+            )
+        raise AssertionError(f"unexpected exec: {args}")
+
+    monkeypatch.setattr(plugin.asyncio, "create_subprocess_exec", fake_exec)
+    r = client.get("/api/plugins/hermes-mobile/update/status")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["updateAvailable"] is True
+    assert body["notes"] == [
+        {"section": "New features", "items": ["Stream resumed sessions live"]},
+        {"section": "Fixes", "items": ["Restore model switching in full screen"]},
+    ]

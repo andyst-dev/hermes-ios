@@ -28,11 +28,17 @@ struct HermesDoctorReport: Decodable, Equatable {
 }
 
 /// `hermes update --check` result: whether an update is available and
-/// what it brings (incoming commit highlights + full changelog).
+/// what it brings (grouped human notes + raw commit highlights + changelog).
+struct HermesUpdateNoteSection: Decodable, Equatable {
+    let section: String
+    let items: [String]
+}
+
 struct HermesUpdateStatus: Decodable, Equatable {
     let ok: Bool
     let updateAvailable: Bool
     let highlights: [String]
+    let notes: [HermesUpdateNoteSection]
     let fullChangelog: String
     let output: String
 }

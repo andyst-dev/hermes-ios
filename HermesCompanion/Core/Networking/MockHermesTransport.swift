@@ -109,6 +109,7 @@ final class MockHermesTransport: HermesTransport, @unchecked Sendable {
             ok: true,
             updateAvailable: false,
             highlights: [],
+            notes: [],
             fullChangelog: "",
             output: "hermes is up to date"
         )
