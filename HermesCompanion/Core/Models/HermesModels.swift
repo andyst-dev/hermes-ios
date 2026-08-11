@@ -39,7 +39,6 @@ struct HermesUpdateStatus: Decodable, Equatable {
     let updateAvailable: Bool
     let highlights: [String]
     let notes: [HermesUpdateNoteSection]
-    let fullChangelog: String
     let output: String
 }
 

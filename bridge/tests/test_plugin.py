@@ -1095,8 +1095,6 @@ def test_plugin_update_status_contract(client, monkeypatch):
         if list(args[1:3]) == ["-m", "hermes_cli.main"] and "--check" in args:
             return CliProc()
         if "log" in args:
-            if "--stat" in args:
-                return GitProc(b"full changelog detail\n")
             return GitProc(b"abc1234 feat: shiny new thing\ncdef567 fix: bug\n")
         raise AssertionError(f"unexpected exec: {args}")
 
@@ -1107,7 +1105,11 @@ def test_plugin_update_status_contract(client, monkeypatch):
     assert body["updateAvailable"] is True
     assert len(body["highlights"]) == 2
     assert "feat: shiny" in body["highlights"][0]
-    assert "full changelog" in body["fullChangelog"]
+    assert body["notes"] == [
+        {"section": "New features", "items": ["Shiny new thing"]},
+        {"section": "Fixes", "items": ["Bug"]},
+    ]
+    assert "fullChangelog" not in body
 
     # when --check says up to date, no git log is fetched
     class UpToDateProc:
@@ -1334,8 +1336,6 @@ def test_update_status_route_sends_notes(client, monkeypatch):
         if list(args[1:3]) == ["-m", "hermes_cli.main"] and "--check" in args:
             return CliProc()
         if "log" in args:
-            if "--stat" in args:
-                return GitProc(b"full changelog detail\n")
             return GitProc(
                 b"abc1234 feat: stream resumed sessions live\n"
                 b"def5678 fix(chat): restore model switching in full screen\n"

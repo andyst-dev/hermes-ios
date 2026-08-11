@@ -2288,22 +2288,17 @@ async def mobile_update_status() -> dict[str, Any]:
     available = "update available" in output.lower()
     highlights: list[str] = []
     notes: list[dict[str, Any]] = []
-    full_changelog = ""
     if available:
         highlights = [
             line for line in (await _run_git(["log", "HEAD..upstream/main", "--oneline", "-15"])).splitlines()
             if line.strip()
         ]
         notes = _human_release_notes(highlights)
-        full_changelog = await _run_git(["log", "HEAD..upstream/main", "--stat", "--no-color", "-25"])
-        if len(full_changelog) > 20000:
-            full_changelog = full_changelog[:20000] + "\n… (truncated)"
     return {
         "ok": check.get("ok", False),
         "updateAvailable": available,
         "highlights": highlights,
         "notes": notes,
-        "fullChangelog": full_changelog,
         "output": output,
     }
 

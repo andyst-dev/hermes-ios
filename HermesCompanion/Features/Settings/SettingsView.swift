@@ -451,7 +451,6 @@ private struct DesktopToolOutputView: View {
 private struct WhatsNewView: View {
     @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
-    @State private var showFullChangelog = false
 
     var body: some View {
         HermesMobileScreen(title: "What's new", subtitle: "Incoming changes", icon: "sparkles", showsDone: true) {
@@ -488,25 +487,6 @@ private struct WhatsNewView: View {
                                         .textSelection(.enabled)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                 }
-                            }
-                            Button {
-                                showFullChangelog.toggle()
-                            } label: {
-                                HStack(spacing: 6) {
-                                    Image(systemName: showFullChangelog ? "chevron.up" : "chevron.down")
-                                    Text(showFullChangelog ? "Hide full changelog" : "See all changes in detail")
-                                        .font(.system(size: 12.5, weight: .semibold))
-                                }
-                                .foregroundStyle(HermesTheme.primary)
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.top, 4)
-                            if showFullChangelog {
-                                Text(status.fullChangelog.isEmpty ? "No detailed changelog available." : status.fullChangelog)
-                                    .font(.system(size: 10.5, design: .monospaced))
-                                    .foregroundStyle(HermesTheme.ink.opacity(0.7))
-                                    .textSelection(.enabled)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
                             }
                         } else {
                             Text("You're up to date.")
