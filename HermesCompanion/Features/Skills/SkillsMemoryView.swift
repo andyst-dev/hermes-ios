@@ -336,7 +336,7 @@ private struct MemoryEditSheet: View {
                         } label: {
                             HStack(spacing: 8) {
                                 if saving {
-                                    ProgressView().tint(HermesTheme.ink)
+                                    ProgressView().tint(HermesTheme.primaryForeground)
                                 } else {
                                     Image(systemName: "checkmark.circle.fill")
                                 }
@@ -345,7 +345,7 @@ private struct MemoryEditSheet: View {
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 13)
-                            .foregroundStyle(HermesTheme.ink)
+                            .foregroundStyle(HermesTheme.primaryForeground)
                             .background(HermesTheme.primary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
                         .buttonStyle(.plain)

@@ -123,7 +123,7 @@ struct CronJobCreatorView: View {
                     } label: {
                         HStack(spacing: 8) {
                             if creating {
-                                ProgressView().tint(HermesTheme.ink)
+                                ProgressView().tint(HermesTheme.primaryForeground)
                             } else {
                                 Image(systemName: "checkmark.circle.fill")
                             }
@@ -132,7 +132,7 @@ struct CronJobCreatorView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 13)
-                        .foregroundStyle(HermesTheme.ink)
+                        .foregroundStyle(HermesTheme.primaryForeground)
                         .background(HermesTheme.primary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
                     .buttonStyle(.plain)
