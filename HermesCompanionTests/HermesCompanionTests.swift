@@ -406,4 +406,22 @@ final class HermesCompanionTests: XCTestCase {
         down.gatewayUp = false
         XCTAssertEqual(down.gatewayStatus.label, "Offline")
     }
+
+    func testWidgetSessionSkipsCronOutput() {
+        let cron = HermesSession(id: "cron-1", title: "PR veille", subtitle: "cron", updatedAt: Date(timeIntervalSince1970: 3), status: .completed, source: "cron")
+        let conv = HermesSession(id: "conv-1", title: "Derniere conv", subtitle: "desktop", updatedAt: Date(timeIntervalSince1970: 2), status: .idle, source: "desktop")
+        let older = HermesSession(id: "conv-2", title: "Plus vieille", subtitle: "telegram", updatedAt: Date(timeIntervalSince1970: 1), status: .idle, source: "telegram")
+        // cron est le plus récent (updatedAt 3) mais n'est pas une conversation
+        XCTAssertEqual(AppStore.widgetSession(from: [cron, conv, older])?.id, "conv-1")
+    }
+
+    func testWidgetSessionFallsBackWhenAllCron() {
+        let a = HermesSession(id: "c1", title: "a", subtitle: "", updatedAt: Date(timeIntervalSince1970: 2), status: .completed, source: "cron")
+        let b = HermesSession(id: "c2", title: "b", subtitle: "", updatedAt: Date(timeIntervalSince1970: 1), status: .completed, source: "cron")
+        XCTAssertEqual(AppStore.widgetSession(from: [a, b])?.id, "c1")
+    }
+
+    func testWidgetSessionEmpty() {
+        XCTAssertNil(AppStore.widgetSession(from: []))
+    }
 }

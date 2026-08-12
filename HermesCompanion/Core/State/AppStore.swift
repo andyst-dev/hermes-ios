@@ -582,8 +582,10 @@ final class AppStore: ObservableObject {
         }
         // The widget always shows the MOST RECENT session (first in the
         // desktop list, ordered by activity), not whatever the app happens
-        // to have selected.
-        if let session = sessions.first {
+        // to have selected. Cron-generated output sessions are not real
+        // conversations, so skip source "cron" and show the last genuine
+        // chat; fall back to the raw first row if every session is cron.
+        if let session = Self.widgetSession(from: sessions) {
             snapshot.sessionID = session.id
             snapshot.sessionTitle = session.title
             snapshot.sessionSubtitle = session.subtitle
@@ -605,6 +607,14 @@ final class AppStore: ObservableObject {
         snapshot.pendingApprovalCommand = pendingApproval?.command ?? ""
         snapshot.updatedAt = .now
         snapshot.write()
+    }
+
+    /// Pick the session the widget's SESSION block should show: the most
+    /// recent row that is a real conversation, skipping cron-generated output
+    /// sessions (source == "cron"). Falls back to the raw first row when every
+    /// session is cron. `sessions` is expected in activity order (newest first).
+    static func widgetSession(from sessions: [HermesSession]) -> HermesSession? {
+        sessions.first(where: { $0.source?.lowercased() != "cron" }) ?? sessions.first
     }
 
     private static func isoDate(_ raw: String) -> Date? {
