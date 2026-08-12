@@ -376,8 +376,14 @@ final class HermesCompanionTests: XCTestCase {
         snapshot.session2ID = "def"
         snapshot.session2Title = "Second chat"
         snapshot.session2Subtitle = "2 messages · Desktop"
+        snapshot.session3ID = "ghi"
+        snapshot.session3Title = "Third chat"
         snapshot.nextCronTitle = "Daily briefing"
         snapshot.nextCronDate = Date(timeIntervalSince1970: 1_750_000_000)
+        snapshot.cronList = [
+            HermesWidgetCron(title: "Daily briefing", date: Date(timeIntervalSince1970: 1_750_000_000)),
+            HermesWidgetCron(title: "Nightly cleanup", date: Date(timeIntervalSince1970: 1_750_000_100)),
+        ]
         snapshot.pendingApprovalCommand = "rm -rf /"
         snapshot.updatedAt = Date(timeIntervalSince1970: 1_750_000_100)
 
@@ -392,8 +398,12 @@ final class HermesCompanionTests: XCTestCase {
         XCTAssertEqual(decoded.session2ID, "def")
         XCTAssertEqual(decoded.session2Title, "Second chat")
         XCTAssertEqual(decoded.session2Subtitle, "2 messages · Desktop")
+        XCTAssertEqual(decoded.session3ID, "ghi")
+        XCTAssertEqual(decoded.session3Title, "Third chat")
         XCTAssertEqual(decoded.nextCronTitle, "Daily briefing")
         XCTAssertEqual(decoded.nextCronDate, snapshot.nextCronDate)
+        XCTAssertEqual(decoded.cronList?.count, 2)
+        XCTAssertEqual(decoded.cronList?.first?.title, "Daily briefing")
         XCTAssertEqual(decoded.pendingApprovalCommand, "rm -rf /")
         XCTAssertEqual(decoded.updatedAt, snapshot.updatedAt)
     }
@@ -435,6 +445,17 @@ final class HermesCompanionTests: XCTestCase {
         let a = HermesSession(id: "c1", title: "a", subtitle: "", updatedAt: Date(timeIntervalSince1970: 2), status: .completed, source: "cron")
         let b = HermesSession(id: "c2", title: "b", subtitle: "", updatedAt: Date(timeIntervalSince1970: 1), status: .completed, source: "cron")
         XCTAssertTrue(AppStore.recentConversations(from: [a, b], limit: 2).isEmpty)
+    }
+
+    func testWidgetRecentConversationsLimitThree() {
+        let cron = HermesSession(id: "c", title: "cron", subtitle: "", updatedAt: Date(timeIntervalSince1970: 6), status: .completed, source: "cron")
+        let one = HermesSession(id: "1", title: "one", subtitle: "", updatedAt: Date(timeIntervalSince1970: 5), status: .idle, source: "desktop")
+        let two = HermesSession(id: "2", title: "two", subtitle: "", updatedAt: Date(timeIntervalSince1970: 4), status: .idle, source: "telegram")
+        let three = HermesSession(id: "3", title: "three", subtitle: "", updatedAt: Date(timeIntervalSince1970: 3), status: .idle, source: "mobile")
+        let four = HermesSession(id: "4", title: "four", subtitle: "", updatedAt: Date(timeIntervalSince1970: 2), status: .idle, source: "desktop")
+        // le cron est sauté ; les 3 conversations les plus récentes restent
+        let recents = AppStore.recentConversations(from: [cron, one, two, three, four], limit: 3)
+        XCTAssertEqual(recents.map { $0.id }, ["1", "2", "3"])
     }
 
     func testWidgetSessionAllCronYieldsNoSession() {

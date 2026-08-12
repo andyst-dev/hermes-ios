@@ -5,6 +5,11 @@ import Foundation
 /// foreground refresh loop ticks; read by the widget extension to build
 /// its timeline. No push involved — iOS refreshes the widget on its own
 /// schedule.
+struct HermesWidgetCron: Codable {
+    var title: String
+    var date: Date
+}
+
 struct HermesWidgetSnapshot: Codable {
     var gatewayUp = false
     var sessionID = ""
@@ -14,8 +19,11 @@ struct HermesWidgetSnapshot: Codable {
     var session2ID: String? = nil
     var session2Title: String? = nil
     var session2Subtitle: String? = nil
+    var session3ID: String? = nil
+    var session3Title: String? = nil
     var nextCronTitle = ""
     var nextCronDate: Date?
+    var cronList: [HermesWidgetCron]? = nil
     var pendingApprovalCommand = ""
     var updatedAt = Date.distantPast
 

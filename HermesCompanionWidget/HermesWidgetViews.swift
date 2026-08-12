@@ -55,29 +55,18 @@ struct HermesOverviewView: View {
     private func smallBody(_ s: HermesWidgetSnapshot) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             sectionLabel("Session")
-            if s.sessionID.isEmpty {
-                Text("No active session")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.6))
-                    .padding(.top, 2)
+            let titles = sessionTitles(s, upTo: 2)
+            if titles.isEmpty {
+                noSessionRow(font: 11)
             } else {
-                Text(s.sessionTitle)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .padding(.top, 2)
+                sessionTitleRow(titles[0], font: 12)
+                if titles.count > 1 { sessionTitleRow(titles[1], font: 11, dim: true) }
             }
             Spacer(minLength: 6)
-            if let next = s.nextCronDate, !s.nextCronTitle.isEmpty {
+            if let first = cronRows(s, upTo: 1).first {
                 sectionLabel("Cron")
-                Text("\(s.nextCronTitle)")
-                    .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.7))
-                    .lineLimit(1)
-                    .padding(.top, 2)
-                Text(HermesOverviewView.relativeTime(from: next))
-                    .font(.system(size: 9.5))
-                    .foregroundStyle(.white.opacity(0.45))
+                cronTitleRow(first.0, font: 10.5)
+                cronTimeRow(first.1, font: 9.5)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -85,34 +74,24 @@ struct HermesOverviewView: View {
 
     private func mediumBody(_ s: HermesWidgetSnapshot) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 0) {
-                    sectionLabel("Session")
-                    activeSession(s, compact: true)
-                    secondSessionRow(s, font: 11)
-                }
-                Spacer(minLength: 8)
-                if !s.sessionID.isEmpty {
-                    Link(destination: URL(string: "hermes://session/\(s.sessionID)")!) {
-                        Text("Open")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(.black)
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 4)
-                            .background(.white.opacity(0.9), in: Capsule())
-                    }
-                }
+            sectionLabel("Session")
+            let titles = sessionTitles(s, upTo: 2)
+            if titles.isEmpty {
+                noSessionRow(font: 12.5)
+            } else {
+                sessionTitleRow(titles[0], font: 13)
+                if titles.count > 1 { sessionTitleRow(titles[1], font: 12, dim: true) }
             }
             Spacer(minLength: 6)
             Divider()
                 .overlay(Color.white.opacity(0.08))
                 .padding(.vertical, 6)
             HStack(spacing: 6) {
-                if let next = s.nextCronDate, !s.nextCronTitle.isEmpty {
+                if let first = cronRows(s, upTo: 1).first {
                     Image(systemName: "clock.arrow.circlepath")
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.4))
-                    Text("Next: \(s.nextCronTitle) · \(HermesOverviewView.relativeTime(from: next))")
+                    Text("Next: \(first.0) · \(HermesOverviewView.relativeTime(from: first.1 ?? .now))")
                         .font(.system(size: 10))
                         .foregroundStyle(.white.opacity(0.6))
                         .lineLimit(1)
@@ -133,41 +112,34 @@ struct HermesOverviewView: View {
     private func largeBody(_ s: HermesWidgetSnapshot) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             sectionLabel("Session")
-            if s.sessionID.isEmpty {
-                Text("No active session")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.6))
-                    .padding(.top, 3)
+            let titles = sessionTitles(s, upTo: 3)
+            if titles.isEmpty {
+                noSessionRow(font: 13)
             } else {
-                Text(s.sessionTitle)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .padding(.top, 3)
-                if !s.lastMessagePreview.isEmpty {
-                    Text(s.lastMessagePreview)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.white.opacity(0.65))
-                        .lineLimit(2)
-                        .padding(.top, 3)
-                }
-                secondSessionRow(s, font: 12.5)
+                sessionTitleRow(titles[0], font: 15)
+                if titles.count > 1 { sessionTitleRow(titles[1], font: 13.5, dim: true) }
+                if titles.count > 2 { sessionTitleRow(titles[2], font: 13.5, dim: true) }
             }
             Spacer(minLength: 8)
             Divider()
                 .overlay(Color.white.opacity(0.08))
                 .padding(.vertical, 6)
-            if let next = s.nextCronDate, !s.nextCronTitle.isEmpty {
+            let crons = cronRows(s, upTo: 3)
+            if !crons.isEmpty {
                 sectionLabel("Cron")
-                Text("\(s.nextCronTitle)")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.8))
-                    .lineLimit(1)
+                ForEach(Array(crons.enumerated()), id: \.offset) { _, cron in
+                    HStack {
+                        Text(cron.0)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.8))
+                            .lineLimit(1)
+                        Spacer(minLength: 6)
+                        Text(HermesOverviewView.relativeTime(from: cron.1 ?? .now))
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(.white.opacity(0.5))
+                    }
                     .padding(.top, 3)
-                Text(HermesOverviewView.relativeTime(from: next))
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(.white.opacity(0.5))
-                    .padding(.top, 1)
+                }
             }
             Spacer(minLength: 6)
             HStack {
@@ -193,53 +165,52 @@ struct HermesOverviewView: View {
         }
     }
 
-    /// Second recent conversation, shown on medium/large families where the
-    /// SESSION block has room for more than one row. Nil when there is only
-    /// one conversation (or none).
-    @ViewBuilder
-    private func secondSessionRow(_ s: HermesWidgetSnapshot, font: CGFloat = 12) -> some View {
-        if let t2 = s.session2Title {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(t2)
-                    .font(.system(size: font, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.9))
-                    .lineLimit(1)
-                if let sub = s.session2Subtitle, !sub.isEmpty {
-                    Text(sub)
-                        .font(.system(size: font - 1.5))
-                        .foregroundStyle(.white.opacity(0.4))
-                        .lineLimit(1)
-                }
-            }
-            .padding(.top, 5)
-        }
+    private func sessionTitles(_ s: HermesWidgetSnapshot, upTo max: Int) -> [String] {
+        var out: [String] = []
+        if !s.sessionTitle.isEmpty { out.append(s.sessionTitle) }
+        if let t = s.session2Title { out.append(t) }
+        if let t = s.session3Title { out.append(t) }
+        return Array(out.prefix(max))
     }
 
-    private func activeSession(_ s: HermesWidgetSnapshot, compact: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            if s.sessionID.isEmpty {
-                Text("No active session")
-                    .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.7))
-            } else {
-                Text(s.sessionTitle)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                if compact, !s.lastMessagePreview.isEmpty {
-                    Text(s.lastMessagePreview)
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(.white.opacity(0.65))
-                        .lineLimit(1)
-                } else if !s.sessionSubtitle.isEmpty {
-                    Text(s.sessionSubtitle)
-                        .font(.system(size: 9.5))
-                        .foregroundStyle(.white.opacity(0.45))
-                        .lineLimit(1)
-                }
-            }
+    private func cronRows(_ s: HermesWidgetSnapshot, upTo max: Int) -> [(String, Date?)] {
+        if let list = s.cronList {
+            return Array(list.prefix(max)).map { ($0.title, $0.date) }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        if !s.nextCronTitle.isEmpty {
+            return [(s.nextCronTitle, s.nextCronDate)]
+        }
+        return []
+    }
+
+    private func sessionTitleRow(_ title: String, font: CGFloat, dim: Bool = false) -> some View {
+        Text(title)
+            .font(.system(size: font, weight: .semibold))
+            .foregroundStyle(dim ? .white.opacity(0.85) : .white)
+            .lineLimit(1)
+            .padding(.top, 3)
+    }
+
+    private func noSessionRow(font: CGFloat) -> some View {
+        Text("No active session")
+            .font(.system(size: font, weight: .semibold))
+            .foregroundStyle(.white.opacity(0.6))
+            .padding(.top, 3)
+    }
+
+    private func cronTitleRow(_ title: String, font: CGFloat) -> some View {
+        Text(title)
+            .font(.system(size: font, weight: .medium))
+            .foregroundStyle(.white.opacity(0.8))
+            .lineLimit(1)
+            .padding(.top, 3)
+    }
+
+    private func cronTimeRow(_ date: Date?, font: CGFloat) -> some View {
+        Text(HermesOverviewView.relativeTime(from: date ?? .now))
+            .font(.system(size: font))
+            .foregroundStyle(.white.opacity(0.45))
+            .padding(.top, 1)
     }
 
     private func statusColor(_ status: HermesWidgetSnapshot.GatewayStatus) -> Color {

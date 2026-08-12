@@ -584,33 +584,36 @@ final class AppStore: ObservableObject {
         // desktop list, ordered by activity), not whatever the app happens
         // to have selected. Cron-generated output sessions are not real
         // conversations, so skip source "cron" and show the last genuine
-        // chats. Larger widget families also render a second recent
-        // conversation when one exists.
-        let recents = Self.recentConversations(from: sessions, limit: 2)
+        // chats (up to three for the large family).
+        let recents = Self.recentConversations(from: sessions, limit: 3)
         if let session = recents.first {
             snapshot.sessionID = session.id
             snapshot.sessionTitle = session.title
             snapshot.sessionSubtitle = session.subtitle
         }
         if recents.count >= 2 {
-            let second = recents[1]
-            snapshot.session2ID = second.id
-            snapshot.session2Title = second.title
-            snapshot.session2Subtitle = second.subtitle
+            snapshot.session2ID = recents[1].id
+            snapshot.session2Title = recents[1].title
+            snapshot.session2Subtitle = recents[1].subtitle
+        }
+        if recents.count >= 3 {
+            snapshot.session3ID = recents[2].id
+            snapshot.session3Title = recents[2].title
         }
         if let last = messages.last, !last.text.isEmpty, selectedSessionID == snapshot.sessionID {
             snapshot.lastMessagePreview = String(last.text.prefix(80))
         }
-        let nextJob = cronJobs
+        let activeCrons = cronJobs
             .filter { $0.enabled && $0.state != "paused" }
-            .compactMap { job -> (title: String, date: Date)? in
+            .compactMap { job -> HermesWidgetCron? in
                 guard let raw = job.nextRunAt, let date = Self.isoDate(raw) else { return nil }
-                return (job.name, date)
+                return HermesWidgetCron(title: job.name, date: date)
             }
-            .min { $0.date < $1.date }
-        if let nextJob {
-            snapshot.nextCronTitle = nextJob.title
-            snapshot.nextCronDate = nextJob.date
+            .sorted { $0.date < $1.date }
+        snapshot.cronList = Array(activeCrons.prefix(3))
+        if let first = snapshot.cronList?.first {
+            snapshot.nextCronTitle = first.title
+            snapshot.nextCronDate = first.date
         }
         snapshot.pendingApprovalCommand = pendingApproval?.command ?? ""
         snapshot.updatedAt = .now
