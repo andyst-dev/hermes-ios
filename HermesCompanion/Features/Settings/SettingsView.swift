@@ -295,7 +295,9 @@ struct SettingsView: View {
     private var updateSubtitle: String {
         guard let status = store.updateStatus else { return "Checking for updates…" }
         if status.updateAvailable {
-            return "Update available — \(status.highlights.count) incoming changes"
+            // Le décompte des changements est déjà affiché par la ligne
+            // "What's new" juste en dessous — inutile de le dupliquer ici.
+            return "Update available"
         }
         return "You're up to date"
     }
