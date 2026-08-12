@@ -89,6 +89,7 @@ struct HermesOverviewView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     sectionLabel("Session")
                     activeSession(s, compact: true)
+                    secondSessionRow(s, font: 11)
                 }
                 Spacer(minLength: 8)
                 if !s.sessionID.isEmpty {
@@ -150,6 +151,7 @@ struct HermesOverviewView: View {
                         .lineLimit(2)
                         .padding(.top, 3)
                 }
+                secondSessionRow(s, font: 12.5)
             }
             Spacer(minLength: 8)
             Divider()
@@ -188,6 +190,28 @@ struct HermesOverviewView: View {
                         .background(.white.opacity(0.9), in: Capsule())
                 }
             }
+        }
+    }
+
+    /// Second recent conversation, shown on medium/large families where the
+    /// SESSION block has room for more than one row. Nil when there is only
+    /// one conversation (or none).
+    @ViewBuilder
+    private func secondSessionRow(_ s: HermesWidgetSnapshot, font: CGFloat = 12) -> some View {
+        if let t2 = s.session2Title {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(t2)
+                    .font(.system(size: font, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .lineLimit(1)
+                if let sub = s.session2Subtitle, !sub.isEmpty {
+                    Text(sub)
+                        .font(.system(size: font - 1.5))
+                        .foregroundStyle(.white.opacity(0.4))
+                        .lineLimit(1)
+                }
+            }
+            .padding(.top, 5)
         }
     }
 

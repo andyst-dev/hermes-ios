@@ -373,6 +373,9 @@ final class HermesCompanionTests: XCTestCase {
         snapshot.sessionTitle = "Test chat"
         snapshot.sessionSubtitle = "3 messages · Telegram"
         snapshot.lastMessagePreview = "Hello world"
+        snapshot.session2ID = "def"
+        snapshot.session2Title = "Second chat"
+        snapshot.session2Subtitle = "2 messages · Desktop"
         snapshot.nextCronTitle = "Daily briefing"
         snapshot.nextCronDate = Date(timeIntervalSince1970: 1_750_000_000)
         snapshot.pendingApprovalCommand = "rm -rf /"
@@ -386,6 +389,9 @@ final class HermesCompanionTests: XCTestCase {
         XCTAssertEqual(decoded.sessionTitle, "Test chat")
         XCTAssertEqual(decoded.sessionSubtitle, "3 messages · Telegram")
         XCTAssertEqual(decoded.lastMessagePreview, "Hello world")
+        XCTAssertEqual(decoded.session2ID, "def")
+        XCTAssertEqual(decoded.session2Title, "Second chat")
+        XCTAssertEqual(decoded.session2Subtitle, "2 messages · Desktop")
         XCTAssertEqual(decoded.nextCronTitle, "Daily briefing")
         XCTAssertEqual(decoded.nextCronDate, snapshot.nextCronDate)
         XCTAssertEqual(decoded.pendingApprovalCommand, "rm -rf /")
@@ -415,10 +421,27 @@ final class HermesCompanionTests: XCTestCase {
         XCTAssertEqual(AppStore.widgetSession(from: [cron, conv, older])?.id, "conv-1")
     }
 
-    func testWidgetSessionFallsBackWhenAllCron() {
+    func testWidgetRecentConversationsReturnsTopTwoSkippingCron() {
+        let cron = HermesSession(id: "c1", title: "PR veille", subtitle: "cron", updatedAt: Date(timeIntervalSince1970: 5), status: .completed, source: "cron")
+        let newest = HermesSession(id: "a", title: "Newest", subtitle: "desktop", updatedAt: Date(timeIntervalSince1970: 4), status: .idle, source: "desktop")
+        let middle = HermesSession(id: "b", title: "Middle", subtitle: "telegram", updatedAt: Date(timeIntervalSince1970: 3), status: .idle, source: "telegram")
+        let third = HermesSession(id: "c", title: "Third", subtitle: "mobile", updatedAt: Date(timeIntervalSince1970: 2), status: .idle, source: "mobile")
+        // le cron (updatedAt 5) est sauté ; on prend les 2 conversations suivantes
+        let recents = AppStore.recentConversations(from: [cron, newest, middle, third], limit: 2)
+        XCTAssertEqual(recents.map { $0.id }, ["a", "b"])
+    }
+
+    func testWidgetRecentConversationsAllCronIsEmpty() {
         let a = HermesSession(id: "c1", title: "a", subtitle: "", updatedAt: Date(timeIntervalSince1970: 2), status: .completed, source: "cron")
         let b = HermesSession(id: "c2", title: "b", subtitle: "", updatedAt: Date(timeIntervalSince1970: 1), status: .completed, source: "cron")
-        XCTAssertEqual(AppStore.widgetSession(from: [a, b])?.id, "c1")
+        XCTAssertTrue(AppStore.recentConversations(from: [a, b], limit: 2).isEmpty)
+    }
+
+    func testWidgetSessionAllCronYieldsNoSession() {
+        let a = HermesSession(id: "c1", title: "a", subtitle: "", updatedAt: Date(timeIntervalSince1970: 2), status: .completed, source: "cron")
+        let b = HermesSession(id: "c2", title: "b", subtitle: "", updatedAt: Date(timeIntervalSince1970: 1), status: .completed, source: "cron")
+        // un cron n'est jamais une conversation : même si tout est cron, pas de session à montrer
+        XCTAssertNil(AppStore.widgetSession(from: [a, b]))
     }
 
     func testWidgetSessionEmpty() {

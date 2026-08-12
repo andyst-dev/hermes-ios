@@ -584,11 +584,19 @@ final class AppStore: ObservableObject {
         // desktop list, ordered by activity), not whatever the app happens
         // to have selected. Cron-generated output sessions are not real
         // conversations, so skip source "cron" and show the last genuine
-        // chat; fall back to the raw first row if every session is cron.
-        if let session = Self.widgetSession(from: sessions) {
+        // chats. Larger widget families also render a second recent
+        // conversation when one exists.
+        let recents = Self.recentConversations(from: sessions, limit: 2)
+        if let session = recents.first {
             snapshot.sessionID = session.id
             snapshot.sessionTitle = session.title
             snapshot.sessionSubtitle = session.subtitle
+        }
+        if recents.count >= 2 {
+            let second = recents[1]
+            snapshot.session2ID = second.id
+            snapshot.session2Title = second.title
+            snapshot.session2Subtitle = second.subtitle
         }
         if let last = messages.last, !last.text.isEmpty, selectedSessionID == snapshot.sessionID {
             snapshot.lastMessagePreview = String(last.text.prefix(80))
@@ -609,12 +617,18 @@ final class AppStore: ObservableObject {
         snapshot.write()
     }
 
-    /// Pick the session the widget's SESSION block should show: the most
-    /// recent row that is a real conversation, skipping cron-generated output
-    /// sessions (source == "cron"). Falls back to the raw first row when every
-    /// session is cron. `sessions` is expected in activity order (newest first).
+    /// Pick the sessions the widget's SESSION block should show: the most
+    /// recent rows that are real conversations, skipping cron-generated output
+    /// sessions (source == "cron"). `sessions` is expected in activity order
+    /// (newest first). Falls back to an empty list when every session is cron.
+    static func recentConversations(from sessions: [HermesSession], limit: Int) -> [HermesSession] {
+        Array(sessions.filter { $0.source?.lowercased() != "cron" }.prefix(limit))
+    }
+
+    /// The single most-recent real conversation (used by the widget's primary
+    /// SESSION slot).
     static func widgetSession(from sessions: [HermesSession]) -> HermesSession? {
-        sessions.first(where: { $0.source?.lowercased() != "cron" }) ?? sessions.first
+        recentConversations(from: sessions, limit: 1).first
     }
 
     private static func isoDate(_ raw: String) -> Date? {

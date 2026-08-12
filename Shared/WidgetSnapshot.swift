@@ -11,6 +11,9 @@ struct HermesWidgetSnapshot: Codable {
     var sessionTitle = ""
     var sessionSubtitle = ""
     var lastMessagePreview = ""
+    var session2ID: String? = nil
+    var session2Title: String? = nil
+    var session2Subtitle: String? = nil
     var nextCronTitle = ""
     var nextCronDate: Date?
     var pendingApprovalCommand = ""
