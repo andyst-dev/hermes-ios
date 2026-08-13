@@ -500,11 +500,142 @@ private extension Text {
     }
 }
 
+private struct HermesTodoItem {
+    var content: String
+    var status: TodoStatus
+}
+
+private enum TodoStatus: String {
+    case pending
+    case in_progress
+    case completed
+    case cancelled
+}
+
+/// Parse the todo items out of a `todo` tool call's JSON command (the args
+/// carry `{"todos": [{content, id, status}], ...}`). Mirrors the Desktop's
+/// parseTodos.
+private func parseTodos(from command: String) -> [HermesTodoItem]? {
+    guard let data = command.data(using: .utf8),
+          let obj = try? JSONSerialization.jsonObject(with: data) else { return nil }
+    let raw: Any?
+    if let arr = obj as? [Any] {
+        raw = arr
+    } else if let dict = obj as? [String: Any] {
+        raw = dict["todos"]
+    } else {
+        raw = nil
+    }
+    guard let arr = raw as? [[String: Any]] else { return nil }
+    var items: [HermesTodoItem] = []
+    for item in arr {
+        guard let content = item["content"] as? String,
+              !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              let statusRaw = item["status"] as? String,
+              let status = TodoStatus(rawValue: statusRaw) else { continue }
+        items.append(HermesTodoItem(content: content, status: status))
+    }
+    return items.isEmpty ? nil : items
+}
+
+/// Collapsible "Tasks N/M" checklist for the agent's `todo` tool, matching the
+/// Desktop status stack (✓ done / … in progress / ○ pending / ✕ cancelled).
+private struct TodoChecklistView: View {
+    @ObservedObject private var theme = ThemeManager.shared
+    let items: [HermesTodoItem]
+    @State private var expanded = true
+
+    private var doneCount: Int { items.filter { $0.status == .completed }.count }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) { expanded.toggle() }
+            } label: {
+                HStack(spacing: 7) {
+                    Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                    Image(systemName: "checklist")
+                        .font(.system(size: 11, weight: .medium))
+                    Text("Tasks \(doneCount)/\(items.count)")
+                        .font(.system(size: 12, weight: .semibold))
+                        .textCase(.uppercase)
+                        .kerning(0.6)
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(HermesTheme.mutedForeground)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(HermesTheme.card, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(HermesTheme.border, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+
+            if expanded {
+                VStack(alignment: .leading, spacing: 7) {
+                    ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                        HStack(alignment: .top, spacing: 8) {
+                            statusGlyph(item.status)
+                            Text(item.content)
+                                .font(.system(size: 12.5, weight: .medium))
+                                .foregroundStyle(textColor(item.status))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(HermesTheme.background.opacity(0.55), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(HermesTheme.border.opacity(0.6), lineWidth: 1))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func statusGlyph(_ status: TodoStatus) -> some View {
+        switch status {
+        case .completed:
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(HermesTheme.green)
+        case .in_progress:
+            Image(systemName: "ellipsis.circle")
+                .foregroundStyle(HermesTheme.warm)
+        case .pending:
+            Image(systemName: "circle")
+                .foregroundStyle(HermesTheme.mutedForeground.opacity(0.7))
+        case .cancelled:
+            Image(systemName: "xmark.circle")
+                .foregroundStyle(HermesTheme.mutedForeground.opacity(0.6))
+        }
+    }
+
+    private func textColor(_ status: TodoStatus) -> Color {
+        switch status {
+        case .cancelled: HermesTheme.mutedForeground.opacity(0.6)
+        default: HermesTheme.ink.opacity(0.88)
+        }
+    }
+}
+
 private struct ToolCallCard: View {
     @ObservedObject private var theme = ThemeManager.shared
     let tool: HermesToolCall
 
     var body: some View {
+        if let todos = todoItems {
+            TodoChecklistView(items: todos)
+        } else {
+            defaultRow
+        }
+    }
+
+    private var todoItems: [HermesTodoItem]? {
+        guard tool.name.lowercased() == "todo" else { return nil }
+        return parseTodos(from: tool.command ?? "")
+    }
+
+    private var defaultRow: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 14, weight: .bold))
