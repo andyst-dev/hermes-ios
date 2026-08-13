@@ -75,10 +75,11 @@ struct HermesCompanionApp: App {
             // Foreground auto-refresh lives in AppStore; keep it honest about
             // whether the app is actually on screen.
             store.isAppActive = (phase == .active)
-            if phase == .active {
-                // Face ID lock re-arms when the app comes back to the foreground.
-                store.lockNow()
-            }
+            // NOTE: no re-lock on foreground. Re-arming on every .active was
+            // unusable on a real device: the Face ID/passcode prompt itself
+            // sends the app inactive→active, so unlocking re-triggered the
+            // lock and the app locked again the moment it opened. The lock
+            // now only arms on cold launch (AppStore.configureLockIfNeeded).
             if phase == .background {
                 // Remember an in-flight turn so a later background check can
                 // alert "reply ready" once the desktop finishes it.
