@@ -333,6 +333,8 @@ private struct MarkdownMessageText: View {
                     }
                     .background(HermesTheme.card.opacity(0.78), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(HermesTheme.stroke, lineWidth: 1))
+                case .table(let header, let rows):
+                    TableView(header: header, rows: rows)
                 }
             }
         }
@@ -340,10 +342,57 @@ private struct MarkdownMessageText: View {
     }
 }
 
+/// Renders a GFM markdown table as a bordered grid (header + rows), matching
+/// the Desktop chat's table look.
+private struct TableView: View {
+    @ObservedObject private var theme = ThemeManager.shared
+    let header: [String]
+    let rows: [[String]]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                ForEach(header.indices, id: \.self) { c in
+                    Text(header[c])
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(HermesTheme.ink)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(HermesTheme.card.opacity(0.85))
+            Divider().overlay(HermesTheme.border.opacity(0.8))
+
+            ForEach(rows.indices, id: \.self) { r in
+                let row = rows[r]
+                HStack(spacing: 10) {
+                    ForEach(header.indices, id: \.self) { c in
+                        Text(row.count > c ? row[c] : "")
+                            .font(.system(size: 11, weight: .regular))
+                            .foregroundStyle(HermesTheme.ink.opacity(0.85))
+                            .lineLimit(1)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                if r < rows.count - 1 {
+                    Divider().overlay(HermesTheme.border.opacity(0.5))
+                }
+            }
+        }
+        .background(HermesTheme.card.opacity(0.78), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(HermesTheme.stroke, lineWidth: 1))
+    }
+}
+
 private struct MarkdownBlock: Identifiable {
     enum Kind {
         case prose(String)
         case code(String)
+        case table(header: [String], rows: [[String]])
     }
 
     let id = UUID()
@@ -367,8 +416,12 @@ private struct MarkdownBlock: Identifiable {
             code.removeAll()
         }
 
-        for line in raw.components(separatedBy: .newlines) {
-            if line.trimmingCharacters(in: .whitespaces).hasPrefix("```") {
+        let lines = raw.components(separatedBy: .newlines)
+        var i = 0
+        while i < lines.count {
+            let line = lines[i]
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("```") {
                 if insideCode {
                     flushCode()
                     insideCode = false
@@ -376,17 +429,61 @@ private struct MarkdownBlock: Identifiable {
                     flushProse()
                     insideCode = true
                 }
-            } else if insideCode {
-                code.append(line)
-            } else {
-                prose.append(line)
+                i += 1
+                continue
             }
+            if insideCode {
+                code.append(line)
+                i += 1
+                continue
+            }
+            if trimmed.hasPrefix("|") {
+                flushProse()
+                if let (block, consumed) = parseTable(lines, from: i) {
+                    blocks.append(block)
+                    i += consumed
+                    continue
+                }
+                prose.append(line)
+                i += 1
+                continue
+            }
+            prose.append(line)
+            i += 1
         }
 
         if insideCode { flushCode() }
         flushProse()
         if blocks.isEmpty { return [MarkdownBlock(kind: .prose(raw))] }
         return blocks
+    }
+
+    /// Parse a GFM-style table starting at `lines[start]` (a `|`-prefixed
+    /// header line), with the second line being the `| --- | --- |` separator.
+    /// Returns the table block and how many lines it consumed.
+    static func parseTable(_ lines: [String], from start: Int) -> (MarkdownBlock, Int)? {
+        func cells(_ line: String) -> [String] {
+            var parts = line.split(separator: "|", omittingEmptySubsequences: false)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+            if parts.first?.isEmpty == true { parts.removeFirst() }
+            if parts.last?.isEmpty == true { parts.removeLast() }
+            return parts
+        }
+        let header = cells(lines[start])
+        guard header.count >= 2, start + 1 < lines.count else { return nil }
+        let sep = lines[start + 1].trimmingCharacters(in: .whitespaces)
+        guard sep.hasPrefix("|"), sep.dropFirst().contains("-") else { return nil }
+        var rows: [[String]] = []
+        var consumed = 2
+        var j = start + 2
+        while j < lines.count {
+            let t = lines[j].trimmingCharacters(in: .whitespaces)
+            if !t.hasPrefix("|") { break }
+            rows.append(cells(lines[j]))
+            j += 1
+            consumed += 1
+        }
+        return (MarkdownBlock(kind: .table(header: header, rows: rows)), consumed)
     }
 }
 
