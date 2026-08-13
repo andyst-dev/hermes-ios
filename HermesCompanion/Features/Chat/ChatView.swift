@@ -17,9 +17,26 @@ struct ChatView: View {
     var onBack: (() -> Void)? = nil
     @State private var userScrolledUp = false
 
+    /// Latest todo list for this conversation (the last `todo` tool call wins),
+    /// matching the Desktop's persistent Tasks panel. Scans the transcript from
+    /// the newest message so it reflects the agent's current state.
+    private var latestTodos: [HermesTodoItem]? {
+        for message in store.messages.reversed() {
+            for tool in message.toolCalls where tool.name.lowercased() == "todo" {
+                if let todos = parseTodos(from: tool.command ?? "") { return todos }
+            }
+        }
+        return nil
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             CompactChatControls(showingInspector: $showingInspector, showingModels: $showingModels, onBack: onBack)
+            if let todos = latestTodos {
+                TodoChecklistView(items: todos)
+                    .padding(.horizontal, 14)
+                    .padding(.top, 8)
+            }
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 18, pinnedViews: [.sectionHeaders]) {
@@ -623,16 +640,13 @@ private struct ToolCallCard: View {
     let tool: HermesToolCall
 
     var body: some View {
-        if let todos = todoItems {
-            TodoChecklistView(items: todos)
+        // todo lists are hoisted to the persistent Tasks panel above the chat
+        // (matching Desktop), so the inline tool row is suppressed here.
+        if tool.name.lowercased() == "todo" {
+            EmptyView()
         } else {
             defaultRow
         }
-    }
-
-    private var todoItems: [HermesTodoItem]? {
-        guard tool.name.lowercased() == "todo" else { return nil }
-        return parseTodos(from: tool.command ?? "")
     }
 
     private var defaultRow: some View {
