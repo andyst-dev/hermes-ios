@@ -24,11 +24,7 @@ struct RootView: View {
                     ConnectView()
                 }
             }
-            if store.isLocked {
-                LockView()
-                    .transition(.opacity)
-                    .zIndex(10)
-            }
+            // App lock removed (Coming soon in Settings) — no LockView overlay.
         }
         .tint(HermesTheme.ring)
         .sheet(isPresented: $showingSettings) {

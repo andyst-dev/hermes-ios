@@ -51,7 +51,7 @@ final class AppStore: ObservableObject {
 
     init(client: HermesClient) {
         self.client = client
-        configureLockIfNeeded()
+        // App lock is disabled (shown as "Coming soon" in Settings Security).
     }
 
     /// Locks the app on launch when the Face ID toggle is on. If neither

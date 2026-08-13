@@ -14,7 +14,6 @@ struct SettingsView: View {
     @State private var showingStats = false
     @State private var actionStatus: String?
     @AppStorage("hermes.debugAutoConnect") private var debugAutoConnect = false
-    @AppStorage("hermes.faceidLock") private var faceIDLock = false
 
     var body: some View {
         HermesMobileScreen(title: "Settings", subtitle: connectionLabel, icon: "gearshape", showsDone: true) {
@@ -149,20 +148,20 @@ struct SettingsView: View {
                         HStack(spacing: 10) {
                             Image(systemName: "faceid")
                                 .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(HermesTheme.green)
+                                .foregroundStyle(HermesTheme.mutedForeground)
                                 .frame(width: 18)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Face ID lock")
                                     .font(.system(size: 13.5, weight: .semibold))
-                                    .foregroundStyle(HermesTheme.ink)
-                                Text("Require Face ID (or the device passcode) when the app opens or returns to the foreground")
-                                    .font(.system(size: 10.5))
-                                    .foregroundStyle(HermesTheme.mutedForeground.opacity(0.78))
+                                    .foregroundStyle(HermesTheme.ink.opacity(0.55))
+                                Text("Coming soon")
+                                    .font(.system(size: 10.5, weight: .semibold))
+                                    .foregroundStyle(HermesTheme.warm)
                             }
                             Spacer()
-                            Toggle("", isOn: $faceIDLock)
-                                .labelsHidden()
-                                .toggleStyle(PlutoToggleStyle())
+                            Image(systemName: "clock")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(HermesTheme.mutedForeground)
                         }
                         .padding(.horizontal, 10)
                         .padding(.vertical, 7)
