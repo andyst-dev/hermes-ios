@@ -297,7 +297,11 @@ private struct PinnedSection: View {
                                 await store.select(session: session)
                             }
                         } label: {
-                            SidebarSessionRow(session: session, selected: session.id == store.selectedSessionID)
+                            SidebarSessionRow(
+                                session: session,
+                                selected: session.id == store.selectedSessionID,
+                                isGenerating: isGenerating(session)
+                            )
                         }
                         .buttonStyle(.plain)
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -317,6 +321,14 @@ private struct PinnedSection: View {
                 }
             }
         }
+    }
+
+    private func isGenerating(_ session: HermesSession) -> Bool {
+        // A conversation has a response in progress when the backend reports it
+        // running, OR when this device is actively streaming that exact session
+        // (covers the moment right after sending before the backend flips it).
+        session.status == .running ||
+            (store.isStreaming && session.id == store.selectedSessionID)
     }
 }
 
@@ -381,7 +393,11 @@ private struct SessionSourceSection: View {
                                         onSessionSelected()
                                     }
                                 } label: {
-                                    SidebarSessionRow(session: session, selected: session.id == store.selectedSessionID)
+                                    SidebarSessionRow(
+                                        session: session,
+                                        selected: session.id == store.selectedSessionID,
+                                        isGenerating: isGenerating(session)
+                                    )
                                 }
                                 .buttonStyle(.plain)
                                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -421,6 +437,14 @@ private struct SessionSourceSection: View {
             ("Last week", Array(ordered.dropFirst(10)))
         ]
         return chunks.filter { !$0.1.isEmpty }
+    }
+
+    private func isGenerating(_ session: HermesSession) -> Bool {
+        // A conversation has a response in progress when the backend reports it
+        // running, OR when this device is actively streaming that exact session
+        // (covers the moment right after sending before the backend flips it).
+        session.status == .running ||
+            (store.isStreaming && session.id == store.selectedSessionID)
     }
 }
 
@@ -471,12 +495,17 @@ private struct SidebarSessionRow: View {
     @ObservedObject private var theme = ThemeManager.shared
     let session: HermesSession
     let selected: Bool
+    /// True when this exact session is currently generating a response (either
+    /// streamed from this device, or reported running by the backend). Shows a
+    /// yellow "response in progress" dot even after leaving the conversation.
+    let isGenerating: Bool
 
     var body: some View {
         HStack(spacing: 9) {
             Circle()
-                .fill(statusColor.opacity(selected ? 1.0 : 0.55))
-                .frame(width: 4.5, height: 4.5)
+                .fill(statusDotColor)
+                .frame(width: isGenerating ? 7 : 4.5, height: isGenerating ? 7 : 4.5)
+                .shadow(color: isGenerating ? HermesTheme.warm.opacity(0.6) : .clear, radius: 3)
             VStack(alignment: .leading, spacing: 1) {
                 Text(session.title)
                     .font(.system(size: 13.5, weight: selected ? .semibold : .regular))
@@ -504,13 +533,16 @@ private struct SidebarSessionRow: View {
         .contentShape(Rectangle())
     }
 
-    private var statusColor: Color {
+    private var statusDotColor: Color {
+        // A response in progress gets a prominent yellow dot so it's visible
+        // from the session list even after leaving the conversation.
+        if isGenerating { return HermesTheme.warm }
         switch session.status {
-        case .idle: HermesTheme.mutedForeground
-        case .running: HermesTheme.primary
-        case .waitingApproval: HermesTheme.warm
-        case .failed: HermesTheme.red
-        case .completed: HermesTheme.mutedForeground
+        case .idle: return HermesTheme.mutedForeground.opacity(0.5)
+        case .running: return HermesTheme.primary
+        case .waitingApproval: return HermesTheme.warm
+        case .failed: return HermesTheme.red
+        case .completed: return HermesTheme.mutedForeground.opacity(0.5)
         }
     }
 }
