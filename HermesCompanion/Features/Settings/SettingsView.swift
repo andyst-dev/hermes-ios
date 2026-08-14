@@ -3,6 +3,9 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject private var theme = ThemeManager.shared
     @EnvironmentObject private var store: AppStore
+    /// When true, opens the Cron panel as soon as the settings sheet appears.
+    /// Set by a widget deep link (hermes://cron).
+    var openCronOnAppear: Bool = false
     @State private var showingModels = false
     @State private var showingFiles = false
     @State private var showingCron = false
@@ -12,6 +15,7 @@ struct SettingsView: View {
     @State private var showingToolOutput = false
     @State private var showingWhatsNew = false
     @State private var showingStats = false
+    @State private var isCheckingUpdate = false
     @State private var actionStatus: String?
     @AppStorage("hermes.debugAutoConnect") private var debugAutoConnect = false
 
@@ -119,9 +123,20 @@ struct SettingsView: View {
                             showingToolOutput = true
                         }
                         SettingsButtonRow(title: "Hermes update", subtitle: updateSubtitle, icon: "arrow.down.circle", accent: updateAccent) {
-                            showingUpdateConfirmation = true
+                            // Always tappable: re-checks for updates, or offers the
+                            // install confirmation when one is available. A tap while
+                            // disconnected just no-ops (refreshUpdateStatus guards on
+                            // .connected).
+                            if store.updateStatus?.updateAvailable == true {
+                                showingUpdateConfirmation = true
+                            } else {
+                                Task {
+                                    isCheckingUpdate = true
+                                    await store.refreshUpdateStatus()
+                                    isCheckingUpdate = false
+                                }
+                            }
                         }
-                        .disabled(store.updateStatus?.updateAvailable != true)
                         if store.updateStatus?.updateAvailable == true {
                             SettingsButtonRow(title: "What's new", subtitle: "\(store.updateStatus?.highlights.count ?? 0) incoming changes", icon: "sparkles", accent: HermesTheme.warm) {
                                 showingWhatsNew = true
@@ -243,6 +258,13 @@ struct SettingsView: View {
             }
         }
         .presentationDetents([.large])
+        .onAppear {
+            // Widget deep link (hermes://cron): open the Cron panel as soon as
+            // the settings sheet appears, then clear the flag.
+            if openCronOnAppear {
+                showingCron = true
+            }
+        }
         .sheet(isPresented: $showingModels) {
             ModelPickerView()
                 .environmentObject(store)
@@ -292,7 +314,8 @@ struct SettingsView: View {
     }
 
     private var updateSubtitle: String {
-        guard let status = store.updateStatus else { return "Checking for updates…" }
+        if isCheckingUpdate { return "Checking for updates…" }
+        guard let status = store.updateStatus else { return "Tap to check for updates" }
         if status.updateAvailable {
             // Le décompte des changements est déjà affiché par la ligne
             // "What's new" juste en dessous — inutile de le dupliquer ici.

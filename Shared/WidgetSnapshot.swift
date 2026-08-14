@@ -21,6 +21,14 @@ struct HermesWidgetSnapshot: Codable {
     var session2Subtitle: String? = nil
     var session3ID: String? = nil
     var session3Title: String? = nil
+    /// Ordered list of recent real-conversation titles (newest first). The
+    /// large family renders up to 8 rows, so this carries more than the
+    /// legacy sessionTitle/2/3 slots (which stay for backward compat with
+    /// older snapshots). Parallel to `sessionIDs`.
+    var sessionTitles: [String] = []
+    /// IDs parallel to `sessionTitles`, so tapping a widget row opens the exact
+    /// conversation (via `hermes://session/<id>`).
+    var sessionIDs: [String] = []
     var nextCronTitle = ""
     var nextCronDate: Date?
     var cronList: [HermesWidgetCron]? = nil

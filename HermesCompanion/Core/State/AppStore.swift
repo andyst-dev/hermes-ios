@@ -1,5 +1,6 @@
 import Foundation
 import LocalAuthentication
+import WidgetKit
 
 @MainActor
 final class AppStore: ObservableObject {
@@ -43,6 +44,20 @@ final class AppStore: ObservableObject {
     /// Set by a widget deep link (hermes://session/… or hermes://new-chat);
     /// MainShellView watches it to bring up the chat.
     @Published var deepLinkSessionID: String?
+
+    /// Non-chat screen requested by a widget deep link (currently only
+    /// `.cron` for `hermes://cron`). RootView observes it to open Settings and
+    /// drill into the requested panel.
+    @Published var deepLinkScreen: DeepLinkScreen?
+
+    enum DeepLinkScreen {
+        case cron
+    }
+
+    /// Deferred target session id from a widget deep link received before the
+    /// app finished connecting. Consumed in `connect()` once connected so the
+    /// chat loads real messages instead of racing the connection handshake.
+    private var pendingDeepLinkSessionID: String?
 
     // MARK: - Face ID / passcode lock
 
@@ -130,6 +145,12 @@ final class AppStore: ObservableObject {
             startAutoRefresh()
             writeWidgetSnapshot()
             consumePendingOpenSession()
+            // A widget deep link may have arrived before we were connected;
+            // open the requested session now that the client is live.
+            if let pending = pendingDeepLinkSessionID {
+                pendingDeepLinkSessionID = nil
+                await openSession(id: pending)
+            }
         } catch {
             connection = .failed(error.localizedDescription)
         }
@@ -585,7 +606,9 @@ final class AppStore: ObservableObject {
         // to have selected. Cron-generated output sessions are not real
         // conversations, so skip source "cron" and show the last genuine
         // chats (up to three for the large family).
-        let recents = Self.recentConversations(from: sessions, limit: 3)
+        let recents = Self.recentConversations(from: sessions, limit: 8)
+        snapshot.sessionTitles = recents.map(\.title)
+        snapshot.sessionIDs = recents.map(\.id)
         if let session = recents.first {
             snapshot.sessionID = session.id
             snapshot.sessionTitle = session.title
@@ -618,6 +641,12 @@ final class AppStore: ObservableObject {
         snapshot.pendingApprovalCommand = pendingApproval?.command ?? ""
         snapshot.updatedAt = .now
         snapshot.write()
+        // Force the home-screen widget to re-render now. Without this it keeps
+        // its old timeline and iOS only refreshes on its own (15-60 min)
+        // schedule, so an offline→ready flip or a session change stays stale
+        // (observed: widget showed OFFLINE / no session right after reconnect
+        // even though the snapshot was correct).
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     /// Pick the sessions the widget's SESSION block should show: the most
@@ -914,16 +943,49 @@ final class AppStore: ObservableObject {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               components.scheme == "hermes" else { return }
         let path = components.path
-        if path == "/new-chat" {
+        if components.host == "cron" || path == "/cron" {
+            // Widget cron tap (hermes://cron): open the Cron menu, not a chat.
+            deepLinkSessionID = nil
+            deepLinkScreen = .cron
+        } else if path == "/new-chat" {
             Task { await runCommand(.newChat) }
             deepLinkSessionID = "new-chat"
-        } else if path.hasPrefix("/session/") {
-            let id = String(path.dropFirst("/session/".count))
+        } else if components.host == "session" {
+            // The widget deep links use `hermes://session/<id>`, where "session"
+            // is the URL HOST and <id> is the path (`/2026...`). Checking the
+            // path for a "/session/" prefix is wrong here and silently dropped
+            // the deep link (observed: UIOpenURLAction was received but the
+            // chat never opened). The id is the path without its leading slash.
+            let id = String(path.dropFirst("/".count))
             guard !id.isEmpty else { return }
-            if let session = sessions.first(where: { $0.id == id }) {
-                Task { await select(session: session) }
-            }
+            // Set the shell flag so the chat pane opens, and drive the
+            // selection through openSession (loads messages by id without
+            // depending on the in-memory `sessions` array). If the app is not
+            // connected yet (cold launch from a widget), defer the open until
+            // connect() completes.
             deepLinkSessionID = id
+            if case .connected = connection {
+                Task { await openSession(id: id) }
+            } else {
+                pendingDeepLinkSessionID = id
+            }
+        }
+    }
+
+    /// Select a session by id and load its messages, without depending on the
+    /// in-memory `sessions` array (which may not be populated on a cold launch
+    /// from a widget deep link). Falls back gracefully if the backend rejects
+    /// the id.
+    func openSession(id: String) async {
+        resetLiveDraftTracking(removeMessage: true)
+        selectedSessionID = id
+        do {
+            let fresh = try await client.messages(sessionID: id)
+            guard selectedSessionID == id else { return }
+            messages = fresh
+        } catch {
+            guard selectedSessionID == id else { return }
+            messages = [HermesMessage(id: UUID().uuidString, role: .system, text: error.localizedDescription, createdAt: .now, toolCalls: [])]
         }
     }
 }

@@ -7,6 +7,7 @@ struct RootView: View {
     @State private var showingCommands = false
     @State private var showingInspector = false
     @State private var showingModels = false
+    @State private var openCronOnAppear = false
 
     var body: some View {
         ZStack {
@@ -28,10 +29,21 @@ struct RootView: View {
         }
         .tint(HermesTheme.ring)
         .sheet(isPresented: $showingSettings) {
-            SettingsView().environmentObject(store)
+            SettingsView(openCronOnAppear: openCronOnAppear)
+                .environmentObject(store)
         }
         .sheet(isPresented: $showingCommands) {
             CommandPaletteView().environmentObject(store)
+        }
+        .onChange(of: store.deepLinkScreen) { _, screen in
+            // Widget deep link hermes://cron: open Settings and drill into Cron.
+            guard let screen else { return }
+            switch screen {
+            case .cron:
+                openCronOnAppear = true
+                showingSettings = true
+            }
+            store.deepLinkScreen = nil
         }
 
     }
@@ -61,6 +73,17 @@ private struct MainShellView: View {
             guard store.deepLinkSessionID != nil else { return }
             withAnimation(.snappy) { showingChat = true }
             store.deepLinkSessionID = nil
+        }
+        .onAppear {
+            // Cold-launch race: a widget deep link can fire BEFORE this shell
+            // mounts (the app booted to ConnectView, then connected). At that
+            // point deepLinkSessionID is already non-nil, so the .onChange
+            // above never sees a transition and the chat would not open.
+            // Consume it here too.
+            if store.deepLinkSessionID != nil {
+                withAnimation(.snappy) { showingChat = true }
+                store.deepLinkSessionID = nil
+            }
         }
     }
 

@@ -101,7 +101,7 @@
 		5E37458716472E19A8BFE529 /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
 		656C66F60EFEAFD69D224098 /* CronJobCreatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CronJobCreatorView.swift; sourceTree = "<group>"; };
 		6BC9D15A54119CCFEBB3196C /* HermesTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesTheme.swift; sourceTree = "<group>"; };
-		6FD113ABEC89C0DC2C39976D /* HermesCompanionWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = HermesCompanionWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		6FD113ABEC89C0DC2C39976D /* HermesCompanionWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = HermesCompanionWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		78AAFBA76E8B1897CCC68836 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
 		7A75BF6BBCA5ED22868C2313 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		83F324A9FB710A8CFB0AEAE7 /* AskHermesIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskHermesIntent.swift; sourceTree = "<group>"; };
@@ -111,7 +111,7 @@
 		9801FAAC8D606D653D62C47D /* HermesClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesClient.swift; sourceTree = "<group>"; };
 		9A8826C3DD13940ADDD66C2C /* HermesWidgetViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesWidgetViews.swift; sourceTree = "<group>"; };
 		A1C6A62DED0BAB7395493726 /* ModelPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelPickerView.swift; sourceTree = "<group>"; };
-		A64856389980D1D73A2DC3C3 /* HermesCompanion.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = HermesCompanion.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A64856389980D1D73A2DC3C3 /* HermesCompanion.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HermesCompanion.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A8ACE0D50C84489476C9CDEA /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
 		ACD3FF5E5C9AE57B0F7C65B5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AEF8A0232E8B3A54AB4FC24C /* PreviewData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewData.swift; sourceTree = "<group>"; };
@@ -615,6 +615,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = HermesCompanionWidget/HermesCompanionWidget.entitlements;
+				DEVELOPMENT_TEAM = X64TP8WZU5;
 				INFOPLIST_FILE = HermesCompanionWidget/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -635,6 +636,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = HermesCompanion/Resources/HermesCompanion.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = X64TP8WZU5;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = HermesCompanion/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -654,6 +656,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = HermesCompanion/Resources/HermesCompanion.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = X64TP8WZU5;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = HermesCompanion/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -813,6 +816,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = HermesCompanionWidget/HermesCompanionWidget.entitlements;
+				DEVELOPMENT_TEAM = X64TP8WZU5;
 				INFOPLIST_FILE = HermesCompanionWidget/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
