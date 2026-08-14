@@ -324,11 +324,10 @@ private struct PinnedSection: View {
     }
 
     private func isGenerating(_ session: HermesSession) -> Bool {
-        // A conversation has a response in progress when the backend reports it
-        // running, OR when this device is actively streaming that exact session
-        // (covers the moment right after sending before the backend flips it).
-        session.status == .running ||
-            (store.isStreaming && session.id == store.selectedSessionID)
+        // Prefer the real-time on-device streaming state, which reliably turns
+        // off when the turn finishes. The backend's `status == .running` can
+        // lag or stay stale, leaving a permanent yellow dot.
+        store.generatingSessionID == session.id
     }
 }
 
@@ -440,11 +439,10 @@ private struct SessionSourceSection: View {
     }
 
     private func isGenerating(_ session: HermesSession) -> Bool {
-        // A conversation has a response in progress when the backend reports it
-        // running, OR when this device is actively streaming that exact session
-        // (covers the moment right after sending before the backend flips it).
-        session.status == .running ||
-            (store.isStreaming && session.id == store.selectedSessionID)
+        // Prefer the real-time on-device streaming state, which reliably turns
+        // off when the turn finishes. The backend's `status == .running` can
+        // lag or stay stale, leaving a permanent yellow dot.
+        store.generatingSessionID == session.id
     }
 }
 

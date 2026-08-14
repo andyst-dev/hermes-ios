@@ -12,6 +12,11 @@ final class AppStore: ObservableObject {
     @Published var messages: [HermesMessage] = []
     @Published var composerText: String = ""
     @Published var isStreaming = false
+    /// The session currently generating a response (real-time, on-device).
+    /// Set when a turn starts and cleared when it finishes, so the session
+    /// list can show a yellow dot that reliably turns off when done (the
+    /// backend's `status == running` can lag or stay stale).
+    @Published var generatingSessionID: String?
     @Published var capabilities = PreviewData.capabilities
     @Published var activeModelID = PreviewData.capabilities.models.first?.id
     @Published var activeProviderID = PreviewData.capabilities.models.first?.provider
@@ -407,6 +412,7 @@ final class AppStore: ObservableObject {
         let userMessage = HermesMessage(id: UUID().uuidString, role: .user, text: text, createdAt: .now, toolCalls: [])
         messages.append(userMessage)
         isStreaming = true
+        generatingSessionID = selectedSessionID
 
         do {
             var attachments = pendingAttachments
@@ -448,6 +454,7 @@ final class AppStore: ObservableObject {
             messages.append(HermesMessage(id: UUID().uuidString, role: .system, text: error.localizedDescription, createdAt: .now, toolCalls: []))
         }
         isStreaming = false
+        generatingSessionID = nil
         // The turn completed while the app was visible: no background
         // "reply ready" alert needed anymore.
         NotificationManager.shared.clearPendingTurn()

@@ -157,10 +157,6 @@ private struct CompactChatControls: View {
                 .foregroundStyle(HermesTheme.primary)
                 .accessibilityLabel("Export conversation")
             }
-            if store.isStreaming {
-                compactButton("stop.fill", role: .destructive) { Task { await store.stop() } }
-                    .accessibilityLabel("Stop")
-            }
         }
         .padding(.horizontal, 14)
         .padding(.top, 6)

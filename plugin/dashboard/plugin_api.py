@@ -574,9 +574,11 @@ def _mobile_session_row(row: dict[str, Any]) -> dict[str, Any]:
     model = row.get("model") or ""
     updated = row.get("updated_at") or row.get("last_active") or row.get("started_at") or 0
     message_count = row.get("message_count") or row.get("num_messages") or 0
-    subtitle = f"{profile} · {source} · {model}".strip(" · ")
-    if message_count:
-        subtitle += f" · {message_count} messages"
+    # Keep the row subtitle to just the essentials the user asked for: the
+    # model and the message count. The profile/source live in the origin icon
+    # and the conversation inspector, so they don't belong in every row.
+    model_label = model or "default model"
+    subtitle = f"{model_label} · {message_count} message{'' if message_count == 1 else 's'}"
     return {
         "id": sid,
         "title": title,
