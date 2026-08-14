@@ -539,7 +539,19 @@ final class AppStore: ObservableObject {
                 toolOutput = report.output
                 toolIssues = report.issues
             case .update:
-                toolOutput = try await client.runUpdate()
+                do {
+                    toolOutput = try await client.runUpdate()
+                } catch {
+                    // `hermes update` restarts the dashboard at the end of the
+                    // install, killing the HTTP connection that serves this
+                    // request. That is a SUCCESS path (the update ran), not a
+                    // failure — so don't surface it as "connexion failed".
+                    // Show the update as done and reconnect.
+                    toolOutput = "Update finished — dashboard restarting, reconnecting…"
+                }
+                // The dashboard was restarted; reconnect automatically once it
+                // is back up, then refresh the update status.
+                await reconnectAfterUpdate()
                 await refreshUpdateStatus()
             }
         } catch {
@@ -551,6 +563,33 @@ final class AppStore: ObservableObject {
     func refreshUpdateStatus() async {
         guard case .connected = connection else { return }
         updateStatus = try? await client.fetchUpdateStatus()
+    }
+
+    /// After `hermes update` the dashboard restarts, dropping the connection.
+    /// Wait (up to ~30 s) for it to come back and reconnect automatically so
+    /// the app doesn't stay stuck on a "connexion failed" error after a
+    /// successful update. Rebuilds the host exactly like the app does at
+    /// launch (UserDefaults host, fallback 127.0.0.1:8765).
+    private func reconnectAfterUpdate() async {
+        let storedHost = UserDefaults.standard.string(forKey: "hermes.host")
+        let hostURL = storedHost.flatMap(URL.init(string:)) ?? URL(string: "http://127.0.0.1:8765")!
+        let profile = UserDefaults.standard.string(forKey: "hermes.profile") ?? "default"
+        let host = HermesHost(name: "Desktop Hermes", baseURL: hostURL, profile: profile)
+        // The dashboard takes a moment to restart; poll connect until it
+        // succeeds (or give up after ~30 s).
+        for _ in 0..<15 {
+            do {
+                let connected = try await client.connect(host: host)
+                connection = .connected(connected)
+                try await refreshSessions()
+                try await refreshCapabilities()
+                startAutoRefresh()
+                writeWidgetSnapshot()
+                return
+            } catch {
+                try? await Task.sleep(for: .seconds(2))
+            }
+        }
     }
 
     @Published var stats: HermesStatsReport?
