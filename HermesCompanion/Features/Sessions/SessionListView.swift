@@ -509,7 +509,10 @@ private struct SidebarSessionRow: View {
                     .font(.system(size: 13.5, weight: selected ? .semibold : .regular))
                     .foregroundStyle(selected ? HermesTheme.ink : HermesTheme.ink.opacity(0.75))
                     .lineLimit(1)
-                if selected || (session.source ?? "").lowercased() == "telegram" {
+                // Only the selected (tapped) conversation shows its subtitle
+                // (model · message count); the rest stay single-line titles so
+                // the list stays scannable.
+                if selected {
                     Text(session.subtitle)
                         .font(.system(size: 10.5))
                         .foregroundStyle(HermesTheme.mutedForeground.opacity(0.78))
